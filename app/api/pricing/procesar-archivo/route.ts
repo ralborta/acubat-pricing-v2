@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
-import { buscarEquivalenciaVarta } from '../../../../lib/varta_database'
-import { mapColumnsStrict } from '../../../lib/pricing_mapper'
-import { analizarArchivo, obtenerMapeoColumnas, validarMapeo } from '../../../../lib/column-detector'
+import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
+import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
 
 // 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN DESDE LOCALSTORAGE
 async function obtenerConfiguracion() {
@@ -192,25 +191,13 @@ export async function POST(request: NextRequest) {
     console.log('🔑 Columnas disponibles:', Object.keys(datos[0] || {}))
     console.log('📝 Muestra de datos (primeras 3 filas):', datos.slice(0, 3))
 
-    // 🎯 DETECCIÓN AUTOMÁTICA DE COLUMNAS
-    console.log('🔍 INICIANDO DETECCIÓN AUTOMÁTICA DE COLUMNAS...')
-    const archivoAnalizado = analizarArchivo(datos)
-    const mapeoColumnas = obtenerMapeoColumnas(archivoAnalizado)
+    // 🎯 DETECCIÓN SIMPLE DE COLUMNAS CON IA
+    console.log('🔍 DETECTANDO COLUMNAS CON IA SIMPLE...')
+    const mapeoColumnas = detectarColumnas(headers)
     const validacionMapeo = validarMapeo(mapeoColumnas)
     
-    console.log('📊 ANÁLISIS DE ARCHIVO:')
-    console.log('   - Total de filas:', archivoAnalizado.totalFilas)
-    console.log('   - Columnas detectadas:', archivoAnalizado.columnas.length)
-    console.log('   - Mapeo de columnas:', mapeoColumnas)
-    console.log('   - Validación:', validacionMapeo)
-    
-    // Mostrar detalles de cada columna detectada
-    archivoAnalizado.columnas.forEach(columna => {
-      console.log(`   - ${columna.nombre}: ${columna.tipo} (confianza: ${columna.confianza}%)`)
-      if (columna.patrones.length > 0) {
-        console.log(`     Patrones: ${columna.patrones.join(', ')}`)
-      }
-    })
+    console.log('📊 MAPEO DETECTADO:', mapeoColumnas)
+    console.log('✅ VALIDACIÓN:', validacionMapeo)
 
     // 🔧 DETECCIÓN MANUAL UNIVERSAL (funciona con CUALQUIER archivo)
     const detectColumnsManualmente = (headers: string[], datos: any[]) => {
@@ -568,31 +555,9 @@ export async function POST(request: NextRequest) {
         console.log(`   - Tipo: ${tipo}`)
         console.log(`   - Modelo: ${modelo}`)
         
-        // Intentar búsqueda con diferentes estrategias
-        console.log(`🔍 ESTRATEGIA 1: Búsqueda directa`)
-        equivalenciaVarta = buscarEquivalenciaVarta('Varta', tipo, modelo, undefined)
-        
-        // Si no se encuentra, intentar con modelo limpio
-        if (!equivalenciaVarta && modelo) {
-          console.log(`🔍 ESTRATEGIA 2: Búsqueda con modelo limpio`)
-          const modeloLimpio = modelo.trim().replace(/\s+/g, ' ')
-          if (modeloLimpio !== modelo) {
-            console.log(`   - Modelo original: "${modelo}"`)
-            console.log(`   - Modelo limpio: "${modeloLimpio}"`)
-            equivalenciaVarta = buscarEquivalenciaVarta('Varta', tipo, modeloLimpio, undefined)
-          }
-        }
-        
-        // Si aún no se encuentra, intentar extraer capacidad del modelo
-        if (!equivalenciaVarta && modelo) {
-          console.log(`🔍 ESTRATEGIA 3: Extraer capacidad del modelo`)
-          const capacidadMatch = modelo.match(/(\d+)\s*[Aa][Hh]/)
-          if (capacidadMatch) {
-            const capacidad = capacidadMatch[1] + 'Ah'
-            console.log(`   - Capacidad extraída: "${capacidad}"`)
-            equivalenciaVarta = buscarEquivalenciaVarta('Varta', tipo, modelo, capacidad)
-          }
-        }
+        // Búsqueda simple con IA
+        console.log(`🔍 BUSCANDO EQUIVALENCIA VARTA CON IA...`)
+        equivalenciaVarta = await buscarEquivalenciaVarta(modelo)
         
         if (equivalenciaVarta) {
           console.log(`✅ EQUIVALENCIA VARTA ENCONTRADA:`)
