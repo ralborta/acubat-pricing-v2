@@ -4,12 +4,22 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Crear cliente Supabase solo si las variables están disponibles
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     console.log('💾 Actualizando configuración en Supabase:', body)
+    
+    // Verificar si Supabase está disponible
+    if (!supabase) {
+      console.warn('⚠️ Supabase no disponible')
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Supabase no configurado'
+      })
+    }
     
     // Validar que tenga la estructura correcta
     if (!body.iva || !body.markups) {

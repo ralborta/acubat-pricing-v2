@@ -4,11 +4,22 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Crear cliente Supabase solo si las variables están disponibles
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
 
 export async function POST(request: NextRequest) {
   try {
     console.log('🚀 Inicializando configuración en Supabase...')
+    
+    // Verificar si Supabase está disponible
+    if (!supabase) {
+      console.warn('⚠️ Supabase no disponible, usando configuración por defecto')
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Supabase no configurado',
+        data: null
+      })
+    }
     
     // Configuración inicial
     const configInicial = {
@@ -31,25 +42,6 @@ export async function POST(request: NextRequest) {
         distribucion: 6
       },
       ultimaActualizacion: new Date().toISOString()
-    }
-    
-    // Crear tabla si no existe
-    const { error: createError } = await supabase.rpc('exec_sql', {
-      sql: `
-        CREATE TABLE IF NOT EXISTS config (
-          id SERIAL PRIMARY KEY,
-          config_data JSONB NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-        
-        CREATE INDEX IF NOT EXISTS idx_config_created_at ON config(created_at DESC);
-      `
-    })
-    
-    if (createError) {
-      console.error('❌ Error creando tabla:', createError)
-      // Continuar aunque falle la creación de tabla
     }
     
     // Insertar configuración inicial
@@ -89,6 +81,16 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     console.log('🔍 Verificando configuración en Supabase...')
+    
+    // Verificar si Supabase está disponible
+    if (!supabase) {
+      console.warn('⚠️ Supabase no disponible')
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Supabase no configurado',
+        data: null
+      })
+    }
     
     const { data, error } = await supabase
       .from('config')
