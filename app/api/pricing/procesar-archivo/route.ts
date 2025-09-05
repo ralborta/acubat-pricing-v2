@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta_database'
 import { mapColumnsStrict } from '../../../lib/pricing_mapper'
+import { analizarArchivo, obtenerMapeoColumnas, validarMapeo } from '../../../../lib/column-detector'
 
 // 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN DESDE LOCALSTORAGE
 async function obtenerConfiguracion() {
@@ -190,6 +191,26 @@ export async function POST(request: NextRequest) {
     console.log('📋 Primera fila:', datos[0])
     console.log('🔑 Columnas disponibles:', Object.keys(datos[0] || {}))
     console.log('📝 Muestra de datos (primeras 3 filas):', datos.slice(0, 3))
+
+    // 🎯 DETECCIÓN AUTOMÁTICA DE COLUMNAS
+    console.log('🔍 INICIANDO DETECCIÓN AUTOMÁTICA DE COLUMNAS...')
+    const archivoAnalizado = analizarArchivo(datos)
+    const mapeoColumnas = obtenerMapeoColumnas(archivoAnalizado)
+    const validacionMapeo = validarMapeo(mapeoColumnas)
+    
+    console.log('📊 ANÁLISIS DE ARCHIVO:')
+    console.log('   - Total de filas:', archivoAnalizado.totalFilas)
+    console.log('   - Columnas detectadas:', archivoAnalizado.columnas.length)
+    console.log('   - Mapeo de columnas:', mapeoColumnas)
+    console.log('   - Validación:', validacionMapeo)
+    
+    // Mostrar detalles de cada columna detectada
+    archivoAnalizado.columnas.forEach(columna => {
+      console.log(`   - ${columna.nombre}: ${columna.tipo} (confianza: ${columna.confianza}%)`)
+      if (columna.patrones.length > 0) {
+        console.log(`     Patrones: ${columna.patrones.join(', ')}`)
+      }
+    })
 
     // 🔧 DETECCIÓN MANUAL UNIVERSAL (funciona con CUALQUIER archivo)
     const detectColumnsManualmente = (headers: string[], datos: any[]) => {
