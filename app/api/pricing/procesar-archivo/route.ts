@@ -559,7 +559,7 @@ export async function POST(request: NextRequest) {
       // 🎯 DEFINICIÓN CLARA DE PRECIOS BASE:
       // Minorista: SIEMPRE usa precioBase (del archivo subido)
       // Mayorista: Usa precioVarta si existe, sino precioBase
-      let mayoristaBase = equivalenciaVarta ? equivalenciaVarta.precio_varta : precioBase
+      let mayoristaBase = equivalenciaVarta?.precio_varta || precioBase
       
       console.log(`\n💰 DEFINICIÓN DE PRECIOS BASE DEL PRODUCTO ${index + 1}:`)
       console.log(`   - Precio Base Minorista: ${precioBase} (del archivo subido)`)
