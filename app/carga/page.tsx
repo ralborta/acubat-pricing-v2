@@ -128,7 +128,7 @@ export default function CargaPage() {
 
     // Exportar a Excel
     const nombreArchivo = `reporte_${archivoNombre.replace(/\.[^/.]+$/, '')}`
-    exportarAExcel(productosExcel, estadisticasExcel, nombreArchivo)
+    exportarAExcel(productosExcel, nombreArchivo)
   }
 
   // Función para convertir PDF a Excel (REAL - NO simulada)
