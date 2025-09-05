@@ -101,22 +101,20 @@ export default function CargaPage() {
     if (!resultado) return
 
     // Preparar datos para Excel
-    const productosExcel = resultado.productos.map(producto => ({
+    const productosExcel = resultado.productos.map((producto, index) => ({
+      id: index + 1,
       producto: producto.producto,
       tipo: producto.tipo,
-      descripcion: producto.producto,
-      canal: 'Minorista/Mayorista',
+      modelo: producto.modelo || producto.producto,
       precio_base_minorista: producto.precio_base_minorista || 0,
       precio_base_mayorista: producto.precio_base_mayorista || 0,
       costo_estimado_minorista: producto.costo_estimado_minorista || 0,
       costo_estimado_mayorista: producto.costo_estimado_mayorista || 0,
-      precio_final_minorista: producto.minorista.precio_final || 0,
-      precio_final_mayorista: producto.mayorista.precio_final || 0,
-      markup_minorista: '+70%',
-      markup_mayorista: '+30%',
-      iva_minorista: Math.round((producto.minorista.precio_final || 0) * 0.21),
-      iva_mayorista: Math.round((producto.mayorista.precio_final || 0) * 0.21),
-      equivalencia_varta: producto.equivalencia_varta
+      equivalencia_varta: producto.equivalencia_varta,
+      margen_minorista: producto.minorista?.rentabilidad ? parseFloat(producto.minorista.rentabilidad.replace('%', '')) : 0,
+      margen_mayorista: producto.mayorista?.rentabilidad ? parseFloat(producto.mayorista.rentabilidad.replace('%', '')) : 0,
+      rentabilidad: producto.minorista?.rentabilidad || '0%',
+      observaciones: `Precio final Minorista: $${producto.minorista?.precio_final || 0}, Mayorista: $${producto.mayorista?.precio_final || 0}`
     }))
 
     const estadisticasExcel = {
