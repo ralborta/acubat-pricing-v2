@@ -372,42 +372,10 @@ export async function POST(request: NextRequest) {
       return mapeo
     }
 
-    // 🔧 DETECCIÓN INTELIGENTE CON NUEVO MÓDULO ROBUSTO
-    console.log('🧠 Iniciando detección inteligente con Structured Outputs...')
-    
-    let columnMapping: any;
-    
-    try {
-      const { result: mapeoIA, attempts } = await mapColumnsStrict({
-        columnas: headers,
-        muestra: datos.slice(0, 10) as any[], // Solo las primeras 10 filas para el análisis
-        minConfidence: 0.7,
-        minCoverage: 0.8,
-        minPriceMax: 100000,
-        maxRetries: 1
-      })
-      
-      console.log(`🧠 IA completó análisis en ${attempts} intentos:`)
-      console.log('📋 Mapeo IA:', mapeoIA)
-      
-      // 🎯 ADAPTAR LA NUEVA ESTRUCTURA A LA EXISTENTE
-      columnMapping = {
-        tipo: mapeoIA.tipo || 'BATERIA',
-        modelo: mapeoIA.modelo || 'MODELO',
-        precio: mapeoIA.precio_ars || 'PRECIO',
-        descripcion: mapeoIA.descripcion || ''
-      }
-      
-      console.log('🔧 RESULTADO ADAPTADO:', columnMapping)
-      
-    } catch (error) {
-      console.log('⚠️ IA falló, usando detección manual como fallback...')
-      console.error('❌ Error IA:', error)
-      
-      // 🚨 FALLBACK: DETECCIÓN MANUAL
-      columnMapping = detectColumnsManualmente(headers, datos)
-      console.log('🔧 FALLBACK MANUAL:', columnMapping)
-    }
+    // 🎯 USAR DETECCIÓN SIMPLE CON IA
+    console.log('🧠 Usando detección simple con IA...')
+    const columnMapping = mapeoColumnas
+    console.log('🔧 RESULTADO:', columnMapping)
     
     // 🔍 DEBUG: Ver qué detectó la IA
     console.log('🧠 RESULTADO DE LA IA:')
