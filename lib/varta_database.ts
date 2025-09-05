@@ -97,24 +97,34 @@ const equivalenciasVarta: EquivalenciaVarta[] = [
 
 /**
  * Busca una equivalencia Varta para un modelo específico
- * @param modeloOriginal - El modelo original a buscar
+ * @param marca - La marca del producto (ej: 'Varta')
+ * @param tipo - El tipo de producto (ej: 'Automotriz')
+ * @param modelo - El modelo del producto (ej: 'AC12-100')
+ * @param capacidad - La capacidad del producto (ej: '100Ah')
  * @returns La equivalencia Varta si existe, null si no se encuentra
  */
-export function buscarEquivalenciaVarta(modeloOriginal: string): EquivalenciaVarta | null {
+export function buscarEquivalenciaVarta(marca: string, tipo: string, modelo: string, capacidad?: string): EquivalenciaVarta | null {
   try {
     // Normalizar el modelo para búsqueda (mayúsculas, sin espacios)
-    const modeloNormalizado = modeloOriginal.trim().toUpperCase()
+    const modeloNormalizado = modelo.trim().toUpperCase()
+    const tipoNormalizado = tipo.trim().toUpperCase()
     
-    // Buscar coincidencia exacta
+    console.log(`🔍 Búsqueda de equivalencia Varta:`)
+    console.log(`   - Marca: ${marca}`)
+    console.log(`   - Tipo: ${tipo}`)
+    console.log(`   - Modelo: ${modelo}`)
+    console.log(`   - Capacidad: ${capacidad || 'N/A'}`)
+    
+    // Buscar coincidencia exacta por modelo
     let equivalencia = equivalenciasVarta.find(
       eq => eq.modelo_original.toUpperCase() === modeloNormalizado
     )
     
-    // Si no hay coincidencia exacta, buscar coincidencia parcial
+    // Si no hay coincidencia exacta, buscar por tipo y modelo
     if (!equivalencia) {
       equivalencia = equivalenciasVarta.find(
-        eq => eq.modelo_original.toUpperCase().includes(modeloNormalizado) ||
-              modeloNormalizado.includes(eq.modelo_original.toUpperCase())
+        eq => eq.modelo_original.toUpperCase().includes(modeloNormalizado) &&
+              eq.categoria.toUpperCase() === tipoNormalizado
       )
     }
     
@@ -123,12 +133,12 @@ export function buscarEquivalenciaVarta(modeloOriginal: string): EquivalenciaVar
       const patron = modeloNormalizado.replace(/\d+/g, '\\d+')
       const regex = new RegExp(patron, 'i')
       equivalencia = equivalenciasVarta.find(
-        eq => regex.test(eq.modelo_original)
+        eq => regex.test(eq.modelo_original) &&
+              eq.categoria.toUpperCase() === tipoNormalizado
       )
     }
     
-    console.log(`🔍 Búsqueda de equivalencia Varta para "${modeloOriginal}":`, 
-                equivalencia ? '✅ Encontrada' : '❌ No encontrada')
+    console.log(`   - Resultado: ${equivalencia ? '✅ Encontrada' : '❌ No encontrada'}`)
     
     return equivalencia || null
   } catch (error) {

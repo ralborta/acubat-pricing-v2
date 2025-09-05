@@ -549,7 +549,7 @@ export async function POST(request: NextRequest) {
         
         // Intentar búsqueda con diferentes estrategias
         console.log(`🔍 ESTRATEGIA 1: Búsqueda directa`)
-        equivalenciaVarta = buscarEquivalenciaVarta(modelo)
+        equivalenciaVarta = buscarEquivalenciaVarta('Varta', tipo, modelo, undefined)
         
         // Si no se encuentra, intentar con modelo limpio
         if (!equivalenciaVarta && modelo) {
@@ -558,7 +558,7 @@ export async function POST(request: NextRequest) {
           if (modeloLimpio !== modelo) {
             console.log(`   - Modelo original: "${modelo}"`)
             console.log(`   - Modelo limpio: "${modeloLimpio}"`)
-            equivalenciaVarta = buscarEquivalenciaVarta(modeloLimpio)
+            equivalenciaVarta = buscarEquivalenciaVarta('Varta', tipo, modeloLimpio, undefined)
           }
         }
         
@@ -569,15 +569,16 @@ export async function POST(request: NextRequest) {
           if (capacidadMatch) {
             const capacidad = capacidadMatch[1] + 'Ah'
             console.log(`   - Capacidad extraída: "${capacidad}"`)
-            equivalenciaVarta = buscarEquivalenciaVarta(modelo)
+            equivalenciaVarta = buscarEquivalenciaVarta('Varta', tipo, modelo, capacidad)
           }
         }
         
         if (equivalenciaVarta) {
           console.log(`✅ EQUIVALENCIA VARTA ENCONTRADA:`)
-          console.log(`   - Código: ${equivalenciaVarta.codigo}`)
-          console.log(`   - Precio: ${equivalenciaVarta.precio_neto}`)
-          console.log(`   - Descripción: ${equivalenciaVarta.descripcion}`)
+          console.log(`   - Modelo Original: ${equivalenciaVarta.modelo_original}`)
+          console.log(`   - Modelo Varta: ${equivalenciaVarta.modelo_varta}`)
+          console.log(`   - Precio Varta: ${equivalenciaVarta.precio_varta}`)
+          console.log(`   - Categoría: ${equivalenciaVarta.categoria}`)
         } else {
           console.log(`❌ NO SE ENCONTRÓ EQUIVALENCIA VARTA para: ${modelo}`)
         }
