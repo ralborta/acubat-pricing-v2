@@ -441,6 +441,8 @@ export async function POST(request: NextRequest) {
       console.log(`🔍 Columnas de precio a buscar:`, columnasPrecio)
       
       for (const columna of columnasPrecio) {
+        if (!columna.value) continue // Saltar si no hay valor
+        
         const valor = producto[columna.value]
         console.log(`🔍 Buscando en '${columna.key}' (${columna.value}): ${valor}`)
         
