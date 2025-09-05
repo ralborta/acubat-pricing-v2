@@ -1,0 +1,20 @@
+{
+  "iva": 21,
+  "markups": {
+    "mayorista": 22,
+    "directa": 60,
+    "distribucion": 20
+  },
+  "factoresVarta": {
+    "factorBase": 40,
+    "capacidad80Ah": 35
+  },
+  "promociones": false,
+  "promocionesHabilitado": false,
+  "comisiones": {
+    "mayorista": 5,
+    "directa": 8,
+    "distribucion": 6
+  },
+  "ultimaActualizacion": "2025-09-01T00:00:00.000Z"
+}
