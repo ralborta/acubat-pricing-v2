@@ -4,6 +4,7 @@ export interface MapeoColumnas {
   precio: string
   tipo: string
   modelo?: string
+  descripcion?: string
 }
 
 /**
@@ -42,6 +43,12 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   const modeloPatterns = ['modelo', 'model', 'codigo', 'sku', 'referencia']
   mapeo.modelo = headers.find(h => 
     modeloPatterns.some(pattern => h.toLowerCase().includes(pattern))
+  ) || ''
+  
+  // Buscar columna de descripción (opcional)
+  const descripcionPatterns = ['descripcion', 'description', 'detalle', 'comentario']
+  mapeo.descripcion = headers.find(h => 
+    descripcionPatterns.some(pattern => h.toLowerCase().includes(pattern))
   ) || ''
   
   console.log('📊 Mapeo detectado:', mapeo)
