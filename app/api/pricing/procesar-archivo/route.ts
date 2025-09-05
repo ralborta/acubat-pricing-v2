@@ -549,7 +549,7 @@ export async function POST(request: NextRequest) {
         
         // Intentar búsqueda con diferentes estrategias
         console.log(`🔍 ESTRATEGIA 1: Búsqueda directa`)
-        equivalenciaVarta = buscarEquivalenciaVarta('Varta', tipo, modelo, undefined)
+        equivalenciaVarta = buscarEquivalenciaVarta(modelo)
         
         // Si no se encuentra, intentar con modelo limpio
         if (!equivalenciaVarta && modelo) {
@@ -558,7 +558,7 @@ export async function POST(request: NextRequest) {
           if (modeloLimpio !== modelo) {
             console.log(`   - Modelo original: "${modelo}"`)
             console.log(`   - Modelo limpio: "${modeloLimpio}"`)
-            equivalenciaVarta = buscarEquivalenciaVarta('Varta', tipo, modeloLimpio, undefined)
+            equivalenciaVarta = buscarEquivalenciaVarta(modeloLimpio)
           }
         }
         
@@ -569,7 +569,7 @@ export async function POST(request: NextRequest) {
           if (capacidadMatch) {
             const capacidad = capacidadMatch[1] + 'Ah'
             console.log(`   - Capacidad extraída: "${capacidad}"`)
-            equivalenciaVarta = buscarEquivalenciaVarta('Varta', tipo, modelo, capacidad)
+            equivalenciaVarta = buscarEquivalenciaVarta(modelo)
           }
         }
         
