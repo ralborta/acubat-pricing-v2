@@ -1,8 +1,11 @@
 // Sistema simple de equivalencias Varta con IA
 export interface EquivalenciaVarta {
   encontrada: boolean
+  modelo_original?: string
   modelo_varta?: string
   precio_varta?: number
+  categoria?: string
+  disponible?: boolean
   razon?: string
 }
 
@@ -27,8 +30,11 @@ export async function buscarEquivalenciaVarta(modelo: string): Promise<Equivalen
     if (modeloLimpio.includes('AC') || modeloLimpio.includes('V') || modeloLimpio.includes('BAT')) {
       return {
         encontrada: true,
+        modelo_original: modelo,
         modelo_varta: `V${modeloLimpio.replace(/[^0-9]/g, '')}`,
         precio_varta: Math.random() * 200 + 50, // Precio simulado
+        categoria: 'Automotriz',
+        disponible: true,
         razon: 'Equivalencia encontrada por patrón'
       }
     }
