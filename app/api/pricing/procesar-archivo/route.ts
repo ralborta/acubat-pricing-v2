@@ -612,12 +612,11 @@ export async function POST(request: NextRequest) {
       // 🔍 DEBUG DETALLADO DE LA BÚSQUEDA
       if (equivalenciaVarta) {
         console.log(`🎯 EQUIVALENCIA VARTA CONFIRMADA:`)
-        console.log(`   - Código: ${equivalenciaVarta.codigo}`)
-        console.log(`   - Precio Neto: ${equivalenciaVarta.precio_neto}`)
-        console.log(`   - Tipo: ${equivalenciaVarta.tipo}`)
-        console.log(`   - Modelo: ${equivalenciaVarta.modelo}`)
-        console.log(`   - Capacidad: ${equivalenciaVarta.capacidad}`)
-        console.log(`   - Voltaje: ${equivalenciaVarta.voltaje}`)
+        console.log(`   - Modelo Original: ${equivalenciaVarta.modelo_original}`)
+        console.log(`   - Modelo Varta: ${equivalenciaVarta.modelo_varta}`)
+        console.log(`   - Precio Varta: ${equivalenciaVarta.precio_varta}`)
+        console.log(`   - Categoría: ${equivalenciaVarta.categoria}`)
+        console.log(`   - Disponible: ${equivalenciaVarta.disponible}`)
       } else {
         console.log(`❌ EQUIVALENCIA VARTA NO ENCONTRADA`)
         console.log(`   - Revisar si el modelo "${modelo}" existe en la base de datos`)
@@ -627,7 +626,7 @@ export async function POST(request: NextRequest) {
       // 🎯 DEFINICIÓN CLARA DE PRECIOS BASE:
       // Minorista: SIEMPRE usa precioBase (del archivo subido)
       // Mayorista: Usa precioVarta si existe, sino precioBase
-      let mayoristaBase = equivalenciaVarta ? equivalenciaVarta.precio_neto : precioBase
+      let mayoristaBase = equivalenciaVarta ? equivalenciaVarta.precio_varta : precioBase
       
       console.log(`\n💰 DEFINICIÓN DE PRECIOS BASE DEL PRODUCTO ${index + 1}:`)
       console.log(`   - Precio Base Minorista: ${precioBase} (del archivo subido)`)
@@ -726,9 +725,11 @@ export async function POST(request: NextRequest) {
         validacion_moneda: validacionMoneda,
         equivalencia_varta: equivalenciaVarta ? {
           encontrada: true,
-          codigo: equivalenciaVarta.codigo,
-          precio_varta: equivalenciaVarta.precio_neto,
-          descripcion: equivalenciaVarta.descripcion
+          modelo_original: equivalenciaVarta.modelo_original,
+          modelo_varta: equivalenciaVarta.modelo_varta,
+          precio_varta: equivalenciaVarta.precio_varta,
+          categoria: equivalenciaVarta.categoria,
+          disponible: equivalenciaVarta.disponible
         } : { encontrada: false, razon: 'No se encontró equivalencia' },
         minorista: {
           precio_neto: minoristaNeto,
