@@ -7,7 +7,7 @@ import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
 async function obtenerConfiguracion() {
   try {
     // 🚀 IMPORTAR CONFIGMANAGER SUPABASE
-    const { default: configManager } = await import('../../../../lib/configManager');
+    const { default: configManager } = await import('../../../../lib/configManagerSupabase');
     
     // Obtener configuración desde Supabase
     const config = await configManager.getCurrentConfig();
@@ -574,8 +574,20 @@ export async function POST(request: NextRequest) {
 
       // 🎯 APLICAR CONFIGURACIÓN EN CÁLCULO MINORISTA
       const config = await obtenerConfiguracion()
+      console.log('🔧 CONFIGURACIÓN APLICADA:', {
+        iva: config.iva,
+        markupDirecta: config.markups.directa,
+        markupMayorista: config.markups.mayorista,
+        markupDistribucion: config.markups.distribucion
+      })
+      
       const ivaMultiplier = 1 + (config.iva / 100)
       const markupMinorista = 1 + (config.markups.directa / 100)
+      
+      console.log('🔧 MULTIPLICADORES CALCULADOS:', {
+        ivaMultiplier,
+        markupMinorista
+      })
       
       // Cálculo Minorista (precio más alto para venta al público)
       console.log(`\n💰 CÁLCULO MINORISTA DEL PRODUCTO ${index + 1}:`)
