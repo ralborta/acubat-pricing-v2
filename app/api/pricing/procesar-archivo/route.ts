@@ -428,19 +428,42 @@ export async function POST(request: NextRequest) {
       
       // Buscar precio (prioridad: precio > pdv > pvp)
       console.log(`\n💰 BÚSQUEDA DE PRECIO DEL PRODUCTO ${index + 1}:`)
+      console.log(`🔍 Mapeo de columnas disponible:`, columnMapping)
       let precioBase = 0
       
-      if (columnMapping.precio && producto[columnMapping.precio]) {
-        precioBase = parseFloat(producto[columnMapping.precio]) || 0
-        console.log(`✅ Precio encontrado en columna '${columnMapping.precio}': ${precioBase}`)
-        console.log(`🔍 DEBUG: Valor de producto[${columnMapping.precio}]: ${producto[columnMapping.precio]}`)
-      } else if (columnMapping.pdv && producto[columnMapping.pdv]) {
-        precioBase = parseFloat(producto[columnMapping.pdv]) || 0
-        console.log(`✅ Precio encontrado en columna '${columnMapping.pdv}': ${precioBase}`)
-      } else if (columnMapping.pvp && producto[columnMapping.pvp]) {
-        precioBase = parseFloat(producto[columnMapping.pvp]) || 0
-        console.log(`✅ Precio encontrado en columna '${columnMapping.pvp}': ${precioBase}`)
-      } else if (precioBase === 0) {
+      // Buscar en todas las columnas de precio disponibles
+      const columnasPrecio = [
+        { key: 'precio', value: columnMapping.precio },
+        { key: 'pdv', value: columnMapping.pdv },
+        { key: 'pvp', value: columnMapping.pvp }
+      ].filter(col => col.value)
+      
+      console.log(`🔍 Columnas de precio a buscar:`, columnasPrecio)
+      
+      for (const columna of columnasPrecio) {
+        const valor = producto[columna.value]
+        console.log(`🔍 Buscando en '${columna.key}' (${columna.value}): ${valor}`)
+        
+        if (valor !== undefined && valor !== null && valor !== '') {
+          // Intentar parsear como número
+          let precio = parseFloat(valor)
+          
+          // Si no es número, intentar limpiar formato argentino
+          if (isNaN(precio) && typeof valor === 'string') {
+            const valorLimpio = valor.replace(/\./g, '').replace(',', '.')
+            precio = parseFloat(valorLimpio)
+            console.log(`🔍 Valor limpio: ${valorLimpio} -> ${precio}`)
+          }
+          
+          if (!isNaN(precio) && precio > 0) {
+            precioBase = precio
+            console.log(`✅ Precio encontrado en '${columna.key}' (${columna.value}): ${precioBase}`)
+            break
+          }
+        }
+      }
+      
+      if (precioBase === 0) {
         console.log(`❌ NO SE ENCONTRÓ PRECIO para producto ${index + 1}`)
         console.log(`🔍 Columnas de precio disponibles:`)
         console.log(`   - Precio: ${columnMapping.precio} (valor: ${columnMapping.precio ? producto[columnMapping.precio] : 'N/A'})`)

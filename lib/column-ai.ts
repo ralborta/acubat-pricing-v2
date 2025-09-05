@@ -30,7 +30,7 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   ) || headers[0] || ''
   
   // Buscar columna de precio
-  const precioPatterns = ['precio', 'costo', 'valor', 'price', 'cost', 'pvp']
+  const precioPatterns = ['precio', 'costo', 'valor', 'price', 'cost', 'pvp', 'pdv', 'lista', 'venta', 'publico', 'final']
   mapeo.precio = headers.find(h => 
     precioPatterns.some(pattern => h.toLowerCase().includes(pattern))
   ) || headers[1] || ''
@@ -66,6 +66,8 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   ) || ''
   
   console.log('📊 Mapeo detectado:', mapeo)
+  console.log('🔍 Headers analizados:', headers)
+  console.log('🎯 Patrones de precio usados:', precioPatterns)
   return mapeo
 }
 
