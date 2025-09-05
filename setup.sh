@@ -1,0 +1,16 @@
+#!/bin/bash
+echo "🚀 AcuBat Pricing Platform v2.0 - Setup"
+echo "======================================"
+echo ""
+echo "✅ Node.js $(node -v) detectado"
+echo ""
+echo "📦 Instalando dependencias..."
+npm install
+echo ""
+echo "🔧 CONFIGURACIÓN REQUERIDA:"
+echo "1. SUPABASE: Ve a https://supabase.com"
+echo "2. Ejecuta supabase-setup.sql"
+echo "3. Configura .env.local"
+echo "4. VERCEL: Deploy automático"
+echo ""
+echo "🎉 Setup completado!"
