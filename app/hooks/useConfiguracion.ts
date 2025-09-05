@@ -41,11 +41,25 @@ export function useConfiguracion() {
   const cargarConfiguracion = async () => {
     try {
       setLoading(true);
-      const config = await configManager.getCurrentConfig();
-      // Asegurar que el tipo sea correcto
-      const configTyped = ensureConfigType(config);
-      setConfiguracion(configTyped);
-      setError(null);
+      
+      // Primero intentar cargar desde Supabase
+      const response = await fetch('/api/init-config');
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        // Usar configuración de Supabase
+        const configTyped = ensureConfigType(result.data.config_data);
+        setConfiguracion(configTyped);
+        setError(null);
+        console.log('✅ Configuración cargada desde Supabase:', configTyped);
+      } else {
+        // Fallback a localStorage
+        const config = await configManager.getCurrentConfig();
+        const configTyped = ensureConfigType(config);
+        setConfiguracion(configTyped);
+        setError(null);
+        console.log('⚠️ Usando configuración de localStorage como fallback');
+      }
     } catch (err) {
       setError('Error al cargar configuración');
       console.error('❌ Error cargando configuración:', err);
@@ -58,21 +72,46 @@ export function useConfiguracion() {
   const guardarConfiguracion = async (nuevaConfig: Partial<ConfiguracionSistema>): Promise<ApiResponse<ConfiguracionSistema>> => {
     try {
       setLoading(true);
-      const configGuardada = await configManager.saveConfig({
+      
+      // Crear configuración completa
+      const configCompleta = {
         ...configuracion,
         ...nuevaConfig
+      };
+      
+      // Guardar en Supabase
+      const response = await fetch('/api/update-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(configCompleta)
       });
-      // Asegurar que el tipo sea correcto
-      const configTyped = ensureConfigType(configGuardada);
-      setConfiguracion(configTyped);
-      setError(null);
       
-      // Notificar a otros componentes que la configuración cambió
-      window.dispatchEvent(new CustomEvent('configuracionCambiada', { 
-        detail: configTyped 
-      }));
+      const result = await response.json();
       
-      return { success: true, data: configTyped };
+      if (result.success) {
+        // Usar configuración de Supabase
+        const configTyped = ensureConfigType(result.data.config_data);
+        setConfiguracion(configTyped);
+        setError(null);
+        
+        // Notificar a otros componentes que la configuración cambió
+        window.dispatchEvent(new CustomEvent('configuracionCambiada', { 
+          detail: configTyped 
+        }));
+        
+        console.log('✅ Configuración guardada en Supabase:', configTyped);
+        return { success: true, data: configTyped };
+      } else {
+        // Fallback a localStorage
+        const configGuardada = await configManager.saveConfig(configCompleta);
+        const configTyped = ensureConfigType(configGuardada);
+        setConfiguracion(configTyped);
+        setError(null);
+        console.log('⚠️ Configuración guardada en localStorage como fallback');
+        return { success: true, data: configTyped };
+      }
     } catch (err) {
       const errorMsg = 'Error al guardar configuración';
       setError(errorMsg);
