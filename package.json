@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@supabase/supabase-js": "^2.57.2",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/xlsx": "^0.0.35",
     "autoprefixer": "^10.4.21",

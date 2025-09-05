@@ -10,7 +10,8 @@ async function obtenerConfiguracion() {
     const { default: configManager } = await import('../../../../lib/configManagerSupabase');
     
     // Obtener configuración desde Supabase
-    const config = await configManager.getCurrentConfig();
+    const configManagerInstance = new configManager();
+    const config = await configManagerInstance.getCurrentConfig();
     console.log('🎯 Configuración cargada desde Supabase:', config);
     
     return config;
