@@ -455,7 +455,12 @@ export default function ConfiguracionPage() {
                         <input
                           type="number"
                           value={configuracion.markups.mayorista}
-                          onChange={(e) => handleConfigChange('markups.mayorista', parseFloat(e.target.value))}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || !isNaN(Number(value))) {
+                              handleConfigChange('markups.mayorista', value === '' ? 0 : Number(value));
+                            }
+                          }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -474,7 +479,12 @@ export default function ConfiguracionPage() {
                         <input
                           type="number"
                           value={configuracion.markups.directa}
-                          onChange={(e) => handleConfigChange('markups.directa', parseFloat(e.target.value))}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || !isNaN(Number(value))) {
+                              handleConfigChange('markups.directa', value === '' ? 0 : Number(value));
+                            }
+                          }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -493,7 +503,12 @@ export default function ConfiguracionPage() {
                         <input
                           type="number"
                           value={configuracion.markups.distribucion}
-                          onChange={(e) => handleConfigChange('markups.distribucion', parseFloat(e.target.value))}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || !isNaN(Number(value))) {
+                              handleConfigChange('markups.distribucion', value === '' ? 0 : Number(value));
+                            }
+                          }}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"

@@ -3,19 +3,19 @@ import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
 import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
 
-// 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN DESDE LOCALSTORAGE
+// 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN DESDE SUPABASE
 async function obtenerConfiguracion() {
   try {
-    // 🚀 IMPORTAR CONFIGMANAGER LOCALSTORAGE
-    const { default: configManager } = await import('../../../../lib/configManagerLocal');
+    // 🚀 IMPORTAR CONFIGMANAGER SUPABASE
+    const { default: configManager } = await import('../../../../lib/configManager');
     
-    // Obtener configuración desde localStorage
+    // Obtener configuración desde Supabase
     const config = await configManager.getCurrentConfig();
-    console.log('🎯 Configuración cargada desde localStorage:', config);
+    console.log('🎯 Configuración cargada desde Supabase:', config);
     
     return config;
   } catch (error) {
-    console.error('❌ Error obteniendo configuración desde localStorage:', error);
+    console.error('❌ Error obteniendo configuración desde Supabase:', error);
     console.log('⚠️ Fallback a valores por defecto');
     
     // Valores por defecto como fallback
