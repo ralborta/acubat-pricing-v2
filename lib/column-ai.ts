@@ -5,6 +5,8 @@ export interface MapeoColumnas {
   tipo: string
   modelo?: string
   descripcion?: string
+  pdv?: string
+  pvp?: string
 }
 
 /**
@@ -49,6 +51,18 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   const descripcionPatterns = ['descripcion', 'description', 'detalle', 'comentario']
   mapeo.descripcion = headers.find(h => 
     descripcionPatterns.some(pattern => h.toLowerCase().includes(pattern))
+  ) || ''
+  
+  // Buscar columna PDV (opcional)
+  const pdvPatterns = ['pdv', 'precio_detalle', 'precio_detalle_venta']
+  mapeo.pdv = headers.find(h => 
+    pdvPatterns.some(pattern => h.toLowerCase().includes(pattern))
+  ) || ''
+  
+  // Buscar columna PVP (opcional)
+  const pvpPatterns = ['pvp', 'precio_venta_publico', 'precio_publico']
+  mapeo.pvp = headers.find(h => 
+    pvpPatterns.some(pattern => h.toLowerCase().includes(pattern))
   ) || ''
   
   console.log('📊 Mapeo detectado:', mapeo)
