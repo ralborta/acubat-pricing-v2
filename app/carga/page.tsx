@@ -267,6 +267,13 @@ export default function CargaPage() {
       const formData = new FormData()
       formData.append('file', archivoSeleccionado)
       
+      // Obtener configuración actual del localStorage
+      const configuracionActual = localStorage.getItem('acubat_config')
+      if (configuracionActual) {
+        formData.append('configuracion', configuracionActual)
+        console.log('🎯 Enviando configuración al servidor:', JSON.parse(configuracionActual))
+      }
+      
       const response = await fetch('/api/pricing/procesar-archivo', {
         method: 'POST',
         body: formData

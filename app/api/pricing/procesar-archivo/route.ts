@@ -166,9 +166,21 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
-
+    const configuracion = formData.get('configuracion') as string
+    
     if (!file) {
       return NextResponse.json({ error: 'No se proporcionó archivo' }, { status: 400 })
+    }
+    
+    // Parsear configuración del cliente
+    let config = null
+    if (configuracion) {
+      try {
+        config = JSON.parse(configuracion)
+        console.log('🎯 Configuración recibida del cliente:', config)
+      } catch (error) {
+        console.warn('⚠️ Error parseando configuración del cliente:', error)
+      }
     }
 
     // Leer archivo Excel
@@ -599,16 +611,16 @@ export async function POST(request: NextRequest) {
       console.log(`   - Costo Mayorista: ${mayoristaBase} * 0.6 = ${costoEstimadoMayorista}`)
 
       // 🎯 APLICAR CONFIGURACIÓN EN CÁLCULO MINORISTA
-      const config = await obtenerConfiguracion()
+      const configFinal = config || await obtenerConfiguracion()
       console.log('🔧 CONFIGURACIÓN APLICADA:', {
-        iva: config.iva,
-        markupDirecta: config.markups.directa,
-        markupMayorista: config.markups.mayorista,
-        markupDistribucion: config.markups.distribucion
+        iva: configFinal.iva,
+        markupDirecta: configFinal.markups.directa,
+        markupMayorista: configFinal.markups.mayorista,
+        markupDistribucion: configFinal.markups.distribucion
       })
       
-      const ivaMultiplier = 1 + (config.iva / 100)
-      const markupMinorista = 1 + (config.markups.directa / 100)
+      const ivaMultiplier = 1 + (configFinal.iva / 100)
+      const markupMinorista = 1 + (configFinal.markups.directa / 100)
       
       console.log('🔧 MULTIPLICADORES CALCULADOS:', {
         ivaMultiplier,
