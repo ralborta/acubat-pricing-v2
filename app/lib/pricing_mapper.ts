@@ -1,6 +1,6 @@
 // pricing_mapper.ts
 // Requisitos: npm i openai
-import { Configuration, OpenAIApi } from "openai";
+import OpenAI from "openai";
 import configManager from "../../lib/configManagerLocal";
 
 export type ColumnSampleRow = Record<string, unknown>;
@@ -347,8 +347,7 @@ export async function mapColumnsStrict({
 }: MapColumnsInput): Promise<{ result: MapColumnsOutput; attempts: number }> {
   if (!apiKey) throw new Error("OPENAI_API_KEY no configurada.");
 
-  const configuration = new Configuration({ apiKey });
-  const client = new OpenAIApi(configuration);
+  const client = new OpenAI({ apiKey });
   const system = buildSystemPrompt();
   const user = buildUserPayload(columnas, hojas, muestra);
 
@@ -393,13 +392,13 @@ export async function mapColumnsStrict({
 
   // Primer intento: SO strict
   attempts++;
-  response = await client.createCompletion(basePayload as any);
+  response = await client.chat.completions.create(basePayload as any);
   out = extractJson(response);
 
   // Si no hay JSON (host ignora SO), probamos "tool_call obligatorio"
   if (!out) {
     attempts++;
-    response = await client.createCompletion(toolsPayload as any);
+    response = await client.chat.completions.create(toolsPayload as any);
     out = extractJson(response);
   }
 
@@ -421,7 +420,7 @@ export async function mapColumnsStrict({
           { role: "user", content: feedback }
         ]
       };
-      const retryResp = await client.createCompletion(retryPayload as any);
+      const retryResp = await client.chat.completions.create(retryPayload as any);
       const retryOut = extractJson(retryResp);
       if (retryOut) {
         out = retryOut;
