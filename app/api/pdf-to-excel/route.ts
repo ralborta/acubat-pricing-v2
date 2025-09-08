@@ -1,316 +1,363 @@
-// PDF A EXCEL - SOLUCIONADO ERROR DOMMatrix
-// Usando solo APIs compatibles con Vercel serverless
+// PDF A EXCEL - EXTRACTOR QUE SÍ FUNCIONA
+// Usando pdf-parse + filtros de calidad para datos reales
 
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 
-interface FilaExtraida {
+interface FilaTabla {
   codigo?: string;
   descripcion?: string;
   precio?: number;
   stock?: number;
-  categoria?: string;
   unidad?: string;
 }
 
 // ============================================
-// EXTRACTOR SIN DEPENDENCIAS PROBLEMÁTICAS
+// ESTRATEGIA 1: PDF-PARSE (Texto nativo)
 // ============================================
 
-async function extraerTextoCompatible(pdfArrayBuffer: ArrayBuffer): Promise<string[]> {
-  console.log('📄 Extrayendo texto con método compatible...');
-  
+async function extraerTextoConPDFParse(pdfBuffer: Buffer): Promise<string[]> {
   try {
-    // POLYFILL para DOMMatrix (evitar el error)
-    if (typeof globalThis.DOMMatrix === 'undefined') {
-      console.log('🔧 Configurando polyfills para entorno serverless...');
-      
-      // Polyfill básico para DOMMatrix
-      globalThis.DOMMatrix = class DOMMatrix {
-        a: number = 1;
-        b: number = 0;
-        c: number = 0;
-        d: number = 1;
-        e: number = 0;
-        f: number = 0;
-        
-        constructor() {
-          // Propiedades ya definidas arriba
-        }
-        
-        static fromMatrix() { return new DOMMatrix(); }
-      } as any;
-      
-      // Otros polyfills necesarios
-      if (typeof globalThis.Path2D === 'undefined') {
-        globalThis.Path2D = class Path2D {} as any;
-      }
-      
-      if (typeof globalThis.CanvasGradient === 'undefined') {
-        globalThis.CanvasGradient = class CanvasGradient {} as any;
-      }
-      
-      if (typeof globalThis.CanvasPattern === 'undefined') {
-        globalThis.CanvasPattern = class CanvasPattern {} as any;
-      }
-    }
+    console.log('📄 Intentando extracción con pdf-parse...');
     
-    // Importar pdf.js DESPUÉS de los polyfills
-    const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
-    
-    // Configurar worker
-    GlobalWorkerOptions.workerSrc = 
-      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js`;
-    
-    console.log('📚 Cargando PDF...');
-    const loadingTask = getDocument({
-      data: pdfArrayBuffer,
-      verbosity: 0, // Sin logs
-      maxImageSize: 1024 * 1024, // 1MB máximo por imagen
-      disableFontFace: true, // Evitar problemas de fuentes
-      disableRange: false,
-      disableStream: false
+    // Usar pdf-parse que funciona mejor en serverless
+    const pdfParse = require('pdf-parse');
+    const data = await pdfParse(pdfBuffer, {
+      normalizeWhitespace: true,
+      disableCombineTextItems: false
     });
     
-    const pdfDoc = await loadingTask.promise;
-    console.log(`📊 PDF cargado exitosamente: ${pdfDoc.numPages} páginas`);
-    
-    const todasLasLineas: string[] = [];
-    const maxPaginas = Math.min(pdfDoc.numPages, 8); // Límite conservador
-    
-    for (let numPagina = 1; numPagina <= maxPaginas; numPagina++) {
-      console.log(`📖 Procesando página ${numPagina}/${maxPaginas}`);
+    if (data.text && data.text.length > 50) {
+      console.log(`✅ Texto extraído: ${data.text.length} caracteres`);
       
-      try {
-        const page = await pdfDoc.getPage(numPagina);
-        const textContent = await page.getTextContent();
-        
-        // Procesar items de texto
-        const items = textContent.items as any[];
-        console.log(`📝 Encontrados ${items.length} elementos de texto en página ${numPagina}`);
-        
-        // Agrupar texto por líneas (posición Y similar)
-        const lineasPorY = new Map<number, string[]>();
-        
-        for (const item of items) {
-          if (item.str && item.str.trim() && item.transform) {
-            const y = Math.round(item.transform[5]); // Posición Y
-            const texto = item.str.trim();
-            
-            if (!lineasPorY.has(y)) {
-              lineasPorY.set(y, []);
-            }
-            lineasPorY.get(y)!.push(texto);
-          }
-        }
-        
-        // Convertir a líneas ordenadas
-        const lineasPagina = Array.from(lineasPorY.entries())
-          .sort(([y1], [y2]) => y2 - y1) // De arriba a abajo
-          .map(([y, textos]) => textos.join(' ').trim())
-          .filter(linea => linea.length > 2);
-        
-        todasLasLineas.push(...lineasPagina);
-        console.log(`✅ Página ${numPagina}: ${lineasPagina.length} líneas extraídas`);
-        
-      } catch (pageError) {
-        console.warn(`⚠️ Error en página ${numPagina}:`, pageError instanceof Error ? pageError.message : 'Error desconocido');
-        continue; // Continuar con la siguiente página
-      }
+      // Dividir en líneas y limpiar
+      const lineas = data.text
+        .split('\n')
+        .map((linea: string) => linea.trim())
+        .filter((linea: string) => linea.length > 3)
+        .filter((linea: string) => !/^[\s\u0000-\u001F\u007F-\u009F]*$/.test(linea)); // Filtrar basura
+      
+      console.log(`📝 ${lineas.length} líneas válidas extraídas`);
+      return lineas;
     }
     
-    console.log(`✅ Extracción completada: ${todasLasLineas.length} líneas totales`);
-    
-    // Debug: mostrar primeras líneas
-    if (todasLasLineas.length > 0) {
-      console.log('🔍 Primeras 5 líneas extraídas:');
-      todasLasLineas.slice(0, 5).forEach((linea, i) => {
-        console.log(`  ${i+1}: "${linea}"`);
-      });
-    }
-    
-    return todasLasLineas;
+    throw new Error('PDF sin texto extraíble');
     
   } catch (error) {
-    console.error('❌ Error completo en extracción:', error);
-    
-    // Si falla todo, intentar extracción básica
-    return extraerTextoBasico(pdfArrayBuffer);
+    console.warn('⚠️ pdf-parse falló:', error instanceof Error ? error.message : 'Error desconocido');
+    throw error;
   }
 }
 
 // ============================================
-// EXTRACTOR BÁSICO DE RESPALDO
+// ESTRATEGIA 2: Parsing manual del PDF
 // ============================================
 
-async function extraerTextoBasico(pdfArrayBuffer: ArrayBuffer): Promise<string[]> {
-  console.log('🔄 Intentando extracción básica de respaldo...');
-  
+async function extraerTextoManual(pdfBuffer: Buffer): Promise<string[]> {
   try {
-    // Convertir ArrayBuffer a string para análisis básico
-    const uint8Array = new Uint8Array(pdfArrayBuffer);
-    const decoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: false });
+    console.log('🔧 Extrayendo texto manualmente...');
     
-    let contenidoCompleto = '';
-    
-    // Leer en chunks para evitar problemas de memoria
-    const chunkSize = 1024 * 1024; // 1MB chunks
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize);
-      contenidoCompleto += decoder.decode(chunk, { stream: true });
-    }
-    
-    // Buscar patrones de texto en el PDF
+    const pdfString = pdfBuffer.toString('latin1');
     const lineasEncontradas: string[] = [];
     
-    // Patrones comunes para extraer texto de PDFs
-    const patronesTexto = [
-      /BT\s+([^E]+?)\s+ET/g, // Texto entre BT y ET
-      /Tj\s*\[([^\]]+)\]/g,   // Arrays de texto
-      /\(([^)]{5,})\)/g,      // Texto entre paréntesis
-      /\[([^\]]{10,})\]/g,    // Arrays de strings
-    ];
+    // Buscar streams de texto
+    const streamMatches = pdfString.match(/stream\s*([\s\S]*?)\s*endstream/g);
     
-    for (const patron of patronesTexto) {
-      let match;
-      while ((match = patron.exec(contenidoCompleto)) !== null) {
-        const texto = match[1];
-        if (texto && texto.trim().length > 3) {
-          // Limpiar y procesar el texto encontrado
-          const textoLimpio = texto
-            .replace(/[\x00-\x1F\x7F-\x9F]/g, ' ') // Remover caracteres de control
-            .replace(/\s+/g, ' ') // Normalizar espacios
-            .trim();
-          
-          if (textoLimpio.length > 5) {
-            lineasEncontradas.push(textoLimpio);
+    if (streamMatches) {
+      for (const stream of streamMatches) {
+        // Buscar texto entre paréntesis (formato PDF común)
+        const textMatches = stream.match(/\(([^)]{3,100}?)\)/g);
+        
+        if (textMatches) {
+          for (const match of textMatches) {
+            const texto = match.slice(1, -1); // Quitar paréntesis
+            
+            // Filtrar solo texto legible
+            if (esTextoLegible(texto)) {
+              lineasEncontradas.push(texto);
+            }
+          }
+        }
+        
+        // Buscar arrays de texto [(...) (...)]
+        const arrayMatches = stream.match(/\[\s*(\([^)]+\)\s*)+\]/g);
+        
+        if (arrayMatches) {
+          for (const arrayMatch of arrayMatches) {
+            const textos = arrayMatch.match(/\(([^)]+)\)/g);
+            if (textos) {
+              const lineaCompleta = textos.map(t => t.slice(1, -1)).join(' ');
+              if (esTextoLegible(lineaCompleta)) {
+                lineasEncontradas.push(lineaCompleta);
+              }
+            }
           }
         }
       }
     }
     
-    console.log(`📝 Extracción básica encontró ${lineasEncontradas.length} elementos de texto`);
-    
-    if (lineasEncontradas.length === 0) {
-      throw new Error('No se pudo extraer texto del PDF. Puede ser un PDF de solo imágenes o estar protegido.');
+    // Buscar texto directo
+    const textDirecto = pdfString.match(/BT\s*([\s\S]*?)\s*ET/g);
+    if (textDirecto) {
+      for (const bt of textDirecto) {
+        const matches = bt.match(/\(([^)]{3,})\)/g);
+        if (matches) {
+          for (const match of matches) {
+            const texto = match.slice(1, -1);
+            if (esTextoLegible(texto)) {
+              lineasEncontradas.push(texto);
+            }
+          }
+        }
+      }
     }
     
-    return lineasEncontradas;
+    console.log(`📝 Extracción manual: ${lineasEncontradas.length} líneas`);
+    return lineasEncontradas.filter(linea => linea.length > 2);
     
   } catch (error) {
-    console.error('❌ Error en extracción básica:', error);
-    throw new Error('El PDF no contiene texto extraíble o está dañado. Verifique que sea un PDF con texto seleccionable.');
+    console.error('❌ Error en extracción manual:', error);
+    throw new Error('No se pudo extraer texto del PDF');
   }
 }
 
 // ============================================
-// DETECTOR DE TABLAS (SIMPLIFICADO)
+// FILTRO DE TEXTO LEGIBLE
 // ============================================
 
-function detectarTablasSimplificado(lineasTexto: string[]): FilaExtraida[] {
-  console.log('🔍 Detectando tablas con método simplificado...');
+function esTextoLegible(texto: string): boolean {
+  if (!texto || texto.length < 3) return false;
+  
+  // Filtrar caracteres raros y símbolos
+  const caracteresRaros = /[♠♦♣♥♪♫☺☻◄►▲▼♀♂♤♧♡♢]/;
+  if (caracteresRaros.test(texto)) return false;
+  
+  // Filtrar texto que es principalmente caracteres de control
+  const caracteresControl = /[\u0000-\u001F\u007F-\u009F]/g;
+  const textoLimpio = texto.replace(caracteresControl, '');
+  if (textoLimpio.length < texto.length * 0.7) return false;
+  
+  // Debe contener al menos algunas letras
+  const tieneLetras = /[a-zA-ZáéíóúñÁÉÍÓÚÑ]/.test(texto);
+  if (!tieneLetras) return false;
+  
+  // Filtrar líneas que son solo números o símbolos
+  if (/^[\d\s\-_.=]+$/.test(texto)) return false;
+  
+  return true;
+}
+
+// ============================================
+// DETECTOR DE TABLAS MEJORADO
+// ============================================
+
+function detectarYParsearTablas(lineasTexto: string[]): FilaTabla[] {
+  console.log('🔍 Detectando tablas en texto limpio...');
   
   if (lineasTexto.length === 0) {
-    throw new Error('No hay texto para analizar. El PDF puede estar vacío o ser solo imágenes.');
+    throw new Error('No se extrajo texto válido del PDF');
   }
   
-  const filas: FilaExtraida[] = [];
+  console.log('📋 Primeras 10 líneas para análisis:');
+  lineasTexto.slice(0, 10).forEach((linea, i) => {
+    console.log(`  ${i+1}: "${linea}"`);
+  });
   
-  // Buscar patrones que parezcan datos tabulares
+  const filas: FilaTabla[] = [];
+  let enTabla = false;
+  
   for (let i = 0; i < lineasTexto.length; i++) {
     const linea = lineasTexto[i].trim();
     
-    if (linea.length < 10) continue;
+    if (linea.length < 5) continue;
     
-    // Detectar si la línea parece contener datos de producto/tabla
-    if (pareceFilaDeTabla(linea)) {
-      const fila = extraerDatosDeLinea(linea);
+    // Detectar encabezados de tabla
+    if (esEncabezadoTabla(linea)) {
+      enTabla = true;
+      console.log(`📊 Tabla detectada en línea ${i}: "${linea}"`);
+      continue;
+    }
+    
+    // Si estamos en tabla, intentar extraer datos
+    if (enTabla || pareceFilaDeProducto(linea)) {
+      const fila = parsearFilaProducto(linea);
       if (fila) {
         filas.push(fila);
-        console.log(`✅ Fila ${filas.length}: ${fila.codigo || 'N/A'} - ${fila.descripcion?.substring(0, 30) || 'N/A'}`);
+        console.log(`✅ Producto ${filas.length}: ${fila.codigo || 'SIN_COD'} - ${fila.descripcion?.substring(0, 30) || 'SIN_DESC'}`);
       }
+    }
+    
+    // Detectar fin de tabla
+    if (esFinTabla(linea)) {
+      enTabla = false;
     }
   }
   
-  console.log(`🎯 Resultado: ${filas.length} filas detectadas`);
+  console.log(`🎯 Total extraído: ${filas.length} productos`);
   
   if (filas.length === 0) {
-    // Mostrar contenido para debug
-    console.log('📋 Contenido extraído del PDF:');
-    lineasTexto.slice(0, 10).forEach((linea, i) => {
-      console.log(`  ${i+1}: "${linea}"`);
-    });
-    
-    throw new Error('No se detectaron tablas válidas en el PDF. Verifique que contenga datos estructurados en formato de tabla.');
+    // Crear datos de ejemplo SOLO como último recurso
+    console.log('⚠️ No se detectaron productos. Creando ejemplo para demostración...');
+    return crearEjemploTransparente();
   }
   
   return filas;
 }
 
-function pareceFilaDeTabla(linea: string): boolean {
-  // Una línea parece de tabla si:
-  // 1. Contiene al menos 3 elementos separados
-  // 2. Tiene al menos un número
-  // 3. No es solo texto descriptivo
+function esEncabezadoTabla(linea: string): boolean {
+  const lineaLower = linea.toLowerCase();
+  const palabrasClave = [
+    'codigo', 'descripcion', 'precio', 'stock', 'cantidad',
+    'producto', 'item', 'articulo', 'valor', 'importe',
+    'referencia', 'nombre', 'detalle'
+  ];
   
-  const elementos = linea.split(/\s+/).filter(e => e.length > 0);
-  const tieneNumeros = /\d/.test(linea);
-  const tieneTextoDescriptivo = elementos.some(e => e.length > 8);
+  let coincidencias = 0;
+  for (const palabra of palabrasClave) {
+    if (lineaLower.includes(palabra)) coincidencias++;
+  }
   
-  return elementos.length >= 3 && tieneNumeros && tieneTextoDescriptivo;
+  return coincidencias >= 2;
 }
 
-function extraerDatosDeLinea(linea: string): FilaExtraida | null {
+function pareceFilaDeProducto(linea: string): boolean {
+  // Una fila de producto típicamente tiene:
+  // - Código alfanumérico
+  // - Descripción de texto
+  // - Números (precio, cantidad)
+  
+  const tieneLetras = /[a-zA-Z]/.test(linea);
+  const tieneNumeros = /\d/.test(linea);
+  const tieneEspacios = /\s/.test(linea);
+  const elementos = linea.split(/\s+/).length;
+  
+  return tieneLetras && tieneNumeros && tieneEspacios && elementos >= 3;
+}
+
+function parsearFilaProducto(linea: string): FilaTabla | null {
   try {
-    // Separar elementos por espacios múltiples o patrones
-    let elementos = linea.split(/\s{2,}/).map(e => e.trim()).filter(e => e);
+    // Separar por espacios múltiples o tabs
+    let elementos = linea.split(/\s{2,}|\t/).map(e => e.trim()).filter(e => e);
     
-    // Si no funciona, intentar separación por espacios simples
+    // Si no funciona, usar espacios simples
     if (elementos.length < 3) {
       elementos = linea.split(/\s+/).filter(e => e.length > 0);
     }
     
     if (elementos.length < 2) return null;
     
-    const fila: FilaExtraida = {};
+    const fila: FilaTabla = {};
     
-    // Asignar campos de forma heurística
-    for (const elemento of elementos) {
-      if (!fila.codigo && /^[A-Z0-9]{3,10}$/i.test(elemento)) {
-        fila.codigo = elemento;
-      } else if (!fila.precio && /[\d.,\$€]/.test(elemento)) {
-        const precio = parseFloat(elemento.replace(/[^\d.,]/g, '').replace(',', '.'));
-        if (!isNaN(precio) && precio > 0) {
+    // Estrategia de asignación por patrones
+    for (let i = 0; i < elementos.length; i++) {
+      const elemento = elementos[i];
+      
+      // Código: alfanumérico, generalmente corto, al inicio
+      if (i <= 1 && !fila.codigo && /^[A-Z0-9]{2,12}$/i.test(elemento)) {
+        fila.codigo = elemento.toUpperCase();
+        continue;
+      }
+      
+      // Precio: contiene números y posibles símbolos
+      if (!fila.precio && /[\d,.]/.test(elemento) && !/^[A-Z]+$/i.test(elemento)) {
+        const precio = extraerNumero(elemento);
+        if (precio > 0 && precio < 1000000) {
           fila.precio = precio;
+          continue;
         }
-      } else if (!fila.stock && /^\d{1,5}$/.test(elemento)) {
-        fila.stock = parseInt(elemento);
-      } else if (!fila.descripcion && elemento.length > 5 && !/^\d+$/.test(elemento)) {
+      }
+      
+      // Stock: número entero pequeño
+      if (!fila.stock && /^\d{1,4}$/.test(elemento)) {
+        const stock = parseInt(elemento);
+        if (stock >= 0 && stock < 10000) {
+          fila.stock = stock;
+          continue;
+        }
+      }
+      
+      // Unidad: siglas conocidas
+      if (!fila.unidad && /^(UN|KG|LT|MT|PZ|UD|UNIDAD)$/i.test(elemento)) {
+        fila.unidad = elemento.toUpperCase();
+        continue;
+      }
+      
+      // Descripción: texto más largo, no números puros
+      if (!fila.descripcion && elemento.length > 3 && !/^\d+$/.test(elemento)) {
         fila.descripcion = elemento;
       }
     }
     
-    // Validar que tenga datos útiles
-    return (fila.codigo || fila.descripcion) ? fila : null;
+    // Validar fila
+    if (!fila.codigo && !fila.descripcion) return null;
+    if (fila.descripcion && fila.descripcion.length < 3) return null;
+    
+    return fila;
     
   } catch (error) {
     return null;
   }
 }
 
+function extraerNumero(texto: string): number {
+  const numeroLimpio = texto.replace(/[^\d.,]/g, '');
+  if (numeroLimpio.includes(',') && numeroLimpio.includes('.')) {
+    // Formato europeo: 1.234,56
+    if (numeroLimpio.lastIndexOf(',') > numeroLimpio.lastIndexOf('.')) {
+      return parseFloat(numeroLimpio.replace(/\./g, '').replace(',', '.'));
+    }
+  }
+  const numero = parseFloat(numeroLimpio.replace(',', '.'));
+  return isNaN(numero) ? 0 : numero;
+}
+
+function esFinTabla(linea: string): boolean {
+  return /^(total|subtotal|suma|observaciones|notas)/i.test(linea);
+}
+
+// ============================================
+// EJEMPLO TRANSPARENTE (último recurso)
+// ============================================
+
+function crearEjemploTransparente(): FilaTabla[] {
+  console.log('📝 Creando ejemplo transparente para demostración...');
+  
+  return [
+    {
+      codigo: 'DEMO001',
+      descripcion: 'PRODUCTO DE EJEMPLO - Su PDF no contenía tablas detectables',
+      precio: 0,
+      stock: 0,
+      unidad: 'UN'
+    },
+    {
+      codigo: 'INFO',
+      descripcion: 'Este archivo muestra la estructura esperada del Excel',
+      precio: 0,
+      stock: 0,
+      unidad: 'UN'
+    },
+    {
+      codigo: 'AYUDA',
+      descripcion: 'Verifique que su PDF contenga tablas con texto seleccionable',
+      precio: 0,
+      stock: 0,
+      unidad: 'UN'
+    }
+  ];
+}
+
 // ============================================
 // GENERADOR DE EXCEL
 // ============================================
 
-function generarExcelFinal(datos: FilaExtraida[], nombreArchivo: string): Buffer {
-  console.log('📊 Generando Excel final...');
-  
+function generarExcelReal(datos: FilaTabla[], nombreArchivo: string, esEjemplo: boolean = false): Buffer {
   const workbook = XLSX.utils.book_new();
   
   // Hoja principal
   const worksheet = XLSX.utils.json_to_sheet(datos);
   worksheet['!cols'] = [
-    { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 12 }
+    { wch: 12 }, { wch: 45 }, { wch: 12 }, { wch: 8 }, { wch: 10 }
   ];
   
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Datos');
@@ -318,15 +365,25 @@ function generarExcelFinal(datos: FilaExtraida[], nombreArchivo: string): Buffer
   // Hoja de información
   const info = [
     ['INFORMACIÓN DE EXTRACCIÓN'],
-    ['Archivo:', nombreArchivo],
-    ['Fecha:', new Date().toLocaleString('es-ES')],
-    ['Filas extraídas:', datos.length],
-    ['Método:', 'Extracción directa de PDF'],
-    ['Estado:', datos.length > 0 ? 'Exitoso' : 'Sin datos detectados']
+    [''],
+    ['Archivo original:', nombreArchivo],
+    ['Fecha de procesamiento:', new Date().toLocaleString('es-ES')],
+    ['Filas procesadas:', datos.length],
+    ['Tipo de extracción:', esEjemplo ? 'EJEMPLO (PDF sin tablas detectables)' : 'DATOS REALES'],
+    [''],
+    esEjemplo ? ['NOTA IMPORTANTE:', 'Su PDF no contenía tablas detectables.'] : ['Estado:', 'Datos extraídos exitosamente'],
+    esEjemplo ? ['', 'Este archivo muestra la estructura esperada.'] : ['', ''],
+    esEjemplo ? ['', 'Verifique que su PDF tenga texto seleccionable.'] : ['', ''],
+    [''],
+    ['SUGERENCIAS PARA MEJORES RESULTADOS:'],
+    ['• Use PDFs con texto seleccionable (no imágenes escaneadas)'],
+    ['• Asegúrese de que las tablas estén bien estructuradas'],
+    ['• Evite PDFs con protección o encriptación'],
+    ['• Tablas con encabezados claros funcionan mejor']
   ];
   
   const worksheetInfo = XLSX.utils.aoa_to_sheet(info);
-  XLSX.utils.book_append_sheet(workbook, worksheetInfo, 'Info');
+  XLSX.utils.book_append_sheet(workbook, worksheetInfo, 'Información');
   
   return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 }
@@ -339,7 +396,7 @@ export async function POST(request: NextRequest) {
   const inicio = Date.now();
   
   try {
-    console.log('🚀 Iniciando conversión PDF a Excel (versión compatible)...');
+    console.log('🚀 Iniciando extracción REAL de PDF...');
     
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -351,58 +408,71 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
+    if (!file.type.includes('pdf')) {
       return NextResponse.json(
         { success: false, error: 'Solo archivos PDF son soportados' },
         { status: 400 }
       );
     }
     
-    if (file.size > 20 * 1024 * 1024) { // 20MB límite más conservador
+    if (file.size > 15 * 1024 * 1024) {
       return NextResponse.json(
-        { success: false, error: 'Archivo muy grande (máximo 20MB)' },
+        { success: false, error: 'Archivo muy grande (máximo 15MB)' },
         { status: 400 }
       );
     }
     
-    console.log(`📄 Procesando: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`📄 Procesando: ${file.name}`);
     
     const arrayBuffer = await file.arrayBuffer();
+    const pdfBuffer = Buffer.from(arrayBuffer);
     
-    // Timeout de 40 segundos
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout: El archivo es muy complejo')), 40000)
-    );
+    let lineasTexto: string[] = [];
+    let metodoUsado = '';
     
-    const processingPromise = async () => {
-      const lineasTexto = await extraerTextoCompatible(arrayBuffer);
-      const datosExtraidos = detectarTablasSimplificado(lineasTexto);
-      return { lineasTexto, datosExtraidos };
-    };
+    // Intentar múltiples métodos de extracción
+    try {
+      lineasTexto = await extraerTextoConPDFParse(pdfBuffer);
+      metodoUsado = 'pdf-parse';
+    } catch (error1) {
+      console.log('📄 Intentando extracción manual...');
+      try {
+        lineasTexto = await extraerTextoManual(pdfBuffer);
+        metodoUsado = 'manual';
+      } catch (error2) {
+        console.error('❌ Todos los métodos fallaron');
+        throw new Error('No se pudo extraer texto del PDF. Puede ser un PDF de solo imágenes o estar protegido.');
+      }
+    }
     
-    const { lineasTexto, datosExtraidos } = await Promise.race([
-      processingPromise(),
-      timeoutPromise
-    ]) as { lineasTexto: string[], datosExtraidos: FilaExtraida[] };
+    // Detectar y parsear tablas
+    const productos = detectarYParsearTablas(lineasTexto);
+    const esEjemplo = productos.length <= 3 && productos[0]?.codigo === 'DEMO001';
     
-    const excelBuffer = generarExcelFinal(datosExtraidos, file.name);
+    // Generar Excel
+    const excelBuffer = generarExcelReal(productos, file.name, esEjemplo);
     const excelBase64 = excelBuffer.toString('base64');
     
-    const tiempoFinal = Date.now() - inicio;
+    const tiempoTotal = Date.now() - inicio;
     
     return NextResponse.json({
       success: true,
       excel: excelBase64,
       estadisticas: {
-        tiempoProcesamiento: `${tiempoFinal}ms`,
+        tiempoProcesamiento: `${tiempoTotal}ms`,
+        metodoExtraccion: metodoUsado,
         lineasTexto: lineasTexto.length,
-        filasExtraidas: datosExtraidos.length,
-        conCodigo: datosExtraidos.filter(d => d.codigo).length,
-        conPrecio: datosExtraidos.filter(d => d.precio).length,
-        conStock: datosExtraidos.filter(d => d.stock !== undefined).length
+        productosExtraidos: productos.length,
+        esEjemplo: esEjemplo,
+        calidad: esEjemplo ? 'Ejemplo' : productos.length > 5 ? 'Alta' : 'Media'
       },
       nombreSugerido: file.name.replace('.pdf', '_extraido.xlsx'),
-      mensaje: `✅ ${datosExtraidos.length} filas extraídas del PDF`
+      mensaje: esEjemplo 
+        ? '⚠️ PDF sin tablas detectables - Se creó archivo de ejemplo'
+        : `✅ ${productos.length} productos extraídos exitosamente`,
+      transparencia: esEjemplo 
+        ? 'Este archivo contiene datos de ejemplo porque no se detectaron tablas en su PDF'
+        : 'Datos extraídos directamente de su PDF'
     });
     
   } catch (error) {
@@ -413,8 +483,7 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: error instanceof Error ? error.message : 'Error procesando PDF',
-        tiempoProcesamiento: `${tiempoError}ms`,
-        solucion: 'Verificar que el PDF contenga texto seleccionable y tablas estructuradas'
+        tiempoProcesamiento: `${tiempoError}ms`
       },
       { status: 500 }
     );
@@ -423,9 +492,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    service: 'PDF to Excel - Vercel Compatible',
-    version: '7.0.0 - DOMMatrix Fixed',
-    status: '✅ Funcionando',
-    solucionado: 'Error DOMMatrix corregido con polyfills'
+    service: 'PDF Extractor Real',
+    version: '8.0.0 - Text Quality Focused',
+    descripcion: 'Extrae datos reales, filtra basura, transparente sobre ejemplos'
   });
 }
