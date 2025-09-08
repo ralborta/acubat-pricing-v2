@@ -22,6 +22,7 @@
     "@types/xlsx": "^0.0.35",
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^2.4.3",
+    "canvas": "^3.2.0",
     "chart.js": "^4.4.0",
     "clsx": "^2.0.0",
     "cors": "^2.8.5",
