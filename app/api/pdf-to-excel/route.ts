@@ -1,10 +1,10 @@
-// PDF A EXCEL - EXTRACTOR QUE SÍ FUNCIONA
-// Usando pdf-parse + filtros de calidad para datos reales
+// PDF DETECTOR REAL - Maneja PDFs escaneados, protegidos y corruptos
+// Detecta el tipo de PDF y aplica la estrategia correcta
 
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 
-interface FilaTabla {
+interface ProductoExtraido {
   codigo?: string;
   descripcion?: string;
   precio?: number;
@@ -12,137 +12,222 @@ interface FilaTabla {
   unidad?: string;
 }
 
+interface DiagnosticoPDF {
+  tipoPDF: 'texto' | 'escaneado' | 'protegido' | 'corrupto' | 'desconocido';
+  tieneTexto: boolean;
+  tieneImagenes: boolean;
+  estaProtegido: boolean;
+  calidadTexto: 'excelente' | 'buena' | 'mala' | 'basura';
+  recomendaciones: string[];
+  metodoUsado: string;
+}
+
 // ============================================
-// ESTRATEGIA 1: PDF-PARSE (Texto nativo)
+// DETECTOR DE TIPO DE PDF
 // ============================================
 
-async function extraerTextoConPDFParse(pdfBuffer: Buffer): Promise<string[]> {
+async function diagnosticarPDF(pdfBuffer: Buffer): Promise<DiagnosticoPDF> {
+  console.log('🔍 Diagnosticando tipo de PDF...');
+  
+  const diagnostico: DiagnosticoPDF = {
+    tipoPDF: 'desconocido',
+    tieneTexto: false,
+    tieneImagenes: false,
+    estaProtegido: false,
+    calidadTexto: 'mala',
+    recomendaciones: [],
+    metodoUsado: 'ninguno'
+  };
+  
   try {
-    console.log('📄 Intentando extracción con pdf-parse...');
+    // 1. Verificar si está protegido
+    const pdfString = pdfBuffer.toString('latin1');
+    if (pdfString.includes('/Encrypt') || pdfString.includes('/P -')) {
+      diagnostico.estaProtegido = true;
+      diagnostico.tipoPDF = 'protegido';
+      diagnostico.recomendaciones.push('❌ PDF protegido - Remueva la protección antes de procesar');
+      return diagnostico;
+    }
     
-    // Usar pdf-parse que funciona mejor en serverless
+    // 2. Intentar extraer texto con pdf-parse
+    try {
+      const pdfParse = require('pdf-parse');
+      const data = await pdfParse(pdfBuffer, {
+        normalizeWhitespace: true,
+        disableCombineTextItems: false
+      });
+      
+      if (data.text && data.text.length > 50) {
+        diagnostico.tieneTexto = true;
+        diagnostico.metodoUsado = 'pdf-parse';
+        
+        // Analizar calidad del texto
+        const calidad = analizarCalidadTexto(data.text);
+        diagnostico.calidadTexto = calidad;
+        
+        if (calidad === 'excelente' || calidad === 'buena') {
+          diagnostico.tipoPDF = 'texto';
+          diagnostico.recomendaciones.push('✅ PDF con texto de buena calidad - Procesamiento normal');
+        } else if (calidad === 'mala') {
+          diagnostico.tipoPDF = 'escaneado';
+          diagnostico.recomendaciones.push('⚠️ PDF escaneado - Use un PDF con texto seleccionable');
+        } else {
+          diagnostico.tipoPDF = 'corrupto';
+          diagnostico.recomendaciones.push('❌ PDF corrupto - Archivo dañado o con encoding especial');
+        }
+      } else {
+        diagnostico.tipoPDF = 'escaneado';
+        diagnostico.recomendaciones.push('⚠️ PDF escaneado - Solo contiene imágenes, no texto');
+      }
+    } catch (error) {
+      console.warn('pdf-parse falló:', error);
+      diagnostico.tipoPDF = 'corrupto';
+      diagnostico.recomendaciones.push('❌ Error al procesar PDF - Archivo puede estar dañado');
+    }
+    
+    // 3. Verificar si tiene imágenes
+    if (pdfString.includes('/Image') || pdfString.includes('/XObject')) {
+      diagnostico.tieneImagenes = true;
+      if (!diagnostico.tieneTexto) {
+        diagnostico.tipoPDF = 'escaneado';
+        diagnostico.recomendaciones.push('📷 PDF contiene solo imágenes - Use OCR o convierta a texto');
+      }
+    }
+    
+    // 4. Recomendaciones adicionales
+    if (diagnostico.tipoPDF === 'escaneado') {
+      diagnostico.recomendaciones.push('💡 Solución: Use Adobe Acrobat para convertir a texto');
+      diagnostico.recomendaciones.push('💡 Alternativa: Use herramientas online de OCR');
+    }
+    
+    if (diagnostico.tipoPDF === 'corrupto') {
+      diagnostico.recomendaciones.push('💡 Solución: Re-descargue el PDF desde la fuente original');
+      diagnostico.recomendaciones.push('💡 Verifique: Que el archivo no esté dañado');
+    }
+    
+  } catch (error) {
+    console.error('Error en diagnóstico:', error);
+    diagnostico.tipoPDF = 'corrupto';
+    diagnostico.recomendaciones.push('❌ Error crítico al analizar PDF');
+  }
+  
+  console.log('📊 Diagnóstico completado:', diagnostico);
+  return diagnostico;
+}
+
+// ============================================
+// ANALIZADOR DE CALIDAD DE TEXTO
+// ============================================
+
+function analizarCalidadTexto(texto: string): 'excelente' | 'buena' | 'mala' | 'basura' {
+  if (!texto || texto.length < 10) return 'basura';
+  
+  // Contar caracteres válidos vs basura
+  const caracteresValidos = texto.match(/[a-zA-ZáéíóúñÁÉÍÓÚÑ0-9\s.,;:!?()-]/g) || [];
+  const caracteresBasura = texto.match(/[^\w\s.,;:!?()-]/g) || [];
+  
+  const porcentajeValidos = caracteresValidos.length / texto.length;
+  const porcentajeBasura = caracteresBasura.length / texto.length;
+  
+  // Detectar patrones de basura
+  const patronesBasura = [
+    /[♠♦♣♥♪♫☺☻◄►▲▼♀♂♤♧♡♢]/g, // Símbolos raros
+    /[^\x00-\x7F]/g, // Caracteres no ASCII
+    /[A-Z]{10,}/g, // Cadenas largas de mayúsculas
+    /\x00/g, // Caracteres nulos
+  ];
+  
+  let basuraDetectada = 0;
+  for (const patron of patronesBasura) {
+    const matches = texto.match(patron) || [];
+    basuraDetectada += matches.length;
+  }
+  
+  const porcentajeBasuraDetectada = basuraDetectada / texto.length;
+  
+  // Clasificar calidad
+  if (porcentajeValidos > 0.8 && porcentajeBasura < 0.1 && porcentajeBasuraDetectada < 0.05) {
+    return 'excelente';
+  } else if (porcentajeValidos > 0.6 && porcentajeBasura < 0.2 && porcentajeBasuraDetectada < 0.1) {
+    return 'buena';
+  } else if (porcentajeValidos > 0.3 && porcentajeBasura < 0.4) {
+    return 'mala';
+  } else {
+    return 'basura';
+  }
+}
+
+// ============================================
+// EXTRACTOR DE TEXTO MEJORADO
+// ============================================
+
+async function extraerTextoMejorado(pdfBuffer: Buffer, diagnostico: DiagnosticoPDF): Promise<string[]> {
+  console.log(`📄 Extrayendo texto con método: ${diagnostico.metodoUsado}`);
+  
+  if (diagnostico.tipoPDF === 'protegido') {
+    throw new Error('PDF protegido - Remueva la protección antes de procesar');
+  }
+  
+  if (diagnostico.tipoPDF === 'escaneado') {
+    throw new Error('PDF escaneado - Use un PDF con texto seleccionable o convierta con OCR');
+  }
+  
+  if (diagnostico.tipoPDF === 'corrupto') {
+    throw new Error('PDF corrupto - Archivo dañado o con encoding especial');
+  }
+  
+  try {
     const pdfParse = require('pdf-parse');
     const data = await pdfParse(pdfBuffer, {
       normalizeWhitespace: true,
       disableCombineTextItems: false
     });
     
-    if (data.text && data.text.length > 50) {
-      console.log(`✅ Texto extraído: ${data.text.length} caracteres`);
-      
-      // Dividir en líneas y limpiar
-      const lineas = data.text
-        .split('\n')
-        .map((linea: string) => linea.trim())
-        .filter((linea: string) => linea.length > 3)
-        .filter((linea: string) => !/^[\s\u0000-\u001F\u007F-\u009F]*$/.test(linea)); // Filtrar basura
-      
-      console.log(`📝 ${lineas.length} líneas válidas extraídas`);
-      return lineas;
+    if (!data.text || data.text.length < 10) {
+      throw new Error('No se pudo extraer texto del PDF');
     }
     
-    throw new Error('PDF sin texto extraíble');
+    // Filtrar y limpiar texto
+    const lineas = data.text
+      .split('\n')
+      .map((linea: string) => linea.trim())
+      .filter((linea: string) => linea.length > 3)
+      .filter((linea: string) => esTextoValido(linea));
+    
+    console.log(`✅ ${lineas.length} líneas válidas extraídas`);
+    return lineas;
     
   } catch (error) {
-    console.warn('⚠️ pdf-parse falló:', error instanceof Error ? error.message : 'Error desconocido');
-    throw error;
-  }
-}
-
-// ============================================
-// ESTRATEGIA 2: Parsing manual del PDF
-// ============================================
-
-async function extraerTextoManual(pdfBuffer: Buffer): Promise<string[]> {
-  try {
-    console.log('🔧 Extrayendo texto manualmente...');
-    
-    const pdfString = pdfBuffer.toString('latin1');
-    const lineasEncontradas: string[] = [];
-    
-    // Buscar streams de texto
-    const streamMatches = pdfString.match(/stream\s*([\s\S]*?)\s*endstream/g);
-    
-    if (streamMatches) {
-      for (const stream of streamMatches) {
-        // Buscar texto entre paréntesis (formato PDF común)
-        const textMatches = stream.match(/\(([^)]{3,100}?)\)/g);
-        
-        if (textMatches) {
-          for (const match of textMatches) {
-            const texto = match.slice(1, -1); // Quitar paréntesis
-            
-            // Filtrar solo texto legible
-            if (esTextoLegible(texto)) {
-              lineasEncontradas.push(texto);
-            }
-          }
-        }
-        
-        // Buscar arrays de texto [(...) (...)]
-        const arrayMatches = stream.match(/\[\s*(\([^)]+\)\s*)+\]/g);
-        
-        if (arrayMatches) {
-          for (const arrayMatch of arrayMatches) {
-            const textos = arrayMatch.match(/\(([^)]+)\)/g);
-            if (textos) {
-              const lineaCompleta = textos.map(t => t.slice(1, -1)).join(' ');
-              if (esTextoLegible(lineaCompleta)) {
-                lineasEncontradas.push(lineaCompleta);
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    // Buscar texto directo
-    const textDirecto = pdfString.match(/BT\s*([\s\S]*?)\s*ET/g);
-    if (textDirecto) {
-      for (const bt of textDirecto) {
-        const matches = bt.match(/\(([^)]{3,})\)/g);
-        if (matches) {
-          for (const match of matches) {
-            const texto = match.slice(1, -1);
-            if (esTextoLegible(texto)) {
-              lineasEncontradas.push(texto);
-            }
-          }
-        }
-      }
-    }
-    
-    console.log(`📝 Extracción manual: ${lineasEncontradas.length} líneas`);
-    return lineasEncontradas.filter(linea => linea.length > 2);
-    
-  } catch (error) {
-    console.error('❌ Error en extracción manual:', error);
+    console.error('Error en extracción:', error);
     throw new Error('No se pudo extraer texto del PDF');
   }
 }
 
 // ============================================
-// FILTRO DE TEXTO LEGIBLE
+// FILTRO DE TEXTO VÁLIDO MEJORADO
 // ============================================
 
-function esTextoLegible(texto: string): boolean {
+function esTextoValido(texto: string): boolean {
   if (!texto || texto.length < 3) return false;
   
-  // Filtrar caracteres raros y símbolos
-  const caracteresRaros = /[♠♦♣♥♪♫☺☻◄►▲▼♀♂♤♧♡♢]/;
-  if (caracteresRaros.test(texto)) return false;
-  
-  // Filtrar texto que es principalmente caracteres de control
+  // Filtrar caracteres de control y basura
   const caracteresControl = /[\u0000-\u001F\u007F-\u009F]/g;
   const textoLimpio = texto.replace(caracteresControl, '');
   if (textoLimpio.length < texto.length * 0.7) return false;
   
-  // Debe contener al menos algunas letras
+  // Filtrar símbolos raros
+  const simbolosRaros = /[♠♦♣♥♪♫☺☻◄►▲▼♀♂♤♧♡♢]/;
+  if (simbolosRaros.test(texto)) return false;
+  
+  // Debe contener letras
   const tieneLetras = /[a-zA-ZáéíóúñÁÉÍÓÚÑ]/.test(texto);
   if (!tieneLetras) return false;
   
-  // Filtrar líneas que son solo números o símbolos
+  // No debe ser principalmente símbolos o números
   if (/^[\d\s\-_.=]+$/.test(texto)) return false;
+  
+  // Filtrar cadenas de caracteres raros
+  if (/[A-Z]{10,}/.test(texto)) return false;
   
   return true;
 }
@@ -151,19 +236,14 @@ function esTextoLegible(texto: string): boolean {
 // DETECTOR DE TABLAS MEJORADO
 // ============================================
 
-function detectarYParsearTablas(lineasTexto: string[]): FilaTabla[] {
+function detectarTablasMejorado(lineasTexto: string[]): ProductoExtraido[] {
   console.log('🔍 Detectando tablas en texto limpio...');
   
   if (lineasTexto.length === 0) {
-    throw new Error('No se extrajo texto válido del PDF');
+    throw new Error('No hay texto para analizar');
   }
   
-  console.log('📋 Primeras 10 líneas para análisis:');
-  lineasTexto.slice(0, 10).forEach((linea, i) => {
-    console.log(`  ${i+1}: "${linea}"`);
-  });
-  
-  const filas: FilaTabla[] = [];
+  const productos: ProductoExtraido[] = [];
   let enTabla = false;
   
   for (let i = 0; i < lineasTexto.length; i++) {
@@ -174,16 +254,16 @@ function detectarYParsearTablas(lineasTexto: string[]): FilaTabla[] {
     // Detectar encabezados de tabla
     if (esEncabezadoTabla(linea)) {
       enTabla = true;
-      console.log(`📊 Tabla detectada en línea ${i}: "${linea}"`);
+      console.log(`📊 Tabla detectada: "${linea}"`);
       continue;
     }
     
-    // Si estamos en tabla, intentar extraer datos
+    // Procesar datos de tabla
     if (enTabla || pareceFilaDeProducto(linea)) {
-      const fila = parsearFilaProducto(linea);
-      if (fila) {
-        filas.push(fila);
-        console.log(`✅ Producto ${filas.length}: ${fila.codigo || 'SIN_COD'} - ${fila.descripcion?.substring(0, 30) || 'SIN_DESC'}`);
+      const producto = parsearFilaProducto(linea);
+      if (producto) {
+        productos.push(producto);
+        console.log(`✅ Producto ${productos.length}: ${producto.codigo || 'SIN_COD'} - ${producto.descripcion?.substring(0, 30) || 'SIN_DESC'}`);
       }
     }
     
@@ -193,15 +273,8 @@ function detectarYParsearTablas(lineasTexto: string[]): FilaTabla[] {
     }
   }
   
-  console.log(`🎯 Total extraído: ${filas.length} productos`);
-  
-  if (filas.length === 0) {
-    // Crear datos de ejemplo SOLO como último recurso
-    console.log('⚠️ No se detectaron productos. Creando ejemplo para demostración...');
-    return crearEjemploTransparente();
-  }
-  
-  return filas;
+  console.log(`🎯 Total extraído: ${productos.length} productos`);
+  return productos;
 }
 
 function esEncabezadoTabla(linea: string): boolean {
@@ -221,11 +294,6 @@ function esEncabezadoTabla(linea: string): boolean {
 }
 
 function pareceFilaDeProducto(linea: string): boolean {
-  // Una fila de producto típicamente tiene:
-  // - Código alfanumérico
-  // - Descripción de texto
-  // - Números (precio, cantidad)
-  
   const tieneLetras = /[a-zA-Z]/.test(linea);
   const tieneNumeros = /\d/.test(linea);
   const tieneEspacios = /\s/.test(linea);
@@ -234,65 +302,61 @@ function pareceFilaDeProducto(linea: string): boolean {
   return tieneLetras && tieneNumeros && tieneEspacios && elementos >= 3;
 }
 
-function parsearFilaProducto(linea: string): FilaTabla | null {
+function parsearFilaProducto(linea: string): ProductoExtraido | null {
   try {
-    // Separar por espacios múltiples o tabs
     let elementos = linea.split(/\s{2,}|\t/).map(e => e.trim()).filter(e => e);
     
-    // Si no funciona, usar espacios simples
     if (elementos.length < 3) {
       elementos = linea.split(/\s+/).filter(e => e.length > 0);
     }
     
     if (elementos.length < 2) return null;
     
-    const fila: FilaTabla = {};
+    const producto: ProductoExtraido = {};
     
-    // Estrategia de asignación por patrones
     for (let i = 0; i < elementos.length; i++) {
       const elemento = elementos[i];
       
-      // Código: alfanumérico, generalmente corto, al inicio
-      if (i <= 1 && !fila.codigo && /^[A-Z0-9]{2,12}$/i.test(elemento)) {
-        fila.codigo = elemento.toUpperCase();
+      // Código
+      if (i <= 1 && !producto.codigo && /^[A-Z0-9]{2,12}$/i.test(elemento)) {
+        producto.codigo = elemento.toUpperCase();
         continue;
       }
       
-      // Precio: contiene números y posibles símbolos
-      if (!fila.precio && /[\d,.]/.test(elemento) && !/^[A-Z]+$/i.test(elemento)) {
+      // Precio
+      if (!producto.precio && /[\d,.]/.test(elemento) && !/^[A-Z]+$/i.test(elemento)) {
         const precio = extraerNumero(elemento);
         if (precio > 0 && precio < 1000000) {
-          fila.precio = precio;
+          producto.precio = precio;
           continue;
         }
       }
       
-      // Stock: número entero pequeño
-      if (!fila.stock && /^\d{1,4}$/.test(elemento)) {
+      // Stock
+      if (!producto.stock && /^\d{1,4}$/.test(elemento)) {
         const stock = parseInt(elemento);
         if (stock >= 0 && stock < 10000) {
-          fila.stock = stock;
+          producto.stock = stock;
           continue;
         }
       }
       
-      // Unidad: siglas conocidas
-      if (!fila.unidad && /^(UN|KG|LT|MT|PZ|UD|UNIDAD)$/i.test(elemento)) {
-        fila.unidad = elemento.toUpperCase();
+      // Unidad
+      if (!producto.unidad && /^(UN|KG|LT|MT|PZ|UD|UNIDAD)$/i.test(elemento)) {
+        producto.unidad = elemento.toUpperCase();
         continue;
       }
       
-      // Descripción: texto más largo, no números puros
-      if (!fila.descripcion && elemento.length > 3 && !/^\d+$/.test(elemento)) {
-        fila.descripcion = elemento;
+      // Descripción
+      if (!producto.descripcion && elemento.length > 3 && !/^\d+$/.test(elemento)) {
+        producto.descripcion = elemento;
       }
     }
     
-    // Validar fila
-    if (!fila.codigo && !fila.descripcion) return null;
-    if (fila.descripcion && fila.descripcion.length < 3) return null;
+    if (!producto.codigo && !producto.descripcion) return null;
+    if (producto.descripcion && producto.descripcion.length < 3) return null;
     
-    return fila;
+    return producto;
     
   } catch (error) {
     return null;
@@ -302,7 +366,6 @@ function parsearFilaProducto(linea: string): FilaTabla | null {
 function extraerNumero(texto: string): number {
   const numeroLimpio = texto.replace(/[^\d.,]/g, '');
   if (numeroLimpio.includes(',') && numeroLimpio.includes('.')) {
-    // Formato europeo: 1.234,56
     if (numeroLimpio.lastIndexOf(',') > numeroLimpio.lastIndexOf('.')) {
       return parseFloat(numeroLimpio.replace(/\./g, '').replace(',', '.'));
     }
@@ -316,74 +379,62 @@ function esFinTabla(linea: string): boolean {
 }
 
 // ============================================
-// EJEMPLO TRANSPARENTE (último recurso)
+// GENERADOR DE EXCEL CON DIAGNÓSTICO
 // ============================================
 
-function crearEjemploTransparente(): FilaTabla[] {
-  console.log('📝 Creando ejemplo transparente para demostración...');
-  
-  return [
-    {
-      codigo: 'DEMO001',
-      descripcion: 'PRODUCTO DE EJEMPLO - Su PDF no contenía tablas detectables',
-      precio: 0,
-      stock: 0,
-      unidad: 'UN'
-    },
-    {
-      codigo: 'INFO',
-      descripcion: 'Este archivo muestra la estructura esperada del Excel',
-      precio: 0,
-      stock: 0,
-      unidad: 'UN'
-    },
-    {
-      codigo: 'AYUDA',
-      descripcion: 'Verifique que su PDF contenga tablas con texto seleccionable',
-      precio: 0,
-      stock: 0,
-      unidad: 'UN'
-    }
-  ];
-}
-
-// ============================================
-// GENERADOR DE EXCEL
-// ============================================
-
-function generarExcelReal(datos: FilaTabla[], nombreArchivo: string, esEjemplo: boolean = false): Buffer {
+function generarExcelConDiagnostico(productos: ProductoExtraido[], diagnostico: DiagnosticoPDF, nombreArchivo: string): Buffer {
   const workbook = XLSX.utils.book_new();
   
   // Hoja principal
-  const worksheet = XLSX.utils.json_to_sheet(datos);
+  const worksheet = XLSX.utils.json_to_sheet(productos);
   worksheet['!cols'] = [
     { wch: 12 }, { wch: 45 }, { wch: 12 }, { wch: 8 }, { wch: 10 }
   ];
   
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Datos');
   
-  // Hoja de información
-  const info = [
-    ['INFORMACIÓN DE EXTRACCIÓN'],
+  // Hoja de diagnóstico
+  const diagnosticoData = [
+    ['DIAGNÓSTICO DEL PDF'],
     [''],
-    ['Archivo original:', nombreArchivo],
-    ['Fecha de procesamiento:', new Date().toLocaleString('es-ES')],
-    ['Filas procesadas:', datos.length],
-    ['Tipo de extracción:', esEjemplo ? 'EJEMPLO (PDF sin tablas detectables)' : 'DATOS REALES'],
+    ['Archivo:', nombreArchivo],
+    ['Fecha:', new Date().toLocaleString('es-ES')],
     [''],
-    esEjemplo ? ['NOTA IMPORTANTE:', 'Su PDF no contenía tablas detectables.'] : ['Estado:', 'Datos extraídos exitosamente'],
-    esEjemplo ? ['', 'Este archivo muestra la estructura esperada.'] : ['', ''],
-    esEjemplo ? ['', 'Verifique que su PDF tenga texto seleccionable.'] : ['', ''],
+    ['TIPO DE PDF:', diagnostico.tipoPDF.toUpperCase()],
+    ['Tiene texto:', diagnostico.tieneTexto ? 'SÍ' : 'NO'],
+    ['Tiene imágenes:', diagnostico.tieneImagenes ? 'SÍ' : 'NO'],
+    ['Está protegido:', diagnostico.estaProtegido ? 'SÍ' : 'NO'],
+    ['Calidad del texto:', diagnostico.calidadTexto.toUpperCase()],
+    ['Método usado:', diagnostico.metodoUsado],
     [''],
-    ['SUGERENCIAS PARA MEJORES RESULTADOS:'],
-    ['• Use PDFs con texto seleccionable (no imágenes escaneadas)'],
+    ['PRODUCTOS EXTRAÍDOS:', productos.length],
+    [''],
+    ['RECOMENDACIONES:'],
+    ...diagnostico.recomendaciones.map(rec => ['', rec]),
+    [''],
+    ['¿POR QUÉ EXTRAE BASURA?'],
+    [''],
+    ['1. PDF ESCANEADO:', 'El PDF contiene solo imágenes, no texto'],
+    ['   Solución: Use Adobe Acrobat para convertir a texto'],
+    [''],
+    ['2. PDF PROTEGIDO:', 'El PDF tiene protección contra extracción'],
+    ['   Solución: Remueva la protección antes de procesar'],
+    [''],
+    ['3. PDF CORRUPTO:', 'El archivo está dañado o tiene encoding especial'],
+    ['   Solución: Re-descargue desde la fuente original'],
+    [''],
+    ['4. FUENTES EMBEBIDAS:', 'El PDF usa fuentes que no se pueden leer'],
+    ['   Solución: Use un PDF con fuentes estándar'],
+    [''],
+    ['PARA MEJORES RESULTADOS:'],
+    ['• Use PDFs con texto seleccionable (no imágenes)'],
     ['• Asegúrese de que las tablas estén bien estructuradas'],
     ['• Evite PDFs con protección o encriptación'],
-    ['• Tablas con encabezados claros funcionan mejor']
+    ['• Use fuentes estándar en lugar de fuentes personalizadas']
   ];
   
-  const worksheetInfo = XLSX.utils.aoa_to_sheet(info);
-  XLSX.utils.book_append_sheet(workbook, worksheetInfo, 'Información');
+  const worksheetDiagnostico = XLSX.utils.aoa_to_sheet(diagnosticoData);
+  XLSX.utils.book_append_sheet(workbook, worksheetDiagnostico, 'Diagnóstico');
   
   return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 }
@@ -396,7 +447,7 @@ export async function POST(request: NextRequest) {
   const inicio = Date.now();
   
   try {
-    console.log('🚀 Iniciando extracción REAL de PDF...');
+    console.log('🚀 Iniciando análisis completo de PDF...');
     
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -422,35 +473,29 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log(`📄 Procesando: ${file.name}`);
+    console.log(`📄 Analizando: ${file.name}`);
     
     const arrayBuffer = await file.arrayBuffer();
     const pdfBuffer = Buffer.from(arrayBuffer);
     
-    let lineasTexto: string[] = [];
-    let metodoUsado = '';
+    // PASO 1: Diagnosticar el PDF
+    const diagnostico = await diagnosticarPDF(pdfBuffer);
     
-    // Intentar múltiples métodos de extracción
-    try {
-      lineasTexto = await extraerTextoConPDFParse(pdfBuffer);
-      metodoUsado = 'pdf-parse';
-    } catch (error1) {
-      console.log('📄 Intentando extracción manual...');
+    // PASO 2: Extraer texto si es posible
+    let productos: ProductoExtraido[] = [];
+    let lineasTexto: string[] = [];
+    
+    if (diagnostico.tipoPDF === 'texto') {
       try {
-        lineasTexto = await extraerTextoManual(pdfBuffer);
-        metodoUsado = 'manual';
-      } catch (error2) {
-        console.error('❌ Todos los métodos fallaron');
-        throw new Error('No se pudo extraer texto del PDF. Puede ser un PDF de solo imágenes o estar protegido.');
+        lineasTexto = await extraerTextoMejorado(pdfBuffer, diagnostico);
+        productos = detectarTablasMejorado(lineasTexto);
+      } catch (error) {
+        console.warn('Error en extracción:', error);
       }
     }
     
-    // Detectar y parsear tablas
-    const productos = detectarYParsearTablas(lineasTexto);
-    const esEjemplo = productos.length <= 3 && productos[0]?.codigo === 'DEMO001';
-    
-    // Generar Excel
-    const excelBuffer = generarExcelReal(productos, file.name, esEjemplo);
+    // PASO 3: Generar Excel con diagnóstico
+    const excelBuffer = generarExcelConDiagnostico(productos, diagnostico, file.name);
     const excelBase64 = excelBuffer.toString('base64');
     
     const tiempoTotal = Date.now() - inicio;
@@ -458,21 +503,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       excel: excelBase64,
+      diagnostico: {
+        tipoPDF: diagnostico.tipoPDF,
+        calidadTexto: diagnostico.calidadTexto,
+        tieneTexto: diagnostico.tieneTexto,
+        estaProtegido: diagnostico.estaProtegido,
+        recomendaciones: diagnostico.recomendaciones
+      },
       estadisticas: {
         tiempoProcesamiento: `${tiempoTotal}ms`,
-        metodoExtraccion: metodoUsado,
-        lineasTexto: lineasTexto.length,
         productosExtraidos: productos.length,
-        esEjemplo: esEjemplo,
-        calidad: esEjemplo ? 'Ejemplo' : productos.length > 5 ? 'Alta' : 'Media'
+        lineasTexto: lineasTexto.length,
+        metodoUsado: diagnostico.metodoUsado
       },
-      nombreSugerido: file.name.replace('.pdf', '_extraido.xlsx'),
-      mensaje: esEjemplo 
-        ? '⚠️ PDF sin tablas detectables - Se creó archivo de ejemplo'
-        : `✅ ${productos.length} productos extraídos exitosamente`,
-      transparencia: esEjemplo 
-        ? 'Este archivo contiene datos de ejemplo porque no se detectaron tablas en su PDF'
-        : 'Datos extraídos directamente de su PDF'
+      nombreSugerido: file.name.replace('.pdf', '_diagnostico.xlsx'),
+      mensaje: diagnostico.tipoPDF === 'texto' 
+        ? `✅ ${productos.length} productos extraídos exitosamente`
+        : `⚠️ ${diagnostico.tipoPDF.toUpperCase()} - Ver diagnóstico en Excel`,
+      transparencia: diagnostico.tipoPDF === 'texto'
+        ? 'Datos extraídos directamente de su PDF'
+        : 'Ver hoja "Diagnóstico" para entender por qué no se extrajeron datos'
     });
     
   } catch (error) {
@@ -492,8 +542,15 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    service: 'PDF Extractor Real',
-    version: '8.0.0 - Text Quality Focused',
-    descripcion: 'Extrae datos reales, filtra basura, transparente sobre ejemplos'
+    service: 'PDF Detector Real',
+    version: '9.0.0 - Diagnóstico Completo',
+    descripcion: 'Detecta tipo de PDF y explica por qué extrae basura',
+    caracteristicas: [
+      '🔍 Detecta PDFs escaneados, protegidos, corruptos',
+      '📊 Análisis de calidad de texto',
+      '💡 Recomendaciones específicas',
+      '📋 Diagnóstico completo en Excel',
+      '🚫 Filtros robustos de basura'
+    ]
   });
 }
