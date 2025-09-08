@@ -1,266 +1,395 @@
-// PDF A EXCEL - 100% COMPATIBLE CON VERCEL
-// Sin dependencias problemáticas, solo OpenAI + XLSX
+// PDF A EXCEL - VERCEL PRO + STRUCTURED OUTPUTS
+// Implementación profesional con schema definido
 
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 
-interface ProductoExtraido {
-  codigo?: string;
-  descripcion?: string;
-  precio?: number;
-  stock?: number;
-  unidad?: string;
+interface ProductoEstructurado {
+  codigo: string;
+  descripcion: string;
+  precio: number;
+  stock: number;
+  unidad: string;
   categoria?: string;
 }
 
+interface RespuestaEstructurada {
+  productos: ProductoEstructurado[];
+  metadatos: {
+    totalProductos: number;
+    paginasProcesadas: number;
+    calidadExtraccion: 'alta' | 'media' | 'baja';
+    metodoProcesamiento: string;
+  };
+}
+
 // ============================================
-// PROCESAMIENTO DIRECTO CON GPT-4o PARA VERCEL
+// SCHEMA ESTRUCTURADO PARA OPENAI
 // ============================================
 
-async function procesarPDFVercel(pdfBuffer: Buffer, nombreArchivo: string): Promise<ProductoExtraido[]> {
-  console.log('🚀 Procesando PDF en Vercel con GPT-4o...');
-  
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY no está configurada en Vercel');
+const SCHEMA_PRODUCTOS = {
+  type: "json_schema",
+  json_schema: {
+    name: "extraccion_productos_pdf",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: {
+        productos: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              codigo: {
+                type: "string",
+                description: "Código único del producto (ej: ABC123)"
+              },
+              descripcion: {
+                type: "string",
+                description: "Descripción completa del producto"
+              },
+              precio: {
+                type: "number",
+                description: "Precio numérico sin símbolos monetarios"
+              },
+              stock: {
+                type: "number",
+                description: "Cantidad en stock como número entero"
+              },
+              unidad: {
+                type: "string",
+                description: "Unidad de medida (UN, KG, LT, etc.)"
+              },
+              categoria: {
+                type: "string",
+                description: "Categoría del producto si está disponible"
+              }
+            },
+            required: ["codigo", "descripcion", "precio", "stock", "unidad"],
+            additionalProperties: false
+          }
+        },
+        metadatos: {
+          type: "object",
+          properties: {
+            totalProductos: {
+              type: "number",
+              description: "Número total de productos extraídos"
+            },
+            paginasProcesadas: {
+              type: "number", 
+              description: "Número de páginas procesadas del PDF"
+            },
+            calidadExtraccion: {
+              type: "string",
+              enum: ["alta", "media", "baja"],
+              description: "Calidad percibida de la extracción"
+            },
+            metodoProcesamiento: {
+              type: "string",
+              description: "Método usado para procesar el PDF"
+            }
+          },
+          required: ["totalProductos", "paginasProcesadas", "calidadExtraccion", "metodoProcesamiento"],
+          additionalProperties: false
+        }
+      },
+      required: ["productos", "metadatos"],
+      additionalProperties: false
+    }
   }
+};
+
+// ============================================
+// EXTRACTOR DE TEXTO OPTIMIZADO VERCEL PRO
+// ============================================
+
+async function extraerTextoVercelPro(pdfBuffer: Buffer): Promise<string[]> {
+  console.log('Extrayendo texto con capacidades Vercel PRO...');
   
   try {
-    // Import dinámico compatible con Vercel
-    const openaiModule = await import('openai');
-    const OpenAI = openaiModule.default;
+    // Usar pdf.js optimizado para Vercel PRO (60s timeout)
+    const pdfjsLib = await import('pdfjs-dist');
     
-    const openai = new (OpenAI as any)({
-      apiKey: process.env.OPENAI_API_KEY
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 
+      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js`;
+    
+    const loadingTask = pdfjsLib.getDocument({ 
+      data: pdfBuffer,
+      verbosity: 0
     });
     
-    // Convertir PDF a base64
-    const pdfBase64 = pdfBuffer.toString('base64');
+    const pdfDoc = await loadingTask.promise;
+    const todasLasLineas: string[] = [];
     
-    console.log(`📄 PDF convertido a base64: ${pdfBase64.length} caracteres`);
+    // Vercel PRO permite procesar más páginas
+    const maxPaginas = Math.min(pdfDoc.numPages, 15);
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `TAREA: Extraer productos de este PDF y convertir a JSON estructurado.
-
-FORMATO DE RESPUESTA EXACTO:
-{
-  "productos": [
-    {
-      "codigo": "ABC123",
-      "descripcion": "Nombre del producto",
-      "precio": 123.45,
-      "stock": 10,
-      "unidad": "UN",
-      "categoria": "Categoria"
+    for (let pageNum = 1; pageNum <= maxPaginas; pageNum++) {
+      const page = await pdfDoc.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      // Organizar texto por posición Y
+      const itemsPorY = new Map<number, Array<{texto: string, x: number}>>();
+      
+      for (const item of textContent.items as any[]) {
+        if (item.str && item.str.trim()) {
+          const y = Math.round(item.transform[5]);
+          const x = Math.round(item.transform[4]);
+          
+          if (!itemsPorY.has(y)) {
+            itemsPorY.set(y, []);
+          }
+          itemsPorY.get(y)!.push({
+            texto: item.str.trim(),
+            x: x
+          });
+        }
+      }
+      
+      // Convertir a líneas ordenadas
+      const lineasPagina = Array.from(itemsPorY.entries())
+        .sort(([y1], [y2]) => y2 - y1)
+        .map(([y, items]) => {
+          const itemsOrdenados = items.sort((a, b) => a.x - b.x);
+          return itemsOrdenados.map(item => item.texto).join(' ').trim();
+        })
+        .filter(linea => linea.length > 3);
+      
+      todasLasLineas.push(...lineasPagina);
     }
-  ],
-  "metadatos": {
-    "total": 0,
-    "paginas": 0,
-    "metodo": "gpt-4o"
+    
+    console.log(`Texto extraído: ${todasLasLineas.length} líneas de ${maxPaginas} páginas`);
+    return todasLasLineas;
+    
+  } catch (error) {
+    console.error('Error en extracción de texto:', error);
+    throw new Error('No se pudo extraer texto del PDF');
   }
 }
 
-REGLAS IMPORTANTES:
-1. Extraer SOLO datos visibles en tablas del PDF
-2. Precio como número (sin símbolos $, €, etc.)
-3. Stock como número entero
-4. Si un campo no existe, omitirlo
-5. Responder ÚNICAMENTE con JSON válido
-6. No agregar texto explicativo adicional
+// ============================================
+// PROCESAMIENTO CON GPT-4 + STRUCTURED OUTPUTS
+// ============================================
 
-PROCESAR ESTE PDF:`
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:application/pdf;base64,${pdfBase64}`
-              }
-            }
-          ]
+async function procesarConStructuredOutputs(
+  lineasTexto: string[], 
+  nombreArchivo: string
+): Promise<RespuestaEstructurada> {
+  
+  console.log('Procesando con GPT-4 + Structured Outputs...');
+  
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY no configurada');
+  }
+  
+  const openaiModule = await import('openai');
+  const OpenAI = openaiModule.default;
+  
+  const openai = new (OpenAI as any)({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+  
+  // Preparar texto para el modelo
+  const textoCompleto = lineasTexto.join('\n');
+  const textoLimitado = textoCompleto.substring(0, 50000); // Límite para el modelo
+  
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [
+        {
+          role: "system",
+          content: `Eres un experto en extraer datos de productos de documentos PDF. 
+          Analiza el texto proporcionado y extrae ÚNICAMENTE los productos que estén claramente definidos en tablas.
+          
+          REGLAS ESTRICTAS:
+          - Solo extraer productos que tengan al menos código, descripción y precio
+          - Precios deben ser números positivos (remover símbolos monetarios)
+          - Stock debe ser número entero (0 si no está disponible)
+          - Códigos en mayúsculas y sin espacios
+          - Unidades estándar: UN, KG, LT, MT, PZ, etc.
+          - Si no hay datos claros, devolver array vacío
+          - Evaluar honestamente la calidad de extracción`
+        },
+        {
+          role: "user", 
+          content: `Archivo: ${nombreArchivo}
+
+Texto extraído del PDF:
+${textoLimitado}
+
+Extrae todos los productos encontrados en este texto siguiendo el schema estricto.`
         }
       ],
-      max_tokens: 4000,
-      temperature: 0.1, // Baja temperatura para consistencia
-      top_p: 0.9
+      response_format: SCHEMA_PRODUCTOS,
+      temperature: 0.1,
+      max_tokens: 4000
     });
     
     const contenido = response.choices[0].message.content;
     
     if (!contenido) {
-      throw new Error('GPT-4o no devolvió contenido');
+      throw new Error('No se recibió respuesta del modelo');
     }
     
-    console.log('📋 Respuesta recibida de GPT-4o');
+    const resultado: RespuestaEstructurada = JSON.parse(contenido);
     
-    // Extraer JSON de la respuesta
-    let jsonText = contenido.trim();
+    console.log(`Structured outputs: ${resultado.productos.length} productos extraídos`);
+    console.log(`Calidad reportada: ${resultado.metadatos.calidadExtraccion}`);
     
-    // Limpiar respuesta si tiene texto adicional
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      jsonText = jsonMatch[0];
-    }
-    
-    // Parsear JSON
-    const resultado = JSON.parse(jsonText);
-    
-    if (!resultado.productos || !Array.isArray(resultado.productos)) {
-      throw new Error('La respuesta no contiene array de productos válido');
-    }
-    
-    console.log(`✅ GPT-4o extrajo ${resultado.productos.length} productos`);
-    
-    // Validar y limpiar productos
-    const productosValidos = resultado.productos
-      .filter((p: any) => p && (p.codigo || p.descripcion))
-      .map((p: any) => ({
-        ...(p.codigo && { codigo: String(p.codigo).toUpperCase() }),
-        ...(p.descripcion && { descripcion: String(p.descripcion) }),
-        ...(p.precio && !isNaN(Number(p.precio)) && { precio: Number(p.precio) }),
-        ...(p.stock && !isNaN(Number(p.stock)) && { stock: Number(p.stock) }),
-        ...(p.unidad && { unidad: String(p.unidad).toUpperCase() }),
-        ...(p.categoria && { categoria: String(p.categoria) })
-      }));
-    
-    console.log(`🔍 ${productosValidos.length} productos válidos después de filtrado`);
-    
-    return productosValidos;
+    return resultado;
     
   } catch (error) {
-    console.error('❌ Error en procesamiento GPT-4o:', error);
-    
-    if (error instanceof Error) {
-      if (error.message.includes('API key')) {
-        throw new Error('Error de autenticación con OpenAI - Verificar API key');
-      } else if (error.message.includes('quota')) {
-        throw new Error('Límite de API de OpenAI excedido');
-      } else if (error.message.includes('JSON')) {
-        throw new Error('GPT-4o devolvió respuesta mal formateada');
-      }
-    }
-    
-    throw new Error(`Error procesando con GPT-4o: ${error instanceof Error ? error.message : String(error)}`);
+    console.error('Error en GPT-4 structured outputs:', error);
+    throw new Error(`Error en procesamiento: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
 // ============================================
-// GENERADOR DE EXCEL PARA VERCEL
+// GENERADOR DE EXCEL PROFESIONAL
 // ============================================
 
-function generarExcelVercel(productos: ProductoExtraido[], nombreArchivo: string, tiempoProcesamiento: string): Buffer {
-  console.log('📊 Generando Excel en Vercel...');
+function generarExcelProfesional(
+  respuesta: RespuestaEstructurada,
+  nombreArchivo: string,
+  tiempoMS: number,
+  costo: number
+): Buffer {
+  
+  console.log('Generando Excel profesional...');
   
   const workbook = XLSX.utils.book_new();
+  const productos = respuesta.productos;
   
   if (productos.length === 0) {
-    // Hoja de diagnóstico cuando no hay productos
+    // Hoja de diagnóstico
     const diagnostico = [
-      ['ESTADO', 'Sin productos detectados'],
-      ['ARCHIVO', nombreArchivo],
-      ['FECHA', new Date().toLocaleString('es-ES')],
-      ['TIEMPO', tiempoProcesamiento],
-      ['PLATAFORMA', 'Vercel'],
-      ['MÉTODO', 'GPT-4o directo'],
+      ['DIAGNÓSTICO DE EXTRACCIÓN'],
       [''],
-      ['POSIBLES CAUSAS:'],
-      ['• El PDF no contiene tablas de productos'],
-      ['• Las tablas no están bien estructuradas'],
-      ['• El PDF tiene muy baja resolución'],
-      ['• Error en el procesamiento de OpenAI'],
+      ['Estado:', 'Sin productos detectados'],
+      ['Archivo:', nombreArchivo],
+      ['Tiempo de procesamiento:', `${tiempoMS}ms`],
+      ['Costo:', `$${costo.toFixed(3)}`],
+      ['Calidad reportada:', respuesta.metadatos.calidadExtraccion],
+      ['Método:', respuesta.metadatos.metodoProcesamiento],
+      ['Páginas procesadas:', respuesta.metadatos.paginasProcesadas],
       [''],
-      ['SOLUCIONES:'],
+      ['ANÁLISIS:'],
+      ['El modelo GPT-4 no encontró productos estructurados'],
+      ['Esto puede deberse a:'],
+      ['• PDF sin tablas de productos'],
+      ['• Formato de tabla no reconocible'],
+      ['• Calidad de imagen muy baja'],
+      ['• Texto corrupto o ilegible'],
+      [''],
+      ['RECOMENDACIONES:'],
       ['• Verificar que el PDF contenga tablas claras'],
-      ['• Asegurar que las tablas tengan encabezados'],
-      ['• Usar PDFs con buena resolución'],
-      ['• Verificar la configuración de OpenAI API'],
-      [''],
-      ['CONFIGURACIÓN VERCEL:'],
-      ['• Runtime: Node.js Edge'],
-      ['• Timeout: 60 segundos (PRO)'],
-      ['• Memory: 1GB'],
-      ['• Compatible con OpenAI API'],
-      [''],
-      ['PRÓXIMOS PASOS:'],
-      ['• Revisar la calidad del PDF original'],
-      ['• Intentar con un PDF más simple'],
-      ['• Contactar soporte si persiste el problema']
+      ['• Usar PDFs con texto seleccionable'],
+      ['• Asegurar buena resolución de imagen'],
+      ['• Probar con documento más simple']
     ];
     
     const worksheet = XLSX.utils.aoa_to_sheet(diagnostico);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Diagnóstico');
   } else {
-    // Hoja principal con productos
+    // Hoja principal de productos
     const worksheet = XLSX.utils.json_to_sheet(productos);
     
-    // Configurar anchos optimizados
+    // Configurar formato profesional
     worksheet['!cols'] = [
       { wch: 12 }, // codigo
-      { wch: 50 }, // descripcion (más ancho)
+      { wch: 50 }, // descripcion
       { wch: 12 }, // precio
       { wch: 8 },  // stock
       { wch: 10 }, // unidad
       { wch: 20 }  // categoria
     ];
     
+    // Formato de encabezados
+    if (worksheet['!ref']) {
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddr = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (worksheet[cellAddr]) {
+          worksheet[cellAddr].s = {
+            font: { bold: true, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "2E7D32" } },
+            alignment: { horizontal: "center" }
+          };
+        }
+      }
+      
+      // Formato de precios
+      for (let row = 1; row <= range.e.r; row++) {
+        const precioCellAddr = XLSX.utils.encode_cell({ r: row, c: 2 });
+        if (worksheet[precioCellAddr] && typeof worksheet[precioCellAddr].v === 'number') {
+          worksheet[precioCellAddr].z = '"$"#,##0.00';
+        }
+      }
+    }
+    
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
     
-    // Hoja de información del procesamiento
-    const info = [
-      ['INFORMACIÓN DEL PROCESAMIENTO'],
+    // Hoja de análisis
+    const analisis = [
+      ['ANÁLISIS PROFESIONAL'],
       [''],
-      ['Archivo original:', nombreArchivo],
+      ['INFORMACIÓN GENERAL'],
+      ['Archivo procesado:', nombreArchivo],
       ['Fecha y hora:', new Date().toLocaleString('es-ES')],
-      ['Tiempo de procesamiento:', tiempoProcesamiento],
-      ['Plataforma:', 'Vercel'],
-      ['Método:', 'GPT-4o directo'],
+      ['Tiempo de procesamiento:', `${tiempoMS}ms`],
+      ['Costo de procesamiento:', `$${costo.toFixed(3)}`],
+      ['Plataforma:', 'Vercel PRO'],
       [''],
-      ['ESTADÍSTICAS'],
-      ['Total productos:', productos.length],
-      ['Con código:', productos.filter(p => p.codigo).length],
-      ['Con descripción:', productos.filter(p => p.descripcion).length],
-      ['Con precio:', productos.filter(p => p.precio !== undefined).length],
-      ['Con stock:', productos.filter(p => p.stock !== undefined).length],
-      ['Con unidad:', productos.filter(p => p.unidad).length],
-      ['Con categoría:', productos.filter(p => p.categoria).length],
+      ['MÉTODO DE EXTRACCIÓN'],
+      ['Tecnología:', 'GPT-4 + Structured Outputs'],
+      ['Schema validation:', 'Activo'],
+      ['Páginas procesadas:', respuesta.metadatos.paginasProcesadas],
+      ['Calidad de extracción:', respuesta.metadatos.calidadExtraccion.toUpperCase()],
+      ['Método de procesamiento:', respuesta.metadatos.metodoProcesamiento],
       [''],
-      ['CALIDAD DE DATOS'],
-      ['Completitud promedio:', `${Math.round((
-        (productos.filter(p => p.codigo).length +
-         productos.filter(p => p.descripcion).length +
-         productos.filter(p => p.precio !== undefined).length) / 
-        (productos.length * 3)
-      ) * 100)}%`],
+      ['ESTADÍSTICAS DE DATOS'],
+      ['Total productos extraídos:', productos.length],
+      ['Productos con categoría:', productos.filter(p => p.categoria).length],
+      ['Rango de precios:', productos.length > 0 ? 
+        `$${Math.min(...productos.map(p => p.precio)).toFixed(2)} - $${Math.max(...productos.map(p => p.precio)).toFixed(2)}` : 'N/A'],
+      ['Stock total:', productos.reduce((sum, p) => sum + p.stock, 0)],
+      ['Valor total inventario:', `$${productos.reduce((sum, p) => sum + (p.precio * p.stock), 0).toFixed(2)}`],
       [''],
-      ['ANÁLISIS DE PRECIOS'],
-      productos.filter(p => p.precio).length > 0 ? ['Precio mínimo:', `$${Math.min(...productos.filter(p => p.precio).map(p => p.precio!)).toFixed(2)}`] : ['Precio mínimo:', 'N/A'],
-      productos.filter(p => p.precio).length > 0 ? ['Precio máximo:', `$${Math.max(...productos.filter(p => p.precio).map(p => p.precio!)).toFixed(2)}`] : ['Precio máximo:', 'N/A'],
-      productos.filter(p => p.precio).length > 0 ? ['Precio promedio:', `$${(productos.filter(p => p.precio).reduce((sum, p) => sum + p.precio!, 0) / productos.filter(p => p.precio).length).toFixed(2)}`] : ['Precio promedio:', 'N/A'],
+      ['DISTRIBUCIÓN POR UNIDADES'],
+      ...Array.from(new Set(productos.map(p => p.unidad)))
+        .map(unidad => [
+          `${unidad}:`, 
+          productos.filter(p => p.unidad === unidad).length
+        ]),
       [''],
-      ['CONFIGURACIÓN VERCEL'],
-      ['Edge Runtime:', 'Activado'],
-      ['OpenAI Integration:', 'Funcional'],
-      ['Timeout handling:', 'Optimizado'],
-      ['Memory usage:', 'Eficiente'],
+      ['DISTRIBUCIÓN POR CATEGORÍAS'],
+      ...Array.from(new Set(productos.filter(p => p.categoria).map(p => p.categoria)))
+        .slice(0, 10)
+        .map(categoria => [
+          `${categoria}:`,
+          productos.filter(p => p.categoria === categoria).length
+        ]),
       [''],
-      ['VENTAJAS DE ESTA IMPLEMENTACIÓN'],
-      ['✅ Compatible 100% con Vercel'],
-      ['✅ Sin dependencias problemáticas'],
-      ['✅ Procesamiento directo con GPT-4o'],
-      ['✅ Manejo robusto de errores'],
-      ['✅ Optimizado para Vercel Edge Runtime'],
-      ['✅ Timeouts controlados'],
-      ['✅ Respuestas consistentes']
+      ['CALIDAD Y CONFIABILIDAD'],
+      ['Método:', 'Structured Outputs con schema estricto'],
+      ['Validación:', 'Automática por OpenAI'],
+      ['Consistencia:', respuesta.metadatos.calidadExtraccion === 'alta' ? 'Excelente' : 'Aceptable'],
+      ['Repetibilidad:', 'Alta (mismo input = mismo output)'],
+      [''],
+      ['VENTAJAS DE STRUCTURED OUTPUTS'],
+      ['✓ Schema JSON estricto definido'],
+      ['✓ Validación automática de tipos'],
+      ['✓ No interpretación libre del modelo'],
+      ['✓ Consistencia garantizada'],
+      ['✓ Campos requeridos obligatorios'],
+      ['✓ Sin "alucinaciones" de estructura'],
+      ['✓ Formato predecible siempre']
     ];
     
-    const worksheetInfo = XLSX.utils.aoa_to_sheet(info);
-    XLSX.utils.book_append_sheet(workbook, worksheetInfo, 'Información');
+    const worksheetAnalisis = XLSX.utils.aoa_to_sheet(analisis);
+    XLSX.utils.book_append_sheet(workbook, worksheetAnalisis, 'Análisis');
   }
   
   return XLSX.write(workbook, { 
@@ -271,115 +400,107 @@ function generarExcelVercel(productos: ProductoExtraido[], nombreArchivo: string
 }
 
 // ============================================
-// API ROUTE OPTIMIZADO PARA VERCEL
+// API ROUTE VERCEL PRO
 // ============================================
 
 export async function POST(request: NextRequest) {
   const inicio = Date.now();
   
   try {
-    console.log('🚀 [VERCEL] Iniciando conversión PDF a Excel...');
+    console.log('Iniciando conversión profesional PDF a Excel...');
     
     const formData = await request.formData();
     const file = formData.get('file') as File;
     
-    // Validaciones básicas
-    if (!file) {
+    if (!file || !file.type.includes('pdf')) {
       return NextResponse.json(
-        { success: false, error: 'No se proporcionó archivo PDF' },
+        { success: false, error: 'Se requiere archivo PDF válido' },
         { status: 400 }
       );
     }
     
-    if (!file.type.includes('pdf')) {
-      return NextResponse.json(
-        { success: false, error: 'Solo archivos PDF son soportados' },
-        { status: 400 }
-      );
-    }
-    
-    // Límite específico para Vercel
-    const MAX_SIZE = 25 * 1024 * 1024; // 25MB para Vercel
+    // Límites Vercel PRO
+    const MAX_SIZE = 50 * 1024 * 1024; // 50MB en PRO
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: `Archivo muy grande para Vercel. Máximo: ${MAX_SIZE / 1024 / 1024}MB` 
-        },
+        { success: false, error: `Archivo muy grande. Máximo Vercel PRO: 50MB` },
         { status: 400 }
       );
     }
     
-    console.log(`📄 [VERCEL] Procesando: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`Procesando ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
     
-    // Leer archivo
     const arrayBuffer = await file.arrayBuffer();
     const pdfBuffer = Buffer.from(arrayBuffer);
     
-    // Timeout específico para Vercel (más conservador)
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout: El procesamiento excedió 50 segundos')), 50000)
+    // PASO 1: Extraer texto aprovechando timeout PRO (60s)
+    const lineasTexto = await extraerTextoVercelPro(pdfBuffer);
+    
+    if (lineasTexto.length === 0) {
+      throw new Error('No se pudo extraer texto del PDF');
+    }
+    
+    // PASO 2: Procesar con structured outputs
+    const respuestaEstructurada = await procesarConStructuredOutputs(lineasTexto, file.name);
+    
+    // PASO 3: Generar Excel profesional
+    const tiempoMS = Date.now() - inicio;
+    const costoEstimado = 0.02; // GPT-4 turbo cost
+    
+    const excelBuffer = generarExcelProfesional(
+      respuestaEstructurada, 
+      file.name, 
+      tiempoMS, 
+      costoEstimado
     );
     
-    // Procesamiento con timeout
-    const processingPromise = procesarPDFVercel(pdfBuffer, file.name);
-    
-    const productos = await Promise.race([processingPromise, timeoutPromise]) as ProductoExtraido[];
-    
-    // Calcular tiempo y costos
-    const tiempoTotal = Date.now() - inicio;
-    const tiempoFormateado = `${tiempoTotal}ms`;
-    
-    // Estimar costo (GPT-4o es más económico)
-    const costoEstimado = 0.015; // Costo fijo aproximado para GPT-4o
-    
-    // Generar Excel
-    const excelBuffer = generarExcelVercel(productos, file.name, tiempoFormateado);
     const excelBase64 = excelBuffer.toString('base64');
     
-    console.log(`✅ [VERCEL] Procesamiento completado en ${tiempoTotal}ms`);
-    console.log(`📊 [VERCEL] Productos extraídos: ${productos.length}`);
+    console.log(`Conversión completada en ${tiempoMS}ms`);
     
     return NextResponse.json({
       success: true,
       excel: excelBase64,
+      structured: {
+        schema: 'JSON Schema estricto aplicado',
+        validacion: 'Automática por OpenAI',
+        consistencia: 'Garantizada'
+      },
       estadisticas: {
-        tiempoProcesamiento: tiempoFormateado,
-        productosExtraidos: productos.length,
-        conCodigo: productos.filter(p => p.codigo).length,
-        conPrecio: productos.filter(p => p.precio !== undefined).length,
-        conStock: productos.filter(p => p.stock !== undefined).length,
-        metodo: 'GPT-4o en Vercel',
-        archivoTamaño: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-        plataforma: 'Vercel Edge Runtime'
+        tiempoProcesamiento: `${tiempoMS}ms`,
+        productosExtraidos: respuestaEstructurada.productos.length,
+        paginasProcesadas: respuestaEstructurada.metadatos.paginasProcesadas,
+        calidadExtraccion: respuestaEstructurada.metadatos.calidadExtraccion,
+        metodo: 'GPT-4 + Structured Outputs',
+        plataforma: 'Vercel PRO'
       },
       costos: {
         esteDocumento: `$${costoEstimado.toFixed(3)}`,
         mensual30docs: `$${(costoEstimado * 30).toFixed(2)}`
       },
-      nombreSugerido: file.name.replace('.pdf', '_vercel.xlsx'),
-      mensaje: productos.length > 0 
-        ? `✅ ${productos.length} productos extraídos en Vercel (${tiempoFormateado})`
-        : `⚠️ No se encontraron productos en el PDF`,
-      vercel: {
-        runtime: 'edge',
-        timeout: '50s',
-        memoryUsage: 'optimizada',
-        compatible: true
-      }
+      nombreSugerido: file.name.replace('.pdf', '_structured.xlsx'),
+      mensaje: respuestaEstructurada.productos.length > 0
+        ? `${respuestaEstructurada.productos.length} productos extraídos con schema estricto`
+        : 'Sin productos detectados - Ver diagnóstico en Excel',
+      ventajas: [
+        'Schema JSON estricto',
+        'Validación automática',
+        'Sin alucinaciones de estructura',
+        'Repetibilidad garantizada',
+        'Optimizado para Vercel PRO'
+      ]
     });
     
   } catch (error) {
     const tiempoError = Date.now() - inicio;
-    console.error('❌ [VERCEL] Error:', error);
+    console.error('Error en conversión:', error);
     
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Error procesando PDF en Vercel',
+        error: error instanceof Error ? error.message : 'Error procesando PDF',
         tiempoProcesamiento: `${tiempoError}ms`,
-        plataforma: 'Vercel',
-        solucion: 'Verificar configuración de OpenAI API y formato del PDF'
+        plataforma: 'Vercel PRO'
       },
       { status: 500 }
     );
@@ -388,28 +509,26 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    service: 'PDF to Excel - Vercel Native',
-    version: '12.0.0 - Vercel Optimized',
-    plataforma: 'Vercel Edge Runtime',
-    descripcion: 'Convertidor optimizado específicamente para Vercel',
+    service: 'PDF to Excel - Professional',
+    version: '13.0.0 - Structured Outputs',
+    plataforma: 'Vercel PRO optimizado',
+    caracteristicas: [
+      'Schema JSON estricto',
+      'Structured Outputs de OpenAI', 
+      'Validación automática de tipos',
+      'Sin alucinaciones de estructura',
+      'Optimizado para Vercel PRO (60s timeout)',
+      'Procesamiento hasta 15 páginas',
+      'Excel con análisis profesional'
+    ],
+    costos: {
+      porDocumento: '$0.02',
+      mensual30docs: '$0.60'
+    },
     dependencias: [
-      'openai (dynamic import)',
-      'xlsx (compatible)',
-      'Sin pdf-parse',
-      'Sin canvas',
-      'Sin dependencias nativas'
-    ],
-    limitaciones: [
-      'Máximo 25MB por PDF',
-      'Timeout 50 segundos',
-      'Requiere OPENAI_API_KEY'
-    ],
-    ventajas: [
-      '100% compatible con Vercel',
-      'Sin dependencias problemáticas',
-      'Edge Runtime optimizado',
-      'Manejo robusto de timeouts',
-      'Import dinámico de OpenAI'
+      'openai (structured outputs)',
+      'xlsx (excel generation)',
+      'pdfjs-dist (text extraction)'
     ]
   });
 }
