@@ -1,5 +1,5 @@
-// PDF A EXCEL - APROVECHANDO VERCEL PRO AL MÁXIMO
-// 60 segundos de timeout + 50MB + processing avanzado
+// PDF A EXCEL - EXTRACCIÓN REAL DE DATOS
+// SIN productos inventados, SOLO datos del PDF real
 
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
@@ -11,521 +11,494 @@ interface FilaExtraida {
   stock?: number;
   categoria?: string;
   unidad?: string;
-  observaciones?: string;
+  linea_original?: string; // Para debugging
 }
 
 // ============================================
-// EXTRACCIÓN AVANZADA (aprovechando 60s de PRO)
+// EXTRACCIÓN REAL DE TEXTO DEL PDF
 // ============================================
 
-async function extraerTextoAvanzado(pdfArrayBuffer: ArrayBuffer): Promise<string[]> {
-  const inicioTiempo = Date.now();
-  console.log('🚀 VERCEL PRO: Extracción avanzada iniciada...');
+async function extraerTextoRealDelPDF(pdfArrayBuffer: ArrayBuffer): Promise<string[]> {
+  console.log('📄 Extrayendo texto REAL del PDF...');
   
   try {
-    const pdfjs = await import('pdfjs-dist/build/pdf.js');
-    const { getDocument, GlobalWorkerOptions } = pdfjs;
+    // Importar pdf.js de forma compatible con Vercel
+    const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
     
-    GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+    // Configurar worker
+    GlobalWorkerOptions.workerSrc = 
+      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
     
-    const loadingTask = getDocument({ 
-      data: pdfArrayBuffer,
-      maxImageSize: 5 * 1024 * 1024, // 5MB por imagen (PRO puede manejar más)
-      disableFontFace: false, // Mejor calidad de texto
-      verbosity: 1
-    });
-    
+    const loadingTask = getDocument({ data: pdfArrayBuffer });
     const pdfDoc = await loadingTask.promise;
-    console.log(`📊 PDF cargado: ${pdfDoc.numPages} páginas totales`);
     
-    const lineasTexto: string[] = [];
+    console.log(`📊 PDF cargado: ${pdfDoc.numPages} páginas`);
     
-    // CON PRO podemos procesar MÁS páginas
-    const maxPaginas = Math.min(pdfDoc.numPages, 15); // 15 páginas con PRO
+    const todasLasLineas: string[] = [];
+    const maxPaginas = Math.min(pdfDoc.numPages, 10);
     
     for (let numPagina = 1; numPagina <= maxPaginas; numPagina++) {
-      // Control de tiempo más relajado con PRO (55 segundos)
-      const tiempoTranscurrido = Date.now() - inicioTiempo;
-      if (tiempoTranscurrido > 55000) {
-        console.log(`⏰ Límite de tiempo PRO alcanzado: ${tiempoTranscurrido}ms`);
-        break;
-      }
-      
-      console.log(`📖 Procesando página ${numPagina}/${maxPaginas} (${tiempoTranscurrido}ms)`);
+      console.log(`📖 Extrayendo texto de página ${numPagina}/${maxPaginas}`);
       
       const page = await pdfDoc.getPage(numPagina);
       const textContent = await page.getTextContent();
       
-      // EXTRACCIÓN AVANZADA: Organizar por posición espacial
-      interface TextItem {
-        texto: string;
-        x: number;
-        y: number;
-        ancho: number;
-        alto: number;
-      }
+      // Extraer TEXTO REAL del PDF
+      const textItems = textContent.items as any[];
       
-      const items: TextItem[] = [];
+      // Organizar texto por posición Y (filas)
+      const itemsPorY = new Map<number, Array<{texto: string, x: number}>>();
       
-      for (const item of textContent.items as any[]) {
+      for (const item of textItems) {
         if (item.str && item.str.trim()) {
-          items.push({
+          const y = Math.round(item.transform[5]);
+          const x = Math.round(item.transform[4]);
+          
+          if (!itemsPorY.has(y)) {
+            itemsPorY.set(y, []);
+          }
+          
+          itemsPorY.get(y)!.push({
             texto: item.str.trim(),
-            x: Math.round(item.transform[4]),
-            y: Math.round(item.transform[5]),
-            ancho: Math.round(item.width || 0),
-            alto: Math.round(item.height || 0)
+            x: x
           });
         }
       }
       
-      // Agrupar por filas (Y similar) y ordenar por X
-      const filasPorY = new Map<number, TextItem[]>();
-      const toleranciaY = 5; // píxeles de tolerancia
-      
-      for (const item of items) {
-        let yEncontrado = false;
-        
-        for (const [yExistente, itemsEnY] of filasPorY.entries()) {
-          if (Math.abs(item.y - yExistente) <= toleranciaY) {
-            itemsEnY.push(item);
-            yEncontrado = true;
-            break;
-          }
-        }
-        
-        if (!yEncontrado) {
-          filasPorY.set(item.y, [item]);
-        }
-      }
-      
-      // Convertir a líneas de texto ordenadas
-      const filasOrdenadas = Array.from(filasPorY.entries())
+      // Convertir a líneas ordenadas (de arriba a abajo, izquierda a derecha)
+      const lineasPagina = Array.from(itemsPorY.entries())
         .sort(([y1], [y2]) => y2 - y1) // De arriba a abajo
         .map(([y, items]) => {
-          // Ordenar items por posición X (izquierda a derecha)
+          // Ordenar por posición X (izquierda a derecha)
           const itemsOrdenados = items.sort((a, b) => a.x - b.x);
           return itemsOrdenados.map(item => item.texto).join(' ').trim();
         })
-        .filter(linea => linea.length > 3);
+        .filter(linea => linea.length > 2); // Solo líneas con contenido
       
-      lineasTexto.push(...filasOrdenadas);
+      todasLasLineas.push(...lineasPagina);
     }
     
-    const tiempoTotal = Date.now() - inicioTiempo;
-    console.log(`✅ Extracción completada: ${lineasTexto.length} líneas en ${tiempoTotal}ms`);
+    console.log(`✅ Texto extraído: ${todasLasLineas.length} líneas reales del PDF`);
     
-    return lineasTexto;
+    // DEBUG: Mostrar primeras líneas extraídas
+    console.log('🔍 Primeras 10 líneas extraídas:');
+    todasLasLineas.slice(0, 10).forEach((linea, i) => {
+      console.log(`  ${i+1}: "${linea}"`);
+    });
+    
+    return todasLasLineas;
     
   } catch (error) {
-    console.error('❌ Error en extracción:', error);
-    throw new Error(`Error extrayendo texto: ${error.message}`);
+    console.error('❌ Error extrayendo texto del PDF:', error);
+    throw new Error(`No se pudo extraer texto del PDF: ${error instanceof Error ? error.message : 'Error desconocido'}`);
   }
 }
 
 // ============================================
-// PARSING INTELIGENTE AVANZADO (aprovechando tiempo PRO)
+// DETECCIÓN INTELIGENTE DE TABLAS REALES
 // ============================================
 
-function parsearTablasAvanzado(lineasTexto: string[]): FilaExtraida[] {
-  console.log('🧠 Análisis avanzado de tablas iniciado...');
+function detectarTablasReales(lineasTexto: string[]): FilaExtraida[] {
+  console.log('🔍 Analizando líneas REALES para detectar tablas...');
+  
+  if (lineasTexto.length === 0) {
+    throw new Error('No se extrajo texto del PDF. Puede ser un PDF de solo imágenes.');
+  }
   
   const filas: FilaExtraida[] = [];
-  let estadoActual: 'buscando' | 'en_tabla' | 'procesando_datos' = 'buscando';
+  let enTabla = false;
   let tipoTablaDetectado = '';
-  let patronColumnas: string[] = [];
   
-  // PATRONES AVANZADOS para diferentes tipos de tablas
-  const patronesTabla = {
-    inventario: /^(código|code|item|art[íi]culo|producto|sku)/i,
-    precios: /^(descripción|description|producto|item|servicio)/i,
-    stock: /^(material|producto|item|código|referencia)/i,
-    ventas: /^(fecha|período|cliente|producto)/i
-  };
-  
-  const patronesColumna = {
-    codigo: /^(código|code|item|art|sku|ref|id)/i,
-    descripcion: /^(descripción|description|producto|nombre|detalle|concepto)/i,
-    precio: /^(precio|price|valor|importe|costo|tarifa|monto)/i,
-    stock: /^(stock|existencia|cantidad|cant|qty|inventario|disponible)/i,
-    categoria: /^(categoría|category|tipo|clase|grupo|familia)/i,
-    unidad: /^(unidad|unit|medida|ud|uom|um)/i
-  };
+  // Patrones para detectar diferentes tipos de tablas REALES
+  const patronesEncabezado = [
+    /código.*descripción.*precio/i,
+    /item.*producto.*valor/i,
+    /art.*descripción.*importe/i,
+    /ref.*nombre.*costo/i,
+    /sku.*detalle.*precio/i,
+    /producto.*cantidad.*total/i
+  ];
   
   for (let i = 0; i < lineasTexto.length; i++) {
     const linea = lineasTexto[i].trim();
     
     if (!linea || linea.length < 5) {
-      if (estadoActual === 'procesando_datos') {
-        // Línea vacía puede ser separador, continuar
-        continue;
-      } else if (estadoActual === 'en_tabla') {
-        // Fin de tabla
-        estadoActual = 'buscando';
-        tipoTablaDetectado = '';
-        patronColumnas = [];
-      }
-      continue;
-    }
-    
-    // FASE 1: Detectar inicio de tabla
-    if (estadoActual === 'buscando') {
-      for (const [tipo, patron] of Object.entries(patronesTabla)) {
-        if (patron.test(linea)) {
-          console.log(`📊 Tabla de ${tipo} detectada en línea ${i}: "${linea}"`);
-          estadoActual = 'en_tabla';
-          tipoTablaDetectado = tipo;
-          patronColumnas = analizarEncabezados(linea);
-          break;
+      // Línea vacía puede indicar fin de tabla
+      if (enTabla && i > 0) {
+        const siguienteLinea = lineasTexto[i + 1]?.trim();
+        if (!siguienteLinea || siguienteLinea.length < 5) {
+          enTabla = false;
+          console.log(`📊 Fin de tabla detectado en línea ${i}`);
         }
       }
       continue;
     }
     
-    // FASE 2: Analizar estructura de tabla
-    if (estadoActual === 'en_tabla') {
-      // Buscar línea de datos o continuación de encabezados
-      if (esLineaDatos(linea, patronColumnas)) {
-        estadoActual = 'procesando_datos';
-        // Procesar esta línea como datos
-        const fila = parsearLineaAvanzada(linea, patronColumnas, tipoTablaDetectado);
-        if (fila) filas.push(fila);
-      } else if (complementaEncabezados(linea, patronColumnas)) {
-        // Línea adicional de encabezados
-        patronColumnas = [...patronColumnas, ...analizarEncabezados(linea)];
+    // DETECTAR INICIO DE TABLA
+    if (!enTabla) {
+      const esEncabezado = patronesEncabezado.some(patron => patron.test(linea));
+      
+      if (esEncabezado) {
+        enTabla = true;
+        tipoTablaDetectado = determinarTipoTabla(linea);
+        console.log(`📊 ¡TABLA REAL DETECTADA! Línea ${i}: "${linea}"`);
+        console.log(`📋 Tipo: ${tipoTablaDetectado}`);
+        continue;
       }
-      continue;
     }
     
-    // FASE 3: Procesar datos de tabla
-    if (estadoActual === 'procesando_datos') {
-      // Detectar fin de tabla
-      if (esFinDeTabla(linea)) {
-        estadoActual = 'buscando';
-        tipoTablaDetectado = '';
-        patronColumnas = [];
+    // PROCESAR DATOS DE TABLA
+    if (enTabla) {
+      // Saltar líneas decorativas
+      if (/^[-=_\s*]+$/.test(linea)) {
         continue;
       }
       
-      // Procesar línea de datos
-      const fila = parsearLineaAvanzada(linea, patronColumnas, tipoTablaDetectado);
-      if (fila) {
-        filas.push(fila);
+      // Detectar fin de tabla por patrones específicos
+      if (esFinDeTablaReal(linea)) {
+        enTabla = false;
+        console.log(`📊 Fin de tabla por patrón: "${linea}"`);
+        continue;
+      }
+      
+      // EXTRAER DATOS REALES
+      const filaExtraida = extraerDatosReales(linea, tipoTablaDetectado, i);
+      if (filaExtraida) {
+        filas.push(filaExtraida);
+        console.log(`✅ Fila ${filas.length}: ${filaExtraida.codigo || 'N/A'} - ${filaExtraida.descripcion?.substring(0, 30) || 'N/A'}`);
       }
     }
   }
   
-  console.log(`✅ Análisis completado: ${filas.length} filas extraídas`);
-  return aplicarPostProcesamiento(filas);
-}
-
-function analizarEncabezados(linea: string): string[] {
-  const palabras = linea.toLowerCase()
-    .replace(/[^\w\sáéíóúñ]/g, ' ')
-    .split(/\s+/)
-    .filter(p => p.length > 2);
+  console.log(`🎯 RESULTADO: ${filas.length} filas REALES extraídas del PDF`);
   
-  const columnas: string[] = [];
-  
-  for (const palabra of palabras) {
-    for (const [tipo, patron] of Object.entries(patronesColumna)) {
-      if (patron.test(palabra)) {
-        columnas.push(tipo);
-        break;
-      }
-    }
+  if (filas.length === 0) {
+    console.log('⚠️ No se detectaron tablas válidas. Contenido del PDF:');
+    lineasTexto.slice(0, 20).forEach((linea, i) => {
+      console.log(`  ${i+1}: "${linea}"`);
+    });
+    throw new Error('No se detectaron tablas en el PDF. Verificar que contenga tablas estructuradas con texto legible.');
   }
   
-  return [...new Set(columnas)]; // Eliminar duplicados
+  return filas;
 }
 
-function esLineaDatos(linea: string, patronColumnas: string[]): boolean {
-  // Una línea de datos debe tener:
-  // 1. Al menos 3 elementos separados
-  // 2. Al menos un número (precio, cantidad, etc.)
-  // 3. No ser solo texto descriptivo
+function determinarTipoTabla(encabezado: string): string {
+  const linea = encabezado.toLowerCase();
   
-  const elementos = linea.split(/\s{2,}|\t/).filter(e => e.trim());
-  if (elementos.length < 2) return false;
-  
-  const tieneNumero = /[\d.,\$€]+/.test(linea);
-  const noEsSoloTexto = !/^[a-záéíóúñ\s]+$/i.test(linea);
-  
-  return tieneNumero && (elementos.length >= 3 || noEsSoloTexto);
+  if (linea.includes('precio') || linea.includes('costo') || linea.includes('valor')) {
+    return 'lista_precios';
+  } else if (linea.includes('stock') || linea.includes('inventario') || linea.includes('existencia')) {
+    return 'inventario';
+  } else if (linea.includes('venta') || linea.includes('factura') || linea.includes('cliente')) {
+    return 'ventas';
+  } else {
+    return 'productos_general';
+  }
 }
 
-function complementaEncabezados(linea: string, patronColumnas: string[]): boolean {
-  const palabrasLinea = analizarEncabezados(linea);
-  return palabrasLinea.length > 0 && !palabrasLinea.every(p => patronColumnas.includes(p));
-}
-
-function esFinDeTabla(linea: string): boolean {
+function esFinDeTablaReal(linea: string): boolean {
   const patronesFinTabla = [
-    /^(total|subtotal|suma|resumen|fin|page|página)/i,
-    /^(observaciones|notas|comentarios)/i,
-    /^(condiciones|términos|validez)/i
+    /^total\s*:/i,
+    /^subtotal\s*:/i,
+    /^suma\s*:/i,
+    /^observaciones/i,
+    /^notas\s*:/i,
+    /^condiciones/i,
+    /^términos/i,
+    /^página\s*\d+/i,
+    /^fin\s+de\s+lista/i,
+    /^actualizado/i,
+    /^vigencia/i
   ];
   
-  return patronesFinTabla.some(p => p.test(linea));
+  return patronesFinTabla.some(patron => patron.test(linea));
 }
 
-function parsearLineaAvanzada(linea: string, columnas: string[], tipoTabla: string): FilaExtraida | null {
+// ============================================
+// EXTRACCIÓN DE DATOS REALES DE CADA LÍNEA
+// ============================================
+
+function extraerDatosReales(linea: string, tipoTabla: string, numeroLinea: number): FilaExtraida | null {
   try {
+    console.log(`🔍 Analizando línea ${numeroLinea}: "${linea}"`);
+    
     // Múltiples estrategias de separación
     let elementos: string[] = [];
     
-    // Estrategia 1: Separación por espacios múltiples
-    elementos = linea.split(/\s{2,}/).map(e => e.trim()).filter(e => e);
+    // Estrategia 1: Separación por múltiples espacios
+    elementos = linea.split(/\s{2,}/).map(e => e.trim()).filter(e => e.length > 0);
     
-    // Estrategia 2: Si no funciona, usar tabulaciones
-    if (elementos.length < 2) {
-      elementos = linea.split(/\t/).map(e => e.trim()).filter(e => e);
+    // Estrategia 2: Separación por tabuladores
+    if (elementos.length < 3) {
+      elementos = linea.split(/\t/).map(e => e.trim()).filter(e => e.length > 0);
     }
     
-    // Estrategia 3: Regex específico por tipo de tabla
-    if (elementos.length < 2) {
-      switch (tipoTabla) {
-        case 'inventario':
-          const match1 = linea.match(/^(\S+)\s+(.+?)\s+([\d.,\$€]+)\s*(.*)$/);
-          if (match1) elementos = [match1[1], match1[2], match1[3], match1[4]].filter(e => e.trim());
-          break;
-        case 'precios':
-          const match2 = linea.match(/^(.+?)\s+([\d.,\$€]+)\s*(.*)$/);
-          if (match2) elementos = [match2[1], match2[2], match2[3]].filter(e => e.trim());
-          break;
-      }
+    // Estrategia 3: Separación por patrones específicos del tipo de tabla
+    if (elementos.length < 3) {
+      elementos = separarPorPatrones(linea, tipoTabla);
     }
     
-    if (elementos.length < 1) return null;
+    if (elementos.length < 2) {
+      console.log(`⚠️ Línea insuficiente: solo ${elementos.length} elementos`);
+      return null;
+    }
     
-    // Mapear elementos a campos
-    const fila: FilaExtraida = {};
+    console.log(`📋 Elementos detectados: [${elementos.join('] [') }]`);
     
-    // Asignación inteligente basada en patrones y posición
+    // Crear fila con datos REALES
+    const fila: FilaExtraida = {
+      linea_original: linea // Para debugging
+    };
+    
+    // ASIGNACIÓN INTELIGENTE DE CAMPOS
     for (let i = 0; i < elementos.length; i++) {
-      const elemento = elementos[i];
+      const elemento = elementos[i].trim();
       
-      // Detectar tipo de dato por contenido
-      if (/^[\w\d-]{2,12}$/.test(elemento) && !fila.codigo) {
+      if (!elemento) continue;
+      
+      // DETECTAR CÓDIGO (alfanumérico corto, generalmente al inicio)
+      if (i <= 1 && !fila.codigo && esCodigoProducto(elemento)) {
         fila.codigo = elemento;
-      } else if (/[\d.,]+\s*[\$€]?|\$[\d.,]+/.test(elemento) && !fila.precio) {
-        const precio = extraerNumero(elemento);
-        if (precio > 0) fila.precio = precio;
-      } else if (/^\d+$/.test(elemento) && parseInt(elemento) < 10000 && !fila.stock) {
-        fila.stock = parseInt(elemento);
-      } else if (elemento.length > 5 && !fila.descripcion) {
+        console.log(`  📝 Código: "${elemento}"`);
+        continue;
+      }
+      
+      // DETECTAR PRECIO (contiene números y símbolos monetarios)
+      if (!fila.precio && esPrecio(elemento)) {
+        const precio = extraerPrecioReal(elemento);
+        if (precio > 0) {
+          fila.precio = precio;
+          console.log(`  💰 Precio: ${precio}`);
+          continue;
+        }
+      }
+      
+      // DETECTAR STOCK/CANTIDAD (número entero sin símbolos)
+      if (!fila.stock && esStock(elemento)) {
+        const stock = parseInt(elemento.replace(/\D/g, ''));
+        if (!isNaN(stock) && stock >= 0 && stock < 100000) {
+          fila.stock = stock;
+          console.log(`  📦 Stock: ${stock}`);
+          continue;
+        }
+      }
+      
+      // DETECTAR UNIDAD (siglas como UN, KG, LT, etc.)
+      if (!fila.unidad && esUnidad(elemento)) {
+        fila.unidad = elemento.toUpperCase();
+        console.log(`  📏 Unidad: "${elemento}"`);
+        continue;
+      }
+      
+      // DETECTAR DESCRIPCIÓN (texto largo, no números)
+      if (!fila.descripcion && esDescripcion(elemento)) {
         fila.descripcion = elemento;
-      } else if (/^(kg|gr|lt|mt|pz|un|ud)$/i.test(elemento)) {
-        fila.unidad = elemento;
-      } else if (!fila.categoria && elemento.length > 3 && elemento.length < 20) {
-        fila.categoria = elemento;
+        console.log(`  📄 Descripción: "${elemento.substring(0, 30)}..."`);
+        continue;
       }
     }
     
-    // Validaciones
-    if (!fila.descripcion && !fila.codigo) return null;
-    if (fila.descripcion && fila.descripcion.length < 3) return null;
+    // VALIDAR QUE LA FILA TENGA DATOS ÚTILES
+    if (!fila.codigo && !fila.descripcion) {
+      console.log(`❌ Fila rechazada: sin código ni descripción`);
+      return null;
+    }
     
+    if (fila.descripcion && fila.descripcion.length < 3) {
+      console.log(`❌ Fila rechazada: descripción muy corta`);
+      return null;
+    }
+    
+    // Limpiar campo de debugging en producción
+    delete fila.linea_original;
+    
+    console.log(`✅ Fila válida extraída`);
     return fila;
     
   } catch (error) {
-    console.warn('⚠️ Error parseando línea avanzada:', linea.substring(0, 50));
+    console.warn(`⚠️ Error procesando línea ${numeroLinea}:`, error instanceof Error ? error.message : 'Error desconocido');
     return null;
   }
 }
 
-function extraerNumero(texto: string): number {
-  const match = texto.match(/([\d.,]+)/);
-  if (match) {
-    const numero = parseFloat(match[1].replace(',', '.'));
-    return isNaN(numero) ? 0 : numero;
+function separarPorPatrones(linea: string, tipoTabla: string): string[] {
+  // Patrones específicos según tipo de tabla
+  switch (tipoTabla) {
+    case 'lista_precios':
+      // Patrón: CÓDIGO DESCRIPCIÓN PRECIO [STOCK] [UNIDAD]
+      const match1 = linea.match(/^(\S+)\s+(.+?)\s+([\d.,\$€]+)\s*(.*)$/);
+      if (match1) {
+        return [match1[1], match1[2], match1[3], match1[4]].filter(e => e.trim());
+      }
+      break;
+      
+    case 'inventario':
+      // Patrón: CÓDIGO DESCRIPCIÓN STOCK PRECIO
+      const match2 = linea.match(/^(\S+)\s+(.+?)\s+(\d+)\s+([\d.,\$€]+).*$/);
+      if (match2) {
+        return [match2[1], match2[2], match2[4], match2[3]]; // Precio y stock invertidos
+      }
+      break;
   }
-  return 0;
-}
-
-function aplicarPostProcesamiento(filas: FilaExtraida[]): FilaExtraida[] {
-  console.log('🔧 Aplicando post-procesamiento...');
   
-  return filas
-    .filter(fila => {
-      // Filtrar filas muy pobres en datos
-      const campos = Object.keys(fila).length;
-      return campos >= 2 && (fila.descripcion || fila.codigo);
-    })
-    .map(fila => {
-      // Limpiar y normalizar datos
-      if (fila.descripcion) {
-        fila.descripcion = fila.descripcion
-          .replace(/\s+/g, ' ')
-          .trim()
-          .substring(0, 100); // Limitar longitud
-      }
-      
-      if (fila.codigo) {
-        fila.codigo = fila.codigo.toUpperCase().trim();
-      }
-      
-      return fila;
-    });
+  // Patrón genérico de respaldo
+  return linea.split(/\s+/).filter(e => e.length > 0);
 }
 
 // ============================================
-// EXCEL AVANZADO (aprovechando capacidad PRO)
+// FUNCIONES DE DETECCIÓN DE TIPOS DE DATOS
 // ============================================
 
-function generarExcelAvanzado(datos: FilaExtraida[], nombreArchivo: string, estadisticas: any): Buffer {
-  console.log('📊 Generando Excel avanzado...');
+function esCodigoProducto(texto: string): boolean {
+  // Códigos típicos: alfanuméricos, 3-15 caracteres, sin espacios
+  return /^[A-Z0-9]{2,15}$/i.test(texto) && 
+         texto.length >= 3 && 
+         texto.length <= 15 &&
+         /\d/.test(texto); // Debe contener al menos un número
+}
+
+function esPrecio(texto: string): boolean {
+  // Contiene números y posibles símbolos monetarios
+  return /[\d.,]+/.test(texto) && 
+         /[\$€£¥₹₽¢]|precio|cost|valor|importe/.test(texto.toLowerCase()) ||
+         /^\d{1,10}[.,]?\d{0,2}$/.test(texto.replace(/[\$€£¥₹₽¢,]/g, ''));
+}
+
+function extraerPrecioReal(texto: string): number {
+  // Extraer solo números y puntos/comas
+  const numeroLimpio = texto.replace(/[^\d.,]/g, '');
+  
+  // Manejar formatos como "1.234,56" o "1,234.56"
+  let numero: number;
+  
+  if (numeroLimpio.includes(',') && numeroLimpio.includes('.')) {
+    // Formato "1.234,56" (europeo)
+    if (numeroLimpio.lastIndexOf(',') > numeroLimpio.lastIndexOf('.')) {
+      numero = parseFloat(numeroLimpio.replace(/\./g, '').replace(',', '.'));
+    } else {
+      // Formato "1,234.56" (americano)
+      numero = parseFloat(numeroLimpio.replace(/,/g, ''));
+    }
+  } else if (numeroLimpio.includes(',')) {
+    // Solo comas - asumir formato europeo si hay más de 3 dígitos después
+    const partes = numeroLimpio.split(',');
+    if (partes[1] && partes[1].length <= 2) {
+      numero = parseFloat(numeroLimpio.replace(',', '.'));
+    } else {
+      numero = parseFloat(numeroLimpio.replace(/,/g, ''));
+    }
+  } else {
+    numero = parseFloat(numeroLimpio);
+  }
+  
+  return isNaN(numero) ? 0 : numero;
+}
+
+function esStock(texto: string): boolean {
+  // Número entero, posiblemente con separadores de miles
+  const numeroLimpio = texto.replace(/[.,]/g, '');
+  return /^\d{1,6}$/.test(numeroLimpio) && 
+         parseInt(numeroLimpio) < 100000; // Límite razonable para stock
+}
+
+function esUnidad(texto: string): boolean {
+  // Unidades típicas
+  const unidadesComunes = [
+    'UN', 'UND', 'UNIDAD', 'UNIDADES',
+    'KG', 'GR', 'GRAMOS', 'KILOS',
+    'LT', 'ML', 'LITROS', 'MILILITROS',
+    'MT', 'CM', 'MM', 'METROS', 'CENTIMETROS',
+    'M2', 'M3', 'M²', 'M³',
+    'PZ', 'PIEZA', 'PIEZAS',
+    'CAJA', 'CAJAS', 'PAR', 'PARES'
+  ];
+  
+  return unidadesComunes.includes(texto.toUpperCase()) ||
+         /^(UN|KG|LT|MT|CM|MM|PZ|M[23²³])$/i.test(texto);
+}
+
+function esDescripcion(texto: string): boolean {
+  // Texto descriptivo: más de 5 caracteres, contiene letras, no es solo números
+  return texto.length >= 5 && 
+         /[a-zA-ZáéíóúñÁÉÍÓÚÑ]/.test(texto) && 
+         !/^\d+[.,]?\d*$/.test(texto) &&
+         !esUnidad(texto);
+}
+
+// ============================================
+// GENERACIÓN DE EXCEL CON DATOS REALES
+// ============================================
+
+function generarExcelConDatosReales(datos: FilaExtraida[], nombreArchivo: string, estadisticas: any): Buffer {
+  console.log('📊 Generando Excel con datos REALES extraídos...');
   
   const workbook = XLSX.utils.book_new();
   
-  if (datos.length === 0) {
-    // Hoja de diagnóstico detallada
-    const diagnostico = [
-      ['DIAGNÓSTICO DE EXTRACCIÓN'],
-      [''],
-      ['Estado:', 'No se detectaron tablas válidas'],
-      ['Archivo:', nombreArchivo],
-      ['Páginas procesadas:', estadisticas.paginasProcesadas || 0],
-      ['Líneas de texto:', estadisticas.lineasTexto || 0],
-      ['Tiempo de procesamiento:', estadisticas.tiempoProcesamiento || 'N/A'],
-      [''],
-      ['POSIBLES CAUSAS:'],
-      ['• El PDF contiene solo imágenes (necesita OCR)'],
-      ['• Las tablas no tienen estructura detectables'],
-      ['• El formato de tabla es muy irregular'],
-      ['• El texto está muy fragmentado'],
-      [''],
-      ['SUGERENCIAS:'],
-      ['• Verificar que el PDF contenga texto seleccionable'],
-      ['• Usar PDFs con tablas bien estructuradas'],
-      ['• Probar con documentos más simples primero'],
-      ['• Contactar soporte si el problema persiste']
-    ];
-    
-    const worksheetDiag = XLSX.utils.aoa_to_sheet(diagnostico);
-    XLSX.utils.book_append_sheet(workbook, worksheetDiag, 'Diagnóstico');
-  } else {
-    // Hoja principal con datos extraídos
-    const worksheet = XLSX.utils.json_to_sheet(datos);
-    
-    // Configuración avanzada de columnas
-    const anchos = [
-      { wch: 15 }, // código
-      { wch: 45 }, // descripción
-      { wch: 12 }, // precio
-      { wch: 8 },  // stock
-      { wch: 18 }, // categoria
-      { wch: 10 }, // unidad
-      { wch: 25 }  // observaciones
-    ];
-    worksheet['!cols'] = anchos;
-    
-    // Formato de encabezados
-    if (worksheet['!ref']) {
-      const range = XLSX.utils.decode_range(worksheet['!ref']);
-      for (let col = range.s.c; col <= range.e.c; col++) {
-        const cellAddr = XLSX.utils.encode_cell({ r: 0, c: col });
-        if (worksheet[cellAddr]) {
-          worksheet[cellAddr].s = {
-            font: { bold: true, color: { rgb: "FFFFFF" } },
-            fill: { fgColor: { rgb: "4472C4" } },
-            alignment: { horizontal: "center" }
-          };
-        }
-      }
-      
-      // Formato de datos numéricos
-      for (let row = 1; row <= range.e.r; row++) {
-        // Columna de precio
-        const precioCellAddr = XLSX.utils.encode_cell({ r: row, c: 2 });
-        if (worksheet[precioCellAddr] && typeof worksheet[precioCellAddr].v === 'number') {
-          worksheet[precioCellAddr].z = '"$"#,##0.00';
-        }
-      }
-    }
-    
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Datos Extraídos');
-    
-    // Hoja de análisis avanzado
-    const analisis = [
-      ['ANÁLISIS DETALLADO'],
-      [''],
-      ['Archivo procesado:', nombreArchivo],
-      ['Fecha de procesamiento:', new Date().toLocaleString('es-ES')],
-      [''],
-      ['ESTADÍSTICAS GENERALES'],
-      ['Total de filas extraídas:', datos.length],
-      ['Filas con código:', datos.filter(d => d.codigo).length],
-      ['Filas con descripción:', datos.filter(d => d.descripcion).length],
-      ['Filas con precio:', datos.filter(d => d.precio).length],
-      ['Filas con stock:', datos.filter(d => d.stock).length],
-      ['Filas con categoría:', datos.filter(d => d.categoria).length],
-      [''],
-      ['ANÁLISIS DE PRECIOS'],
-      ['Precio mínimo:', Math.min(...datos.filter(d => d.precio).map(d => d.precio!)) || 0],
-      ['Precio máximo:', Math.max(...datos.filter(d => d.precio).map(d => d.precio!)) || 0],
-      ['Precio promedio:', (datos.filter(d => d.precio).reduce((sum, d) => sum + d.precio!, 0) / datos.filter(d => d.precio).length).toFixed(2) || 0],
-      [''],
-      ['ANÁLISIS DE STOCK'],
-      ['Stock total:', datos.filter(d => d.stock).reduce((sum, d) => sum + d.stock!, 0)],
-      ['Productos sin stock:', datos.filter(d => d.stock === 0).length],
-      ['Stock promedio:', (datos.filter(d => d.stock).reduce((sum, d) => sum + d.stock!, 0) / datos.filter(d => d.stock).length).toFixed(0) || 0],
-      [''],
-      ['CATEGORÍAS DETECTADAS'],
-      ...Array.from(new Set(datos.filter(d => d.categoria).map(d => d.categoria)))
-        .map(cat => ['', cat])
-    ];
-    
-    const worksheetAnalisis = XLSX.utils.aoa_to_sheet(analisis);
-    XLSX.utils.book_append_sheet(workbook, worksheetAnalisis, 'Análisis');
-    
-    // Hoja de procesamiento técnico
-    const tecnico = [
-      ['INFORMACIÓN TÉCNICA'],
-      [''],
-      ['Método de extracción:', 'PDF.js + Parsing Avanzado'],
-      ['Tiempo de procesamiento:', estadisticas.tiempoProcesamiento || 'N/A'],
-      ['Páginas procesadas:', estadisticas.paginasProcesadas || 0],
-      ['Líneas de texto extraídas:', estadisticas.lineasTexto || 0],
-      ['Algoritmo de detección:', 'Análisis espacial + Patrones'],
-      ['Plan Vercel:', 'PRO (60s timeout)'],
-      [''],
-      ['CALIDAD DE EXTRACCIÓN'],
-      ['Filas procesadas:', estadisticas.lineasTexto || 0],
-      ['Filas válidas extraídas:', datos.length],
-      ['Tasa de éxito:', `${((datos.length / (estadisticas.lineasTexto || 1)) * 100).toFixed(1)}%`],
-      [''],
-      ['CAMPOS DETECTADOS'],
-      ['Códigos únicos:', new Set(datos.filter(d => d.codigo).map(d => d.codigo)).size],
-      ['Descripciones únicas:', new Set(datos.filter(d => d.descripcion).map(d => d.descripcion)).size],
-      ['Precios únicos:', new Set(datos.filter(d => d.precio).map(d => d.precio)).size]
-    ];
-    
-    const worksheetTecnico = XLSX.utils.aoa_to_sheet(tecnico);
-    XLSX.utils.book_append_sheet(workbook, worksheetTecnico, 'Info Técnica');
-  }
+  // Hoja principal con datos extraídos
+  const worksheet = XLSX.utils.json_to_sheet(datos);
   
-  // Generar buffer con compresión
-  const buffer = XLSX.write(workbook, {
-    type: 'buffer',
+  // Configurar anchos de columna
+  worksheet['!cols'] = [
+    { wch: 15 }, // código
+    { wch: 50 }, // descripción (más ancho para textos reales)
+    { wch: 15 }, // precio
+    { wch: 10 }, // stock
+    { wch: 15 }, // categoria
+    { wch: 12 }  // unidad
+  ];
+  
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Datos Extraídos');
+  
+  // Hoja de análisis de los datos extraídos
+  const analisis = [
+    ['ANÁLISIS DE DATOS EXTRAÍDOS'],
+    [''],
+    ['Archivo procesado:', nombreArchivo],
+    ['Fecha y hora:', new Date().toLocaleString('es-ES')],
+    [''],
+    ['ESTADÍSTICAS'],
+    ['Total de filas extraídas:', datos.length],
+    ['Filas con código de producto:', datos.filter(d => d.codigo).length],
+    ['Filas con descripción:', datos.filter(d => d.descripcion).length],
+    ['Filas con precio:', datos.filter(d => d.precio).length],
+    ['Filas con información de stock:', datos.filter(d => d.stock !== undefined).length],
+    ['Filas con unidad de medida:', datos.filter(d => d.unidad).length],
+    [''],
+    ['ANÁLISIS DE PRECIOS (si aplica)'],
+    ['Precio mínimo:', datos.filter(d => d.precio).length > 0 ? Math.min(...datos.filter(d => d.precio).map(d => d.precio!)) : 'N/A'],
+    ['Precio máximo:', datos.filter(d => d.precio).length > 0 ? Math.max(...datos.filter(d => d.precio).map(d => d.precio!)) : 'N/A'],
+    ['Precio promedio:', datos.filter(d => d.precio).length > 0 ? 
+      (datos.filter(d => d.precio).reduce((sum, d) => sum + d.precio!, 0) / datos.filter(d => d.precio).length).toFixed(2) : 'N/A'],
+    [''],
+    ['CÓDIGOS ÚNICOS DETECTADOS'],
+    ...Array.from(new Set(datos.filter(d => d.codigo).map(d => d.codigo))).slice(0, 20).map(codigo => ['', codigo]),
+    [''],
+    ['INFORMACIÓN TÉCNICA'],
+    ['Método de extracción:', 'PDF.js + Análisis de patrones'],
+    ['Líneas de texto procesadas:', estadisticas.lineasTexto || 0],
+    ['Tiempo de procesamiento:', estadisticas.tiempoProcesamiento || 'N/A']
+  ];
+  
+  const worksheetAnalisis = XLSX.utils.aoa_to_sheet(analisis);
+  XLSX.utils.book_append_sheet(workbook, worksheetAnalisis, 'Análisis');
+  
+  return XLSX.write(workbook, { 
+    type: 'buffer', 
     bookType: 'xlsx',
-    compression: true,
-    cellStyles: true
+    compression: true 
   });
-  
-  console.log(`✅ Excel avanzado generado: ${buffer.length} bytes`);
-  return buffer;
 }
 
 // ============================================
-// API ROUTE OPTIMIZADA PARA VERCEL PRO
+// API ROUTE PRINCIPAL
 // ============================================
 
 export async function POST(request: NextRequest) {
-  const tiempoInicio = Date.now();
+  const inicio = Date.now();
   
   try {
-    console.log('🚀 VERCEL PRO: Iniciando conversión avanzada PDF a Excel...');
+    console.log('🚀 Iniciando extracción REAL de datos de PDF...');
     
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -537,7 +510,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Validaciones PRO (más permisivas)
+    // Validaciones
     if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
       return NextResponse.json(
         { success: false, error: 'Solo archivos PDF son soportados' },
@@ -545,155 +518,124 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Límite PRO: 50MB
-    const MAX_SIZE_PRO = 50 * 1024 * 1024;
-    if (file.size > MAX_SIZE_PRO) {
+    if (file.size > 30 * 1024 * 1024) { // 30MB límite
       return NextResponse.json(
-        { 
-          success: false, 
-          error: `Archivo muy grande. Máximo con Vercel PRO: ${MAX_SIZE_PRO / 1024 / 1024}MB`,
-          tamañoArchivo: `${(file.size / 1024 / 1024).toFixed(2)}MB`
-        },
+        { success: false, error: 'Archivo muy grande (máximo 30MB)' },
         { status: 400 }
       );
     }
     
-    console.log(`📄 Procesando: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`📄 Procesando archivo real: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
     
-    // Leer archivo
+    // Leer archivo PDF
     const arrayBuffer = await file.arrayBuffer();
     
-    // Control de timeout PRO (55 segundos para seguridad)
+    // Control de timeout
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout: Procesamiento muy complejo incluso para PRO')), 55000)
+      setTimeout(() => reject(new Error('El PDF es muy complejo para procesar en el tiempo límite')), 50000)
     );
     
-    // PASO 1: Extracción avanzada
-    console.log('⚡ Iniciando extracción avanzada...');
-    const extractionPromise = extraerTextoAvanzado(arrayBuffer);
-    const lineasTexto = await Promise.race([extractionPromise, timeoutPromise]) as string[];
-    
-    // PASO 2: Parsing avanzado
-    console.log('🧠 Iniciando análisis avanzado...');
-    const datosExtraidos = parsearTablasAvanzado(lineasTexto);
-    
-    // PASO 3: Excel avanzado
-    const tiempoTranscurrido = Date.now() - tiempoInicio;
-    const estadisticas = {
-      tiempoProcesamiento: `${tiempoTranscurrido}ms`,
-      lineasTexto: lineasTexto.length,
-      paginasProcesadas: Math.min(15, Math.ceil(lineasTexto.length / 50)) // Estimación
+    const processingPromise = async () => {
+      // PASO 1: Extraer texto REAL del PDF
+      const lineasTextoReales = await extraerTextoRealDelPDF(arrayBuffer);
+      
+      // PASO 2: Detectar y extraer tablas REALES
+      const datosRealesExtraidos = detectarTablasReales(lineasTextoReales);
+      
+      return { lineasTextoReales, datosRealesExtraidos };
     };
     
-    console.log('📊 Generando Excel avanzado...');
-    const excelBuffer = generarExcelAvanzado(datosExtraidos, file.name, estadisticas);
+    const { lineasTextoReales, datosRealesExtraidos } = await Promise.race([
+      processingPromise(),
+      timeoutPromise
+    ]) as { lineasTextoReales: string[], datosRealesExtraidos: FilaExtraida[] };
     
-    // Respuesta
+    // PASO 3: Generar Excel con datos reales
+    const tiempoTranscurrido = Date.now() - inicio;
+    const estadisticas = {
+      tiempoProcesamiento: `${tiempoTranscurrido}ms`,
+      lineasTexto: lineasTextoReales.length
+    };
+    
+    const excelBuffer = generarExcelConDatosReales(datosRealesExtraidos, file.name, estadisticas);
     const excelBase64 = excelBuffer.toString('base64');
-    const tiempoFinal = Date.now() - tiempoInicio;
     
-    console.log(`✅ CONVERSIÓN COMPLETADA en ${tiempoFinal}ms`);
-    console.log(`📊 Resultados: ${datosExtraidos.length} filas extraídas`);
+    const tiempoFinal = Date.now() - inicio;
+    
+    console.log(`✅ EXTRACCIÓN REAL COMPLETADA en ${tiempoFinal}ms`);
+    console.log(`📊 DATOS REALES: ${datosRealesExtraidos.length} filas extraídas del PDF`);
     
     return NextResponse.json({
       success: true,
       excel: excelBase64,
       estadisticas: {
-        ...estadisticas,
         tiempoProcesamiento: `${tiempoFinal}ms`,
-        filasExtraidas: datosExtraidos.length,
-        conCodigo: datosExtraidos.filter(d => d.codigo).length,
-        conPrecio: datosExtraidos.filter(d => d.precio).length,
-        conStock: datosExtraidos.filter(d => d.stock).length,
-        conCategoria: datosExtraidos.filter(d => d.categoria).length,
-        tasaExito: `${((datosExtraidos.length / Math.max(lineasTexto.length, 1)) * 100).toFixed(1)}%`,
-        planVercel: 'PRO',
-        limitesUsados: {
-          tiempo: `${tiempoFinal}ms / 60000ms`,
-          archivo: `${(file.size / 1024 / 1024).toFixed(2)}MB / 50MB`
-        }
+        lineasTextoExtraidas: lineasTextoReales.length,
+        filasRealesExtraidas: datosRealesExtraidos.length,
+        conCodigo: datosRealesExtraidos.filter(d => d.codigo).length,
+        conPrecio: datosRealesExtraidos.filter(d => d.precio).length,
+        conStock: datosRealesExtraidos.filter(d => d.stock !== undefined).length,
+        conUnidad: datosRealesExtraidos.filter(d => d.unidad).length,
+        calidadExtraccion: calcularCalidadExtraccion(datosRealesExtraidos)
       },
-      nombreSugerido: file.name.replace('.pdf', '_extraido_pro.xlsx'),
-      mensaje: datosExtraidos.length > 0 
-        ? `🚀 ¡Excelente! ${datosExtraidos.length} filas extraídas con Vercel PRO`
-        : '⚠️ No se detectaron tablas - revisar diagnóstico en Excel',
-      calidad: datosExtraidos.length > 10 ? 'Alta' : datosExtraidos.length > 0 ? 'Media' : 'Baja'
+      nombreSugerido: file.name.replace('.pdf', '_datos_extraidos.xlsx'),
+      mensaje: `✅ ${datosRealesExtraidos.length} filas de datos REALES extraídas del PDF`,
+      origen: 'Datos extraídos directamente del PDF cargado'
     });
     
   } catch (error) {
-    const tiempoError = Date.now() - tiempoInicio;
-    console.error('❌ Error en conversión PRO:', error);
+    const tiempoError = Date.now() - inicio;
+    console.error('❌ Error en extracción real:', error);
     
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Error interno del servidor',
+        error: error instanceof Error ? error.message : 'Error procesando el PDF',
         tiempoProcesamiento: `${tiempoError}ms`,
-        planVercel: 'PRO',
-        limitesUsados: {
-          tiempo: `${tiempoError}ms / 60000ms`
-        },
         sugerencias: [
-          'Con Vercel PRO puedes procesar archivos más grandes',
-          'Verificar que el PDF contenga texto seleccionable',
-          'Probar con PDFs menos complejos si el error persiste',
-          'El límite de 60 segundos permite documentos extensos'
-        ],
-        soporteTecnico: {
-          error: error.message,
-          timestamp: new Date().toISOString(),
-          archivo: file?.name || 'unknown',
-          tamaño: file?.size ? `${(file.size / 1024 / 1024).toFixed(2)}MB` : 'unknown'
-        }
+          'Verificar que el PDF contenga tablas con texto seleccionable',
+          'Asegurar que las tablas estén bien estructuradas',
+          'Probar con un PDF más simple si el problema persiste',
+          'El PDF puede contener solo imágenes (requiere OCR)'
+        ]
       },
       { status: 500 }
     );
   }
 }
 
-// GET endpoint con información PRO
+function calcularCalidadExtraccion(datos: FilaExtraida[]): string {
+  if (datos.length === 0) return 'Sin datos';
+  
+  const conCodigo = datos.filter(d => d.codigo).length;
+  const conDescripcion = datos.filter(d => d.descripcion).length;
+  const conPrecio = datos.filter(d => d.precio).length;
+  
+  const porcentajeCompletitud = ((conCodigo + conDescripcion + conPrecio) / (datos.length * 3)) * 100;
+  
+  if (porcentajeCompletitud >= 70) return 'Alta';
+  if (porcentajeCompletitud >= 40) return 'Media';
+  return 'Baja';
+}
+
 export async function GET() {
   return NextResponse.json({
-    service: 'PDF to Excel Converter PRO',
-    version: '4.0.0 - Vercel PRO Edition',
-    plan: 'Vercel PRO',
+    service: 'PDF to Excel - Extracción Real',
+    version: '6.0.0 - Real Data Only',
+    descripcion: 'Extrae datos REALES del PDF cargado, sin datos inventados',
     caracteristicas: [
-      '🚀 60 segundos de procesamiento',
-      '📄 Hasta 50MB por archivo',
-      '📊 Hasta 15 páginas por PDF',
-      '🧠 Análisis espacial avanzado',
-      '📈 Múltiples hojas de Excel',
-      '🔍 Detección inteligente de tablas',
-      '📋 Diagnóstico detallado',
-      '⚡ Optimizado para documentos complejos'
+      '✅ Extracción real de texto del PDF',
+      '✅ Detección inteligente de tablas',
+      '✅ Análisis de patrones reales',
+      '✅ Sin datos hardcodeados',
+      '✅ Múltiples estrategias de parsing',
+      '✅ Excel con datos del archivo cargado'
     ],
-    limitaciones: [
-      'Máximo 50MB por archivo',
-      'Máximo 15 páginas por procesamiento',
-      'Timeout de 60 segundos',
-      'Requiere texto seleccionable (no OCR)'
-    ],
-    ventajasPRO: [
-      '6x más tiempo de procesamiento vs Hobby',
-      '5x más tamaño de archivo vs Hobby',
-      '7x más páginas vs Hobby',
-      'Análisis espacial avanzado',
-      'Reportes detallados'
-    ],
-    endpoints: {
-      POST: '/api/pdf-to-excel - Convertir PDF a Excel',
-      GET: '/api/pdf-to-excel - Información del servicio'
-    },
-    ejemploUso: {
-      url: 'POST /api/pdf-to-excel',
-      headers: { 'Content-Type': 'multipart/form-data' },
-      body: 'FormData con campo "file"',
-      respuesta: {
-        success: true,
-        excel: 'base64_data...',
-        estadisticas: '...',
-        nombreSugerido: 'archivo_extraido_pro.xlsx'
-      }
-    }
+    garantias: [
+      'Solo datos del PDF cargado',
+      'Sin productos inventados',
+      'Análisis real del contenido',
+      'Transparencia total en extracción'
+    ]
   });
 }
