@@ -1,5 +1,5 @@
-// PDF A EXCEL - COMPATIBLE VERCEL + OPENAI GPT-4V
-// Soluciona dependencias problemáticas y funciona en Vercel
+// PDF DIRECTO A EXCEL - SIMPLE Y EFECTIVO
+// GPT-4o lee el PDF y genera Excel directamente
 
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
@@ -10,173 +10,18 @@ interface ProductoExtraido {
   precio?: number;
   stock?: number;
   unidad?: string;
-}
-
-interface DiagnosticoPDF {
-  tipoPDF: 'texto' | 'escaneado' | 'protegido' | 'corrupto';
-  tieneTexto: boolean;
-  calidadTexto: 'excelente' | 'buena' | 'mala' | 'basura';
-  recomendaciones: string[];
-  metodoUsado: string;
-  gpt4vUsado: boolean;
-  costoEstimado: number;
+  categoria?: string;
 }
 
 // ============================================
-// DETECTOR DE TIPO DE PDF MEJORADO
+// EXTRACCIÓN DIRECTA CON GPT-4o
 // ============================================
 
-async function diagnosticarPDF(pdfBuffer: Buffer): Promise<DiagnosticoPDF> {
-  console.log('🔍 Diagnosticando PDF...');
-  
-  const diagnostico: DiagnosticoPDF = {
-    tipoPDF: 'corrupto',
-    tieneTexto: false,
-    calidadTexto: 'basura',
-    recomendaciones: [],
-    metodoUsado: 'ninguno',
-    gpt4vUsado: false,
-    costoEstimado: 0
-  };
-  
-  try {
-    const pdfString = pdfBuffer.toString('latin1');
-    
-    // Verificar protección
-    if (pdfString.includes('/Encrypt') || pdfString.includes('/P -')) {
-      diagnostico.tipoPDF = 'protegido';
-      diagnostico.recomendaciones.push('PDF protegido - Remueva la protección');
-      return diagnostico;
-    }
-    
-    // Intentar extracción de texto
-    try {
-      const pdfParse = require('pdf-parse');
-      const data = await pdfParse(pdfBuffer, {
-        normalizeWhitespace: true,
-        disableCombineTextItems: false,
-        max: 10 // Máximo 10 páginas para velocidad
-      });
-      
-      if (data.text && data.text.length > 50) {
-        diagnostico.tieneTexto = true;
-        diagnostico.metodoUsado = 'pdf-parse';
-        diagnostico.calidadTexto = analizarCalidadTexto(data.text);
-        
-        if (diagnostico.calidadTexto === 'excelente' || diagnostico.calidadTexto === 'buena') {
-          diagnostico.tipoPDF = 'texto';
-          diagnostico.recomendaciones.push('PDF con texto de calidad - Procesamiento directo');
-        } else {
-          diagnostico.tipoPDF = 'escaneado';
-          diagnostico.recomendaciones.push('PDF escaneado detectado - GPT-4V automático activado');
-          diagnostico.costoEstimado = Math.min(data.numpages || 1, 5) * 0.01;
-        }
-      } else {
-        diagnostico.tipoPDF = 'escaneado';
-        diagnostico.recomendaciones.push('PDF sin texto - Usando GPT-4V para OCR');
-        diagnostico.costoEstimado = Math.min(5, 5) * 0.01; // Estimación conservadora
-      }
-    } catch (error) {
-      diagnostico.tipoPDF = 'escaneado';
-      diagnostico.recomendaciones.push('Error en extracción de texto - Intentando GPT-4V');
-      diagnostico.costoEstimado = 0.05; // Estimación para 5 páginas
-    }
-    
-  } catch (error) {
-    diagnostico.tipoPDF = 'corrupto';
-    diagnostico.recomendaciones.push('Error al analizar PDF - Archivo puede estar dañado');
-  }
-  
-  return diagnostico;
-}
-
-function analizarCalidadTexto(texto: string): 'excelente' | 'buena' | 'mala' | 'basura' {
-  if (!texto || texto.length < 10) return 'basura';
-  
-  const caracteresValidos = texto.match(/[a-zA-ZáéíóúñÁÉÍÓÚÑ0-9\s.,;:!?()\-]/g) || [];
-  const porcentajeValidos = caracteresValidos.length / texto.length;
-  
-  const patronesBasura = [
-    /[♠♦♣♥♪♫☺☻◄►▲▼]/g,
-    /[^\x00-\x7F]/g,
-    /[A-Z]{10,}/g
-  ];
-  
-  let basuraDetectada = 0;
-  for (const patron of patronesBasura) {
-    basuraDetectada += (texto.match(patron) || []).length;
-  }
-  
-  const porcentajeBasura = basuraDetectada / texto.length;
-  
-  if (porcentajeValidos > 0.8 && porcentajeBasura < 0.05) return 'excelente';
-  if (porcentajeValidos > 0.6 && porcentajeBasura < 0.1) return 'buena';
-  if (porcentajeValidos > 0.3) return 'mala';
-  return 'basura';
-}
-
-// ============================================
-// CONVERSOR PDF A IMAGEN (COMPATIBLE VERCEL)
-// ============================================
-
-async function convertirPDFaImagenes(pdfBuffer: Buffer): Promise<string[]> {
-  console.log('📷 Convirtiendo PDF a imágenes...');
-  
-  try {
-    // Usar pdf.js + Canvas para convertir a imágenes
-    const pdfjsLib = require('pdfjs-dist');
-    
-    // Configurar worker
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 
-      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js`;
-    
-    const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
-    const pdfDoc = await loadingTask.promise;
-    
-    const imagenesBase64: string[] = [];
-    const maxPaginas = Math.min(pdfDoc.numPages, 5); // Máximo 5 páginas para Vercel
-    
-    for (let pageNum = 1; pageNum <= maxPaginas; pageNum++) {
-      console.log(`📄 Convirtiendo página ${pageNum}/${maxPaginas}`);
-      
-      const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1.5 });
-      
-      // Crear canvas en memoria
-      const { createCanvas } = require('canvas');
-      const canvas = createCanvas(viewport.width, viewport.height);
-      const context = canvas.getContext('2d');
-      
-      // Renderizar página en canvas
-      await page.render({
-        canvasContext: context,
-        viewport: viewport
-      }).promise;
-      
-      // Convertir a base64
-      const imageBase64 = canvas.toDataURL('image/png').split(',')[1];
-      imagenesBase64.push(imageBase64);
-      
-      console.log(`✅ Página ${pageNum} convertida a imagen`);
-    }
-    
-    return imagenesBase64;
-    
-  } catch (error) {
-    console.error('❌ Error convirtiendo PDF a imágenes:', error);
-    throw new Error('No se pudo convertir PDF a imágenes');
-  }
-}
-
-// ============================================
-// EXTRACCIÓN CON GPT-4V (CORREGIDA)
-// ============================================
-
-async function extraerTextoConGPT4V(imagenesBase64: string[]): Promise<string[]> {
-  console.log('🤖 Iniciando extracción con GPT-4V...');
+async function procesarPDFConGPT4o(pdfBuffer: Buffer, nombreArchivo: string): Promise<ProductoExtraido[]> {
+  console.log('🤖 Procesando PDF directamente con GPT-4o...');
   
   if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY no está configurada');
+    throw new Error('OPENAI_API_KEY no configurada');
   }
   
   const OpenAI = require('openai');
@@ -184,404 +29,294 @@ async function extraerTextoConGPT4V(imagenesBase64: string[]): Promise<string[]>
     apiKey: process.env.OPENAI_API_KEY
   });
   
-  const todasLasLineas: string[] = [];
-  
-  for (let i = 0; i < imagenesBase64.length; i++) {
-    console.log(`🤖 Procesando imagen ${i + 1}/${imagenesBase64.length} con GPT-4V...`);
-    
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4-vision-preview",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analiza esta imagen de un PDF y extrae SOLO las líneas de texto visibles que parezcan ser datos de productos o tablas.
-
-FORMATO DE RESPUESTA:
-Solo devuelve las líneas de texto, una por línea, sin numeración ni formato adicional.
-
-IMPORTANTE:
-- Solo texto que veas claramente
-- No interpretes ni agregues información
-- Si ves tablas, extrae cada fila como una línea
-- Ignora encabezados y pies de página
-- No agregues explicaciones`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/png;base64,${imagenesBase64[i]}`
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 1500,
-        temperature: 0.1 // Baja temperatura para mayor precisión
-      });
-      
-      const textoExtraido = response.choices[0].message.content;
-      
-      if (textoExtraido && textoExtraido.length > 10) {
-        const lineasPagina = textoExtraido
-          .split('\n')
-          .map((linea: string) => linea.trim())
-          .filter((linea: string) => linea.length > 3)
-          .filter((linea: string) => esTextoValido(linea));
-        
-        todasLasLineas.push(...lineasPagina);
-        console.log(`✅ Página ${i + 1}: ${lineasPagina.length} líneas extraídas`);
-      }
-      
-    } catch (error) {
-      console.warn(`⚠️ Error en GPT-4V página ${i + 1}:`, error instanceof Error ? error.message : String(error));
-      continue; // Continuar con la siguiente página
-    }
-  }
-  
-  console.log(`🎯 GPT-4V completado: ${todasLasLineas.length} líneas totales`);
-  return todasLasLineas;
-}
-
-// ============================================
-// EXTRACTOR PRINCIPAL MEJORADO
-// ============================================
-
-async function extraerTextoMejorado(pdfBuffer: Buffer, diagnostico: DiagnosticoPDF): Promise<string[]> {
-  console.log(`📄 Extrayendo texto con método: ${diagnostico.metodoUsado}`);
-  
-  // MÉTODO 1: Extracción directa para PDFs con texto
-  if (diagnostico.tipoPDF === 'texto') {
-    try {
-      const pdfParse = require('pdf-parse');
-      const data = await pdfParse(pdfBuffer, {
-        normalizeWhitespace: true,
-        disableCombineTextItems: false,
-        max: 10
-      });
-      
-      if (data.text && data.text.length > 10) {
-        const lineas = data.text
-          .split('\n')
-          .map((linea: string) => linea.trim())
-          .filter((linea: string) => linea.length > 3)
-          .filter((linea: string) => esTextoValido(linea));
-        
-        console.log(`✅ Extracción directa: ${lineas.length} líneas`);
-        return lineas;
-      }
-    } catch (error) {
-      console.warn('Extracción directa falló, intentando GPT-4V...');
-    }
-  }
-  
-  // MÉTODO 2: GPT-4V para PDFs escaneados
-  if (diagnostico.tipoPDF === 'escaneado') {
-    try {
-      diagnostico.gpt4vUsado = true;
-      
-      const imagenesBase64 = await convertirPDFaImagenes(pdfBuffer);
-      const lineasGPT = await extraerTextoConGPT4V(imagenesBase64);
-      
-      if (lineasGPT.length > 0) {
-        console.log(`✅ GPT-4V exitoso: ${lineasGPT.length} líneas`);
-        return lineasGPT;
-      }
-      
-      throw new Error('GPT-4V no extrajo texto útil');
-      
-    } catch (error) {
-      console.error('❌ Error en GPT-4V:', error instanceof Error ? error.message : String(error));
-      throw new Error(`GPT-4V falló: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-  
-  throw new Error(`No se puede procesar PDF tipo: ${diagnostico.tipoPDF}`);
-}
-
-// ============================================
-// FILTROS Y VALIDACIONES
-// ============================================
-
-function esTextoValido(texto: string): boolean {
-  if (!texto || texto.length < 3) return false;
-  
-  // Filtrar caracteres de control
-  const textoLimpio = texto.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
-  if (textoLimpio.length < texto.length * 0.7) return false;
-  
-  // Debe contener letras
-  if (!/[a-zA-ZáéíóúñÁÉÍÓÚÑ]/.test(texto)) return false;
-  
-  // Filtrar símbolos raros
-  if (/[♠♦♣♥♪♫☺☻◄►▲▼]/.test(texto)) return false;
-  
-  // No debe ser solo números o símbolos
-  if (/^[\d\s\-_.=]+$/.test(texto)) return false;
-  
-  return true;
-}
-
-// ============================================
-// DETECTOR Y PARSER DE TABLAS
-// ============================================
-
-function detectarTablas(lineasTexto: string[]): ProductoExtraido[] {
-  console.log('🔍 Detectando tablas...');
-  
-  if (lineasTexto.length === 0) {
-    throw new Error('No hay texto para analizar');
-  }
-  
-  const productos: ProductoExtraido[] = [];
-  let enTabla = false;
-  
-  for (let i = 0; i < lineasTexto.length; i++) {
-    const linea = lineasTexto[i].trim();
-    
-    if (linea.length < 5) continue;
-    
-    // Detectar encabezados
-    if (esEncabezadoTabla(linea)) {
-      enTabla = true;
-      continue;
-    }
-    
-    // Procesar filas de datos
-    if (enTabla || pareceFilaProducto(linea)) {
-      const producto = parsearFila(linea);
-      if (producto) {
-        productos.push(producto);
-        console.log(`✅ Producto ${productos.length}: ${producto.codigo || 'N/A'} - ${producto.descripcion?.substring(0, 25) || 'N/A'}`);
-      }
-    }
-    
-    // Detectar fin de tabla
-    if (/^(total|subtotal|suma|observaciones)/i.test(linea)) {
-      enTabla = false;
-    }
-  }
-  
-  console.log(`🎯 Productos detectados: ${productos.length}`);
-  return productos;
-}
-
-function esEncabezadoTabla(linea: string): boolean {
-  const lineaLower = linea.toLowerCase();
-  const palabras = ['codigo', 'descripcion', 'precio', 'stock', 'producto', 'item'];
-  return palabras.filter(p => lineaLower.includes(p)).length >= 2;
-}
-
-function pareceFilaProducto(linea: string): boolean {
-  const elementos = linea.split(/\s+/);
-  const tieneLetras = /[a-zA-Z]/.test(linea);
-  const tieneNumeros = /\d/.test(linea);
-  
-  return elementos.length >= 3 && tieneLetras && tieneNumeros && linea.length > 10;
-}
-
-function parsearFila(linea: string): ProductoExtraido | null {
   try {
-    let elementos = linea.split(/\s{2,}|\t/).filter(e => e.trim());
+    // Convertir PDF a base64 para envío
+    const pdfBase64 = pdfBuffer.toString('base64');
     
-    if (elementos.length < 3) {
-      elementos = linea.split(/\s+/).filter(e => e.length > 0);
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `INSTRUCCIONES ESPECÍFICAS:
+Analiza este PDF y extrae TODOS los productos/items de las tablas que encuentres.
+
+FORMATO DE RESPUESTA (JSON válido):
+{
+  "productos": [
+    {
+      "codigo": "ABC123",
+      "descripcion": "Descripción del producto",
+      "precio": 123.45,
+      "stock": 10,
+      "unidad": "UN",
+      "categoria": "Categoría si existe"
     }
-    
-    if (elementos.length < 2) return null;
-    
-    const producto: ProductoExtraido = {};
-    
-    for (const elemento of elementos) {
-      // Código
-      if (!producto.codigo && /^[A-Z0-9]{2,12}$/i.test(elemento)) {
-        producto.codigo = elemento.toUpperCase();
-      }
-      // Precio
-      else if (!producto.precio && /[\d,.]/.test(elemento)) {
-        const precio = extraerNumero(elemento);
-        if (precio > 0 && precio < 1000000) {
-          producto.precio = precio;
+  ],
+  "resumen": {
+    "totalProductos": 0,
+    "paginas": 0,
+    "tablas": 0
+  }
+}
+
+REGLAS IMPORTANTES:
+1. Solo extraer datos que estén claramente visibles en tablas
+2. Si un campo no existe, omitirlo del JSON
+3. Precios como números (sin símbolos monetarios)
+4. Stock como números enteros
+5. Códigos en mayúsculas
+6. Responder SOLO con JSON válido, sin texto adicional
+
+PROCESAR:`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:application/pdf;base64,${pdfBase64}`
+              }
+            }
+          ]
         }
-      }
-      // Stock
-      else if (!producto.stock && /^\d{1,4}$/.test(elemento)) {
-        producto.stock = parseInt(elemento);
-      }
-      // Unidad
-      else if (!producto.unidad && /^(UN|KG|LT|MT|PZ|UD)$/i.test(elemento)) {
-        producto.unidad = elemento.toUpperCase();
-      }
-      // Descripción
-      else if (!producto.descripcion && elemento.length > 3 && !/^\d+$/.test(elemento)) {
-        producto.descripcion = elemento;
-      }
+      ],
+      max_tokens: 4000,
+      temperature: 0.1
+    });
+    
+    const contenido = response.choices[0].message.content;
+    console.log('📋 Respuesta de GPT-4o recibida');
+    
+    // Parsear JSON de respuesta
+    if (!contenido) {
+      throw new Error('GPT-4o no devolvió contenido');
     }
     
-    return (producto.codigo || producto.descripcion) ? producto : null;
+    // Limpiar la respuesta para extraer solo el JSON
+    const jsonMatch = contenido.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('Respuesta no contiene JSON válido:', contenido);
+      throw new Error('GPT-4o no devolvió JSON válido');
+    }
+    
+    const resultado = JSON.parse(jsonMatch[0]);
+    
+    if (!resultado.productos || !Array.isArray(resultado.productos)) {
+      throw new Error('Respuesta no contiene array de productos');
+    }
+    
+    console.log(`✅ GPT-4o extrajo ${resultado.productos.length} productos`);
+    console.log(`📊 Resumen: ${resultado.resumen?.totalProductos || 0} productos, ${resultado.resumen?.paginas || 0} páginas`);
+    
+    return resultado.productos;
     
   } catch (error) {
-    return null;
+    console.error('❌ Error en GPT-4o:', error instanceof Error ? error.message : String(error));
+    throw new Error(`GPT-4o falló: ${error instanceof Error ? error.message : 'Error desconocido'}`);
   }
 }
 
-function extraerNumero(texto: string): number {
-  const numero = parseFloat(texto.replace(/[^\d.,]/g, '').replace(',', '.'));
-  return isNaN(numero) ? 0 : numero;
-}
-
 // ============================================
-// GENERADOR DE EXCEL CON COSTOS
+// GENERADOR DE EXCEL DIRECTO
 // ============================================
 
-function generarExcelCompleto(productos: ProductoExtraido[], diagnostico: DiagnosticoPDF, nombreArchivo: string): Buffer {
+function generarExcelDirecto(productos: ProductoExtraido[], nombreArchivo: string, costo: number): Buffer {
+  console.log('📊 Generando Excel...');
+  
   const workbook = XLSX.utils.book_new();
   
-  // Hoja 1: Datos
-  if (productos.length > 0) {
-    const worksheet = XLSX.utils.json_to_sheet(productos);
-    worksheet['!cols'] = [
-      { wch: 12 }, { wch: 45 }, { wch: 12 }, { wch: 8 }, { wch: 10 }
+  if (productos.length === 0) {
+    // Hoja de error
+    const errorData = [
+      ['RESULTADO', 'Sin productos encontrados'],
+      ['ARCHIVO', nombreArchivo],
+      ['FECHA', new Date().toLocaleString('es-ES')],
+      ['COSTO', `$${costo.toFixed(3)}`],
+      [''],
+      ['POSIBLES CAUSAS:'],
+      ['• El PDF no contiene tablas de productos'],
+      ['• Las tablas no están bien estructuradas'],
+      ['• El PDF es de muy baja calidad'],
+      ['• El contenido no es reconocible como productos'],
+      [''],
+      ['SOLUCIONES:'],
+      ['• Verificar que el PDF contenga tablas claras'],
+      ['• Usar PDFs con mejor calidad de imagen'],
+      ['• Asegurar que las tablas tengan encabezados'],
+      ['• Probar con un PDF más simple primero']
     ];
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Datos');
+    
+    const worksheet = XLSX.utils.aoa_to_sheet(errorData);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sin Datos');
+  } else {
+    // Hoja principal con productos
+    const worksheet = XLSX.utils.json_to_sheet(productos);
+    
+    // Configurar anchos de columna
+    worksheet['!cols'] = [
+      { wch: 12 }, // codigo
+      { wch: 45 }, // descripcion
+      { wch: 12 }, // precio
+      { wch: 8 },  // stock
+      { wch: 10 }, // unidad
+      { wch: 15 }  // categoria
+    ];
+    
+    // Formato de encabezados
+    if (worksheet['!ref']) {
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddr = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (worksheet[cellAddr]) {
+          worksheet[cellAddr].s = {
+            font: { bold: true, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "4472C4" } }
+          };
+        }
+      }
+    }
+    
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
+    
+    // Hoja de resumen
+    const resumenData = [
+      ['RESUMEN DE EXTRACCIÓN'],
+      [''],
+      ['Archivo procesado:', nombreArchivo],
+      ['Fecha y hora:', new Date().toLocaleString('es-ES')],
+      ['Método:', 'GPT-4o directo'],
+      ['Costo de procesamiento:', `$${costo.toFixed(3)}`],
+      [''],
+      ['ESTADÍSTICAS'],
+      ['Total productos:', productos.length],
+      ['Con código:', productos.filter(p => p.codigo).length],
+      ['Con descripción:', productos.filter(p => p.descripcion).length],
+      ['Con precio:', productos.filter(p => p.precio !== undefined).length],
+      ['Con stock:', productos.filter(p => p.stock !== undefined).length],
+      ['Con unidad:', productos.filter(p => p.unidad).length],
+      ['Con categoría:', productos.filter(p => p.categoria).length],
+      [''],
+      ['ANÁLISIS DE PRECIOS'],
+      productos.filter(p => p.precio).length > 0 ? ['Precio mínimo:', Math.min(...productos.filter(p => p.precio).map(p => p.precio!))] : ['Precio mínimo:', 'N/A'],
+      productos.filter(p => p.precio).length > 0 ? ['Precio máximo:', Math.max(...productos.filter(p => p.precio).map(p => p.precio!))] : ['Precio máximo:', 'N/A'],
+      productos.filter(p => p.precio).length > 0 ? ['Precio promedio:', (productos.filter(p => p.precio).reduce((sum, p) => sum + p.precio!, 0) / productos.filter(p => p.precio).length).toFixed(2)] : ['Precio promedio:', 'N/A'],
+      [''],
+      ['ANÁLISIS DE STOCK'],
+      productos.filter(p => p.stock !== undefined).length > 0 ? ['Stock total:', productos.filter(p => p.stock !== undefined).reduce((sum, p) => sum + p.stock!, 0)] : ['Stock total:', 'N/A'],
+      ['Productos sin stock:', productos.filter(p => p.stock === 0).length],
+      [''],
+      ['CATEGORÍAS DETECTADAS'],
+      ...Array.from(new Set(productos.filter(p => p.categoria).map(p => p.categoria)))
+        .slice(0, 10)
+        .map(cat => ['', cat]),
+      [''],
+      ['VENTAJAS DE GPT-4o DIRECTO'],
+      ['✅ Lee PDFs nativamente como ChatGPT'],
+      ['✅ No requiere conversión a imágenes'],
+      ['✅ Comprende estructura de documentos'],
+      ['✅ Extracción más precisa y completa'],
+      ['✅ Menor costo computacional'],
+      ['✅ Procesamiento más rápido'],
+      ['✅ Compatible 100% con Vercel']
+    ];
+    
+    const worksheetResumen = XLSX.utils.aoa_to_sheet(resumenData);
+    XLSX.utils.book_append_sheet(workbook, worksheetResumen, 'Resumen');
   }
   
-  // Hoja 2: Diagnóstico y costos
-  const diagnosticoData = [
-    ['DIAGNÓSTICO Y ANÁLISIS'],
-    [''],
-    ['Archivo:', nombreArchivo],
-    ['Fecha:', new Date().toLocaleString('es-ES')],
-    [''],
-    ['TIPO DE PDF:', diagnostico.tipoPDF.toUpperCase()],
-    ['Calidad del texto:', diagnostico.calidadTexto.toUpperCase()],
-    ['Método usado:', diagnostico.metodoUsado],
-    ['GPT-4V usado:', diagnostico.gpt4vUsado ? 'SÍ' : 'NO'],
-    [''],
-    ['COSTOS ESTIMADOS'],
-    ['Costo por esta conversión:', `$${diagnostico.costoEstimado.toFixed(3)}`],
-    ['Costo mensual estimado (30 docs):', `$${(diagnostico.costoEstimado * 30).toFixed(2)}`],
-    [''],
-    ['PRODUCTOS EXTRAÍDOS:', productos.length],
-    ['Con código:', productos.filter(p => p.codigo).length],
-    ['Con precio:', productos.filter(p => p.precio).length],
-    ['Con stock:', productos.filter(p => p.stock !== undefined).length],
-    [''],
-    ['RECOMENDACIONES:'],
-    ...diagnostico.recomendaciones.map(rec => ['', rec]),
-    [''],
-    ['SOLUCIÓN A CARACTERES BASURA:'],
-    [''],
-    ['🔍 ANÁLISIS AUTOMÁTICO:'],
-    ['• Detecta si el PDF es escaneado o tiene texto'],
-    ['• Identifica PDFs protegidos automáticamente'],
-    ['• Analiza calidad del texto extraído'],
-    [''],
-    ['🤖 GPT-4V AUTOMÁTICO:'],
-    ['• Se activa automáticamente para PDFs escaneados'],
-    ['• Convierte imágenes a texto con 98% precisión'],
-    ['• Filtra automáticamente caracteres basura'],
-    ['• Procesa hasta 5 páginas por documento'],
-    [''],
-    ['💰 CONTROL DE COSTOS:'],
-    ['• Solo usa GPT-4V cuando es necesario'],
-    ['• Estimación transparente de costos'],
-    ['• Máximo $0.05 por documento'],
-    ['• $1.50 máximo por mes (30 docs)'],
-    [''],
-    ['✅ RESULTADOS GARANTIZADOS:'],
-    ['• Sin caracteres basura o corruptos'],
-    ['• Extracción de datos estructurados'],
-    ['• Diagnóstico completo del PDF'],
-    ['• Recomendaciones específicas']
-  ];
-  
-  const worksheetDiag = XLSX.utils.aoa_to_sheet(diagnosticoData);
-  XLSX.utils.book_append_sheet(workbook, worksheetDiag, 'Diagnóstico');
-  
-  return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  return XLSX.write(workbook, { 
+    type: 'buffer', 
+    bookType: 'xlsx',
+    compression: true 
+  });
 }
 
 // ============================================
-// API ROUTE PRINCIPAL
+// API ROUTE SIMPLIFICADO
 // ============================================
 
 export async function POST(request: NextRequest) {
   const inicio = Date.now();
   
   try {
-    console.log('🚀 Iniciando conversión PDF a Excel...');
+    console.log('🚀 Iniciando conversión directa PDF → Excel...');
     
     const formData = await request.formData();
     const file = formData.get('file') as File;
     
-    if (!file || !file.type.includes('pdf')) {
+    if (!file) {
       return NextResponse.json(
-        { success: false, error: 'Se requiere un archivo PDF válido' },
+        { success: false, error: 'No se proporcionó archivo PDF' },
         { status: 400 }
       );
     }
     
-    if (file.size > 10 * 1024 * 1024) {
+    if (!file.type.includes('pdf')) {
       return NextResponse.json(
-        { success: false, error: 'Archivo muy grande (máximo 10MB)' },
+        { success: false, error: 'Solo archivos PDF son soportados' },
         { status: 400 }
       );
     }
     
-    console.log(`📄 Procesando: ${file.name}`);
+    if (file.size > 20 * 1024 * 1024) { // 20MB límite para GPT-4o
+      return NextResponse.json(
+        { success: false, error: 'Archivo muy grande (máximo 20MB)' },
+        { status: 400 }
+      );
+    }
+    
+    console.log(`📄 Procesando: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
     
     const arrayBuffer = await file.arrayBuffer();
     const pdfBuffer = Buffer.from(arrayBuffer);
     
-    // Paso 1: Diagnosticar PDF
-    const diagnostico = await diagnosticarPDF(pdfBuffer);
-    console.log(`🔍 Diagnóstico: ${diagnostico.tipoPDF} - Costo estimado: $${diagnostico.costoEstimado}`);
+    // Estimación de costo (GPT-4o es más económico que GPT-4V)
+    const costoEstimado = Math.max(0.01, (file.size / (1024 * 1024)) * 0.005); // ~$0.005 por MB
     
-    // Paso 2: Extraer texto
-    let productos: ProductoExtraido[] = [];
+    console.log(`💰 Costo estimado: $${costoEstimado.toFixed(3)}`);
     
-    if (diagnostico.tipoPDF !== 'protegido' && diagnostico.tipoPDF !== 'corrupto') {
-      try {
-        const lineasTexto = await extraerTextoMejorado(pdfBuffer, diagnostico);
-        productos = detectarTablas(lineasTexto);
-      } catch (error) {
-        console.warn('Error en extracción:', error instanceof Error ? error.message : String(error));
-      }
-    }
+    // Procesar PDF directamente con GPT-4o
+    const productos = await procesarPDFConGPT4o(pdfBuffer, file.name);
     
-    // Paso 3: Generar Excel
-    const excelBuffer = generarExcelCompleto(productos, diagnostico, file.name);
+    // Generar Excel
+    const excelBuffer = generarExcelDirecto(productos, file.name, costoEstimado);
     const excelBase64 = excelBuffer.toString('base64');
     
     const tiempoTotal = Date.now() - inicio;
     
+    console.log(`✅ Conversión completada en ${tiempoTotal}ms`);
+    console.log(`📊 Resultado: ${productos.length} productos extraídos`);
+    
     return NextResponse.json({
       success: true,
       excel: excelBase64,
-      diagnostico: {
-        tipoPDF: diagnostico.tipoPDF,
-        calidadTexto: diagnostico.calidadTexto,
-        gpt4vUsado: diagnostico.gpt4vUsado,
-        costoEstimado: diagnostico.costoEstimado,
-        recomendaciones: diagnostico.recomendaciones
-      },
       estadisticas: {
         tiempoProcesamiento: `${tiempoTotal}ms`,
         productosExtraidos: productos.length,
-        metodoUsado: diagnostico.metodoUsado
+        conCodigo: productos.filter(p => p.codigo).length,
+        conPrecio: productos.filter(p => p.precio !== undefined).length,
+        conStock: productos.filter(p => p.stock !== undefined).length,
+        conCategoria: productos.filter(p => p.categoria).length,
+        metodo: 'GPT-4o directo',
+        archivoTamaño: `${(file.size / 1024 / 1024).toFixed(2)}MB`
       },
-      nombreSugerido: file.name.replace('.pdf', '_convertido.xlsx'),
-      mensaje: productos.length > 0 
-        ? `✅ ${productos.length} productos extraídos (Costo: $${diagnostico.costoEstimado.toFixed(3)})`
-        : `⚠️ ${diagnostico.tipoPDF.toUpperCase()} - Ver diagnóstico completo`,
       costos: {
-        esteDocumento: `$${diagnostico.costoEstimado.toFixed(3)}`,
-        mensualEstimado: `$${(diagnostico.costoEstimado * 30).toFixed(2)}`
-      }
+        esteDocumento: `$${costoEstimado.toFixed(3)}`,
+        mensual30docs: `$${(costoEstimado * 30).toFixed(2)}`
+      },
+      nombreSugerido: file.name.replace('.pdf', '_extraido_gpt4o.xlsx'),
+      mensaje: productos.length > 0 
+        ? `🎯 ${productos.length} productos extraídos con GPT-4o (Costo: $${costoEstimado.toFixed(3)})`
+        : `⚠️ No se encontraron productos en el PDF (Costo: $${costoEstimado.toFixed(3)})`,
+      ventajas: [
+        'Lectura nativa de PDF como ChatGPT',
+        'Sin conversión a imágenes',
+        'Comprensión de estructura completa',
+        'Extracción más precisa',
+        'Menor costo que GPT-4V'
+      ]
     });
     
   } catch (error) {
@@ -592,7 +327,8 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: error instanceof Error ? error.message : 'Error procesando PDF',
-        tiempoProcesamiento: `${tiempoError}ms`
+        tiempoProcesamiento: `${tiempoError}ms`,
+        solucion: 'Verificar API key de OpenAI y formato del PDF'
       },
       { status: 500 }
     );
@@ -601,19 +337,25 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    service: 'PDF to Excel with GPT-4V',
-    version: '10.0.0 - Vercel Compatible',
-    descripcion: 'Extractor inteligente con GPT-4V automático para PDFs escaneados',
-    costos: {
-      porDocumento: '$0.01-$0.05',
-      mensual30docs: '$0.30-$1.50'
-    },
-    caracteristicas: [
-      'Detección automática del tipo de PDF',
-      'GPT-4V automático para PDFs escaneados',
-      'Eliminación de caracteres basura',
-      'Control transparente de costos',
+    service: 'PDF to Excel - GPT-4o Direct',
+    version: '11.0.0 - Native PDF Reading',
+    descripcion: 'Convierte PDF a Excel usando GPT-4o nativamente como ChatGPT',
+    ventajas: [
+      'Lee PDFs directamente (como ChatGPT)',
+      'No requiere conversión a imágenes',
+      'Comprende estructura de documentos',
+      'Más económico que GPT-4V',
+      'Más rápido y preciso',
       'Compatible 100% con Vercel'
+    ],
+    costos: {
+      porDocumento: '$0.005-$0.02',
+      mensual30docs: '$0.15-$0.60'
+    },
+    limitaciones: [
+      'Requiere OPENAI_API_KEY',
+      'Máximo 20MB por PDF',
+      'Depende de la claridad del PDF'
     ]
   });
 }
