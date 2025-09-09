@@ -129,44 +129,52 @@ export default function CargaPage() {
     exportarAExcel(productosExcel, nombreArchivo)
   }
 
-  // Función para convertir PDF a Excel (REAL - NO simulada)
+  // Función para convertir PDF a Excel (usando nuevo API route)
   const convertirPDFaExcel = async (archivoPDF: File) => {
-    console.log('🚀 Iniciando conversión REAL de PDF:', archivoPDF.name)
+    console.log('🚀 Iniciando conversión con nuevo API:', archivoPDF.name)
     setConvirtiendoPDF(true)
     setProgresoConversion(0)
     setMensajeConversion('Iniciando conversión...')
     
     try {
-      // Importar librería de conversión web
-      const { convertirPDFaExcelWeb, descargarArchivo } = await import('../../lib/pdf-converter-web.js')
+      // Crear FormData
+      const formData = new FormData()
+      formData.append('file', archivoPDF)
       
       // Actualizar progreso
       setProgresoConversion(20)
-      setMensajeConversion('Leyendo archivo PDF...')
+      setMensajeConversion('Enviando archivo al servidor...')
       
-      // Convertir PDF a Excel
-      const resultado = await convertirPDFaExcelWeb(archivoPDF)
+      // Llamar al nuevo API route
+      const response = await fetch('/api/pdf-to-excel', {
+        method: 'POST',
+        body: formData
+      })
       
-      if (resultado.success && resultado.data) {
-        // Actualizar progreso
-        setProgresoConversion(80)
-        setMensajeConversion('Generando archivo Excel...')
-        
+      setProgresoConversion(50)
+      setMensajeConversion('Procesando PDF y extrayendo datos...')
+      
+      const resultado = await response.json()
+      
+      setProgresoConversion(80)
+      setMensajeConversion('Generando archivo Excel...')
+      
+      if (resultado.success && resultado.excel) {
         // Descargar archivo Excel
         const descargaExitosa = descargarArchivo(
-          resultado.data.buffer,
-          resultado.data.filename,
+          resultado.excel,
+          resultado.nombreSugerido || 'conversion.xlsx',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         
         if (descargaExitosa) {
           setProgresoConversion(100)
           setMensajeConversion('¡Conversión completada exitosamente!')
-          console.log(`✅ Conversión exitosa: ${resultado.data.productos} productos extraídos`)
+          console.log('✅ Conversión exitosa:', resultado.estadisticas)
           
           // Mostrar resumen
           setTimeout(() => {
-            alert(`✅ Conversión completada!\n\n📊 Resumen:\n- Productos extraídos: ${resultado.data.productos}\n- Archivo: ${resultado.data.filename}\n- Páginas procesadas: ${resultado.data.resumen.find(r => r.metrica === 'Páginas Procesadas')?.valor || 'N/A'}`)
+            alert(`✅ Conversión completada!\n\n📊 Resumen:\n- Productos extraídos: ${resultado.estadisticas?.filasTablas || 0}\n- Archivo: ${resultado.nombreSugerido}\n- Método: ${resultado.estadisticas?.metodo || 'CloudConvert'}`)
           }, 500)
         } else {
           throw new Error('Error al descargar el archivo')
@@ -176,7 +184,7 @@ export default function CargaPage() {
       }
       
     } catch (error) {
-      console.error('❌ Error en conversión REAL:', error)
+      console.error('❌ Error en conversión:', error)
       setMensajeConversion(`Error: ${error instanceof Error ? error.message : 'Error desconocido'}`)
       
       // Mostrar error al usuario
