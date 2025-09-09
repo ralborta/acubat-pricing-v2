@@ -23,7 +23,11 @@ export default function Header() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">AcuBat</h1>
-            <p className="text-sm text-gray-600">Pricing Platform</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-600">Pricing Platform</p>
+              <span className="text-xs text-blue-600 font-medium">v2.5.1</span>
+              <span className="text-xs text-blue-600 font-medium">Empliados®</span>
+            </div>
           </div>
         </div>
 
