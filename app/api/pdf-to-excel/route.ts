@@ -159,8 +159,8 @@ export async function POST(request: NextRequest) {
       // Calcular estadísticas para la UI
       const productos = result.data.productos;
       const campos = productos.length > 0 ? Object.keys(productos[0]) : [];
-      const tienePrecios = productos.filter(p => p.precio && p.precio > 0).length;
-      const tieneStock = productos.filter(p => p.stock && p.stock > 0).length;
+      const tienePrecios = productos.filter((p: any) => p.precio && p.precio > 0).length;
+      const tieneStock = productos.filter((p: any) => p.stock && p.stock > 0).length;
 
       return NextResponse.json({
         success: true,
