@@ -136,10 +136,11 @@ export async function POST(request: NextRequest) {
         downloadUrl: result.downloadUrl, // si el micro la pasa
         mensaje: result.mensaje || 'Conversión exitosa',
         estadisticas: {
-          tiempoProcesamiento: `${Date.now() - inicio} ms`,
-          metodo: 'CloudConvert',
-          microservicio: MICROSERVICE_URL,
-          ...(result.stats || result.estadisticas || {})
+          lineasTexto: result.stats?.lineasTexto || 0,
+          filasTablas: result.stats?.filasTablas || 0,
+          campos: result.stats?.campos || [],
+          tienePrecios: result.stats?.tienePrecios || 0,
+          tieneStock: result.stats?.tieneStock || 0
         },
         jobId: result.jobId || undefined
       });
@@ -155,15 +156,23 @@ export async function POST(request: NextRequest) {
       const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
       const b64 = Buffer.from(buf).toString('base64');
 
+      // Calcular estadísticas para la UI
+      const productos = result.data.productos;
+      const campos = productos.length > 0 ? Object.keys(productos[0]) : [];
+      const tienePrecios = productos.filter(p => p.precio && p.precio > 0).length;
+      const tieneStock = productos.filter(p => p.stock && p.stock > 0).length;
+
       return NextResponse.json({
         success: true,
         excel: b64,
         nombreSugerido: safeOutName(name),
-        mensaje: `${result.data.productos.length} productos extraídos`,
+        mensaje: `${productos.length} productos extraídos`,
         estadisticas: {
-          tiempoProcesamiento: `${Date.now() - inicio} ms`,
-          productosExtraidos: result.data.productos.length,
-          metodo: result.processing?.metodo || 'LLM + normalización'
+          lineasTexto: productos.length,
+          filasTablas: productos.length,
+          campos: campos,
+          tienePrecios: tienePrecios,
+          tieneStock: tieneStock
         }
       });
     }
