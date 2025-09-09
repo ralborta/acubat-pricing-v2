@@ -129,6 +129,37 @@ export default function CargaPage() {
     exportarAExcel(productosExcel, nombreArchivo)
   }
 
+  // Función para descargar archivo
+  const descargarArchivo = (base64: string, filename: string, mimeType: string): boolean => {
+    try {
+      // Convertir base64 a blob
+      const byteCharacters = atob(base64)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: mimeType })
+
+      // Crear URL y descargar
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      console.log(`✅ Archivo descargado: ${filename}`)
+      return true
+
+    } catch (error) {
+      console.error('❌ Error descargando archivo:', error)
+      return false
+    }
+  }
+
   // Función para convertir PDF a Excel (usando nuevo API route)
   const convertirPDFaExcel = async (archivoPDF: File) => {
     console.log('🚀 Iniciando conversión con nuevo API:', archivoPDF.name)
