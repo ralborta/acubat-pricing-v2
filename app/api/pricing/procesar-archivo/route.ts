@@ -231,8 +231,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     // Obtener configuración (con timeout)
     console.log('🎯 Obteniendo configuración...')
+    console.log('⏰ Timestamp de solicitud:', new Date().toISOString())
     const config = await obtenerConfiguracion()
-    console.log('✅ Configuración cargada:', config)
+    console.log('✅ CONFIGURACIÓN CARGADA DESDE SUPABASE:')
+    console.log('   - IVA:', config.iva + '%')
+    console.log('   - Markup Minorista (Directa):', config.markups.directa + '%')
+    console.log('   - Markup Mayorista:', config.markups.mayorista + '%')
+    console.log('   - Markup Distribución:', config.markups.distribucion + '%')
+    console.log('   - Promociones:', config.promociones ? 'Activas' : 'Inactivas')
+    console.log('   - Comisiones:', config.comisiones)
+    console.log('   - Factores Varta:', config.factoresVarta)
+    console.log('   - Última actualización:', config.ultimaActualizacion)
 
     // Leer archivo Excel
     const buffer = await file.arrayBuffer()
@@ -683,12 +692,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       // 🎯 APLICAR CONFIGURACIÓN EN CÁLCULO MINORISTA
       const configFinal = config
-      console.log('🔧 CONFIGURACIÓN APLICADA:', {
-        iva: configFinal.iva,
-        markupDirecta: configFinal.markups.directa,
-        markupMayorista: configFinal.markups.mayorista,
-        markupDistribucion: configFinal.markups.distribucion
-      })
+      console.log(`\n🔧 APLICANDO CONFIGURACIÓN AL PRODUCTO ${index + 1}:`)
+      console.log('   - IVA:', configFinal.iva + '%')
+      console.log('   - Markup Minorista:', configFinal.markups.directa + '%')
+      console.log('   - Markup Mayorista:', configFinal.markups.mayorista + '%')
+      console.log('   - Markup Distribución:', configFinal.markups.distribucion + '%')
+      console.log('   - Promociones:', configFinal.promociones ? 'Activas' : 'Inactivas')
       
       const ivaMultiplier = 1 + (configFinal.iva / 100)
       const markupMinorista = 1 + (configFinal.markups.directa / 100)
