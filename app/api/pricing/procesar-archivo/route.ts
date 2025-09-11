@@ -169,16 +169,18 @@ function validarMoneda(precio: any): { esPeso: boolean, confianza: number, razon
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   console.log('🚀 INICIANDO PROCESAMIENTO DE ARCHIVO...')
   
   // Timeout de 30 segundos para evitar cuelgues
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('Timeout: Procesamiento excedió 30 segundos')), 30000)
+  const timeoutPromise = new Promise<NextResponse>((resolve) => {
+    setTimeout(() => resolve(NextResponse.json({ 
+      error: 'Timeout: Procesamiento excedió 30 segundos' 
+    }, { status: 408 })), 30000)
   })
   
   try {
-    const processingPromise = (async () => {
+    const processingPromise = (async (): Promise<NextResponse> => {
     const formData = await request.formData()
     const file = formData.get('file') as File
     const configuracion = formData.get('configuracion') as string
@@ -776,8 +778,7 @@ export async function POST(request: NextRequest) {
     })()
     
     // Race entre timeout y procesamiento
-    const result = await Promise.race([processingPromise, timeoutPromise])
-    return result
+    return await Promise.race([processingPromise, timeoutPromise])
 
   } catch (error) {
     console.error('❌ Error en procesamiento:', error)
