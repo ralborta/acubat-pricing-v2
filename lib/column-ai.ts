@@ -7,6 +7,7 @@ export interface MapeoColumnas {
   descripcion?: string
   pdv?: string
   pvp?: string
+  contado?: string
 }
 
 /**
@@ -34,6 +35,12 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   mapeo.precio = headers.find(h => 
     precioPatterns.some(pattern => h.toLowerCase().includes(pattern))
   ) || headers[1] || ''
+  
+  // Buscar columna de contado (prioridad alta)
+  const contadoPatterns = ['contado', 'cash', 'efectivo']
+  mapeo.contado = headers.find(h => 
+    contadoPatterns.some(pattern => h.toLowerCase().includes(pattern))
+  ) || ''
   
   // Buscar columna de tipo
   const tipoPatterns = ['tipo', 'categoria', 'clase', 'grupo', 'category']
