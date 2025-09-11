@@ -46,26 +46,33 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       Eres especialista senior en pricing de baterías automotrices en Argentina.
       Usa únicamente las COLUMNAS y la MUESTRA provistas en este turno (ignora cualquier conocimiento previo).
       Debes mapear exactamente qué columna corresponde a:
-      tipo (familia/categoría: p.ej. "Ca Ag Blindada", "J.I.S.", "Batería")
-      modelo (código identificador: p.ej. "UB 550 Ag", "VA40DD/E")
-      precio_ars (precio en pesos argentinos)
-      descripcion (si existe)
+      tipo (familia/categoría: p.ej. "Batería", "Ca Ag Blindada", "J.I.S.")
+      modelo (código identificador: p.ej. "M18FD", "M20GD", "M22ED")
+      precio_ars (precio en pesos argentinos - columna "Contado" tiene prioridad)
+      descripcion (descripción comercial del producto)
       
       REGLAS OBLIGATORIAS:
       Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
       
-      DIMENSIONES PROHIBIDAS (blacklist, case-insensitive en encabezado y contenido): 
-      pallet|palet|kg|peso|largo|ancho|alto|mm|cm|ah|cca|dimens|unidad(es)? por pallet|capacidad|volumen
+      PRECIO (prioridad específica):
+      1. Busca columna "Contado" - esta es la columna de precio base principal
+      2. Si no existe "Contado", busca: precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
+      3. Contenido: valores numéricos con formato $XXX,XX (pesos argentinos)
+      4. Ejemplos válidos: $124,99, $122,99, $131,99, $137,99
       
-      PRECIO (prioridad):
-      Pistas de encabezado: precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD).
-      Contenido: ≥80% filas con valores numéricos plausibles para Argentina (≈ 150.000–3.000.000), con separadores locales o enteros.
-      Si hay duplicados (con/sin IVA), prefiere "precio lista / sugerido proveedor" y, si hay dos variantes, elige "sin IVA" y deja nota.
+      TIPO (prioridad):
+      1. Busca columna "DENOMINACION COMERCIAL" o similar
+      2. Contenido: descripciones como "12-50 Clio, Ka, Twingo, Fiesta (N)"
+      3. Si no existe, usa "Batería" como valor por defecto
       
-      IDENTIFICADOR: intenta modelo como código más específico; si no existe, identificador = nombre (indícalo en notas).
-      Nombres exactos: devuelve exactamente los encabezados; no los renombres.
-      Evidencia: incluye 2–5 muestras por cada campo elegido y el motivo de la elección.
-      Si la confianza < 0.6 en cualquier campo, déjalo null y explica por qué en notas.
+      MODELO (prioridad):
+      1. Busca columna "Descripción Modelo SAP" o similar
+      2. Contenido: códigos como "M18FD", "M20GD", "M22ED"
+      3. Si no existe, usa el primer identificador disponible
+      
+      DESCRIPCION:
+      1. Usa la misma columna que TIPO si es descriptiva
+      2. O busca columna con descripciones detalladas del producto
       
       Salida estricta: responde solo con JSON que cumpla el schema provisto (sin texto extra).
       
@@ -78,6 +85,7 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
         "tipo": "nombre_columna",
         "modelo": "nombre_columna", 
         "precio": "nombre_columna",
+        "contado": "nombre_columna",
         "descripcion": "nombre_columna"
       }
     `
@@ -144,6 +152,7 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       tipo: '',
       modelo: '',
       precio: '',
+      contado: '',
       descripcion: ''
     }
   }
@@ -151,13 +160,41 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
 
 // 💰 VALIDACIÓN SIMPLE DE MONEDA (sin IA)
 function validarMoneda(precio: any): { esPeso: boolean, confianza: number, razon: string } {
-  const precioNum = parseFloat(precio)
+  // Convertir a string para análisis
+  const precioStr = String(precio).trim()
   
-  // Validación simple: si es un número razonable para pesos argentinos
+  // Detectar formato argentino: $XXX,XX o $XXX.XX
+  const formatoArgentino = /^\$?\d{1,3}([.,]\d{2})?$/
+  
+  if (formatoArgentino.test(precioStr)) {
+    // Extraer número (remover $ y convertir coma a punto)
+    const precioNum = parseFloat(precioStr.replace('$', '').replace(',', '.'))
+    
+    // Validar rango típico para baterías en Argentina (100-500 pesos)
+    if (precioNum >= 100 && precioNum <= 500) {
+      return {
+        esPeso: true,
+        confianza: 98,
+        razon: 'Formato argentino válido ($XXX,XX) en rango típico de baterías'
+      }
+    }
+    
+    // Rango más amplio para otros productos
+    if (precioNum >= 50 && precioNum <= 1000) {
+      return {
+        esPeso: true,
+        confianza: 95,
+        razon: 'Formato argentino válido ($XXX,XX) en rango amplio'
+      }
+    }
+  }
+  
+  // Validación numérica simple como fallback
+  const precioNum = parseFloat(precioStr.replace(/[$,]/g, ''))
   if (precioNum > 1000 && precioNum < 1000000) {
     return {
       esPeso: true,
-      confianza: 95,
+      confianza: 85,
       razon: 'Precio en rango típico de pesos argentinos'
     }
   }
@@ -165,7 +202,7 @@ function validarMoneda(precio: any): { esPeso: boolean, confianza: number, razon
   return {
     esPeso: false,
     confianza: 80,
-    razon: 'Precio fuera del rango típico de pesos argentinos'
+    razon: 'Formato no reconocido como pesos argentinos'
   }
 }
 
@@ -235,6 +272,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         tipo: '',
         modelo: '',
         precio: '',
+        contado: '',
         descripcion: ''
       }
 
@@ -332,6 +370,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (header === '__EMPTY_14') {
           mapeo.precio = header
           console.log(`✅ Precio detectado específicamente: "${header}" (columna con precios reales)`)
+          // 🚨 SOBRESCRIBIR cualquier detección anterior
+        }
+        
+        // 🎯 DETECCIÓN DE COLUMNA "CONTADO" (PRIORIDAD ALTA)
+        if (!mapeo.contado && (
+          headerLower.includes('contado') || 
+          headerLower.includes('cash') ||
+          headerLower === 'contado' ||
+          headerLower === 'cash'
+        )) {
+          mapeo.contado = header
+          console.log(`✅ Contado detectado: "${header}"`)
+        }
+        
+        // 🎯 DETECCIÓN ESPECÍFICA PARA ARCHIVO DE BATERÍAS
+        if (header === 'Contado') {
+          mapeo.contado = header
+          console.log(`✅ Contado detectado específicamente: "${header}"`)
           // 🚨 SOBRESCRIBIR cualquier detección anterior
         }
         
@@ -452,13 +508,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Modelo: "${modelo}" (columna: ${columnMapping.modelo})`)
       console.log(`   - Descripción: "${descripcion}" (columna: ${columnMapping.descripcion})`)
       
-      // Buscar precio (prioridad: precio > pdv > pvp)
+      // Buscar precio (prioridad: Contado > precio > pdv > pvp)
       console.log(`\n💰 BÚSQUEDA DE PRECIO DEL PRODUCTO ${index + 1}:`)
       console.log(`🔍 Mapeo de columnas disponible:`, columnMapping)
       let precioBase = 0
       
-      // Buscar en todas las columnas de precio disponibles
+      // Buscar en todas las columnas de precio disponibles (prioridad: Contado)
       const columnasPrecio = [
+        { key: 'contado', value: columnMapping.contado },
         { key: 'precio', value: columnMapping.precio },
         { key: 'pdv', value: columnMapping.pdv },
         { key: 'pvp', value: columnMapping.pvp }
