@@ -3,15 +3,22 @@ import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
 import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
 
-// 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN DESDE SUPABASE
+// 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN DESDE SUPABASE (CON TIMEOUT)
 async function obtenerConfiguracion() {
   try {
-    // 🚀 IMPORTAR CONFIGMANAGER SUPABASE
-    const { default: configManager } = await import('../../../../lib/configManagerSupabase');
+    // 🚀 IMPORTAR CONFIGMANAGER SUPABASE CON TIMEOUT
+    const configPromise = (async () => {
+      const { default: configManager } = await import('../../../../lib/configManagerSupabase');
+      const configManagerInstance = new configManager();
+      return await configManagerInstance.getCurrentConfig();
+    })();
     
-    // Obtener configuración desde Supabase
-    const configManagerInstance = new configManager();
-    const config = await configManagerInstance.getCurrentConfig();
+    // Timeout de 10 segundos para la configuración
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout obteniendo configuración')), 10000)
+    );
+    
+    const config = await Promise.race([configPromise, timeoutPromise]);
     console.log('🎯 Configuración cargada desde Supabase:', config);
     
     return config;
@@ -163,25 +170,30 @@ function validarMoneda(precio: any): { esPeso: boolean, confianza: number, razon
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 INICIANDO PROCESAMIENTO DE ARCHIVO...')
+  
+  // Timeout de 30 segundos para evitar cuelgues
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Timeout: Procesamiento excedió 30 segundos')), 30000)
+  })
+  
   try {
+    const processingPromise = (async () => {
     const formData = await request.formData()
     const file = formData.get('file') as File
     const configuracion = formData.get('configuracion') as string
+    
+    console.log('📁 Archivo recibido:', file?.name, 'Tamaño:', file?.size)
+    console.log('⚙️ Configuración recibida:', configuracion)
     
     if (!file) {
       return NextResponse.json({ error: 'No se proporcionó archivo' }, { status: 400 })
     }
     
-    // Parsear configuración del cliente
-    let config = null
-    if (configuracion) {
-      try {
-        config = JSON.parse(configuracion)
-        console.log('🎯 Configuración recibida del cliente:', config)
-      } catch (error) {
-        console.warn('⚠️ Error parseando configuración del cliente:', error)
-      }
-    }
+    // Obtener configuración (con timeout)
+    console.log('🎯 Obteniendo configuración...')
+    const config = await obtenerConfiguracion()
+    console.log('✅ Configuración cargada:', config)
 
     // Leer archivo Excel
     const buffer = await file.arrayBuffer()
@@ -611,7 +623,7 @@ export async function POST(request: NextRequest) {
       console.log(`   - Costo Mayorista: ${mayoristaBase} * 0.6 = ${costoEstimadoMayorista}`)
 
       // 🎯 APLICAR CONFIGURACIÓN EN CÁLCULO MINORISTA
-      const configFinal = config || await obtenerConfiguracion()
+      const configFinal = config
       console.log('🔧 CONFIGURACIÓN APLICADA:', {
         iva: configFinal.iva,
         markupDirecta: configFinal.markups.directa,
@@ -757,10 +769,15 @@ export async function POST(request: NextRequest) {
       productos: productosProcesados
     }
 
-    console.log('✅ SISTEMA LOCAL CONFIABLE COMPLETADO EXITOSAMENTE')
-    console.log('🎯 Base de datos Varta local funcionando perfectamente')
-    console.log('🚀 Sin dependencias de APIs externas inestables')
-    return NextResponse.json(resultado)
+      console.log('✅ SISTEMA LOCAL CONFIABLE COMPLETADO EXITOSAMENTE')
+      console.log('🎯 Base de datos Varta local funcionando perfectamente')
+      console.log('🚀 Sin dependencias de APIs externas inestables')
+      return NextResponse.json(resultado)
+    })()
+    
+    // Race entre timeout y procesamiento
+    const result = await Promise.race([processingPromise, timeoutPromise])
+    return result
 
   } catch (error) {
     console.error('❌ Error en procesamiento:', error)
