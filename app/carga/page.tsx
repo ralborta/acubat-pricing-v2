@@ -12,8 +12,10 @@ interface Producto {
   producto: string
   tipo: string
   modelo: string
-  precio_base_minorista: number  // ✅ Precio base para Minorista (del archivo)
-  precio_base_mayorista: number  // ✅ Precio base para Mayorista (Varta o archivo)
+  precio_base_original?: number  // ✅ Precio base original (antes del descuento)
+  precio_base_minorista: number  // ✅ Precio base para Minorista (con descuento)
+  precio_base_mayorista: number  // ✅ Precio base para Mayorista (con descuento)
+  descuento_proveedor?: number  // ✅ % Descuento de proveedor aplicado
   costo_estimado_minorista: number  // ✅ Costo estimado para Minorista
   costo_estimado_mayorista: number  // ✅ Costo estimado para Mayorista
   equivalencia_varta?: {
