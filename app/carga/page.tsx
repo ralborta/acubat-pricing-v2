@@ -358,6 +358,7 @@ export default function CargaPage() {
       'Tipo', 
       'Modelo',
       'Precio Base',
+      'Desc. Proveedor',
       'Canal',
       'Precio Neto',
       'IVA',
@@ -376,6 +377,7 @@ export default function CargaPage() {
         producto.tipo || 'Batería',
         producto.modelo || 'N/A',
         producto.precio_base_minorista || 0,
+        (producto.descuento_proveedor || 0) + '%',
         'Minorista',
         producto.minorista.precio_neto || 0,
         (producto.minorista.precio_final || 0) - (producto.minorista.precio_neto || 0),
@@ -390,6 +392,7 @@ export default function CargaPage() {
         '', // Tipo vacío para mantener alineación
         '', // Modelo vacío para mantener alineación
         producto.precio_base_mayorista || 0,
+        (producto.descuento_proveedor || 0) + '%',
         'Mayorista',
         producto.mayorista.precio_neto || 0,
         (producto.mayorista.precio_final || 0) - (producto.mayorista.precio_neto || 0),
@@ -952,6 +955,9 @@ export default function CargaPage() {
                               PRECIO BASE
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                              DESC. PROVEEDOR
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                               CANAL
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
@@ -995,6 +1001,11 @@ export default function CargaPage() {
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                                   <div className="text-sm font-semibold text-gray-900">
                                     {formatCurrency(producto.precio_base_minorista)}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
+                                  <div className="text-sm font-semibold text-orange-600">
+                                    {producto.descuento_proveedor || 0}%
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
@@ -1046,6 +1057,11 @@ export default function CargaPage() {
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                                   <div className="text-sm font-semibold text-gray-900">
                                     {formatCurrency(producto.precio_base_mayorista)}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
+                                  <div className="text-sm font-semibold text-orange-600">
+                                    {producto.descuento_proveedor || 0}%
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
