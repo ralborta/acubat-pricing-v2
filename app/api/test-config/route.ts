@@ -42,9 +42,8 @@ async function obtenerConfiguracion() {
       try {
         // 🔄 TERCER INTENTO: Cargar desde ConfigManager local
         console.log('🔍 Intentando cargar configuración desde ConfigManager local...');
-        const { default: configManager } = await import('../../../lib/configManagerLocal');
-        const configManagerInstance = new configManager();
-        const config = await configManagerInstance.getCurrentConfig();
+        const configManager = await import('../../../lib/configManagerLocal');
+        const config = await configManager.default.getCurrentConfig();
         
         console.log('✅ Configuración cargada desde ConfigManager local:', config);
         return config;

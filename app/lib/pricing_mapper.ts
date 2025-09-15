@@ -2,7 +2,7 @@
 // Requisitos: npm i openai
 import OpenAI from "openai";
 
-// 🎯 CONFIGURACIÓN HÍBRIDA: Supabase + Local + Fallback
+// 🎯 CONFIGURACIÓN HÍBRIDA: Supabase + Local + Fallback (CLIENT-SIDE)
 async function obtenerConfiguracion() {
   try {
     // 🚀 PRIMER INTENTO: Cargar desde Supabase
@@ -18,44 +18,26 @@ async function obtenerConfiguracion() {
     console.error('❌ Error cargando desde Supabase:', error);
     
     try {
-      // 🔄 SEGUNDO INTENTO: Cargar desde archivo local
-      console.log('🔍 Intentando cargar configuración desde archivo local...');
-      const fs = await import('fs');
-      const path = await import('path');
+      // 🔄 SEGUNDO INTENTO: Cargar desde ConfigManager local (funciona en cliente)
+      console.log('🔍 Intentando cargar configuración desde ConfigManager local...');
+      const configManager = await import('../../lib/configManagerLocal');
+      const config = await configManager.default.getCurrentConfig();
       
-      const configPath = path.join(process.cwd(), 'config', 'configuracion.json');
-      const configData = fs.readFileSync(configPath, 'utf8');
-      const config = JSON.parse(configData);
-      
-      console.log('✅ Configuración cargada desde archivo local:', config);
+      console.log('✅ Configuración cargada desde ConfigManager local:', config);
       return config;
       
-    } catch (localError) {
-      console.error('❌ Error cargando desde archivo local:', localError);
+    } catch (managerError) {
+      console.error('❌ Error cargando desde ConfigManager local:', managerError);
+      console.log('⚠️ Usando valores por defecto como último recurso');
       
-      try {
-        // 🔄 TERCER INTENTO: Cargar desde ConfigManager local
-        console.log('🔍 Intentando cargar configuración desde ConfigManager local...');
-        const { default: configManager } = await import('../../lib/configManagerLocal');
-        const configManagerInstance = new configManager();
-        const config = await configManagerInstance.getCurrentConfig();
-        
-        console.log('✅ Configuración cargada desde ConfigManager local:', config);
-        return config;
-        
-      } catch (managerError) {
-        console.error('❌ Error cargando desde ConfigManager local:', managerError);
-        console.log('⚠️ Usando valores por defecto como último recurso');
-        
-        // ÚLTIMO RECURSO: Valores por defecto hardcodeados
-        return {
-          iva: 21,
-          markups: { mayorista: 22, directa: 60, distribucion: 20 },
-          factoresVarta: { factorBase: 40, capacidad80Ah: 35 },
-          promociones: false,
-          comisiones: { mayorista: 5, directa: 8, distribucion: 6 }
-        };
-      }
+      // ÚLTIMO RECURSO: Valores por defecto hardcodeados
+      return {
+        iva: 21,
+        markups: { mayorista: 22, directa: 60, distribucion: 20 },
+        factoresVarta: { factorBase: 40, capacidad80Ah: 35 },
+        promociones: false,
+        comisiones: { mayorista: 5, directa: 8, distribucion: 6 }
+      };
     }
   }
 }
