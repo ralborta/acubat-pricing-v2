@@ -445,7 +445,7 @@ export default function ConfiguracionPage() {
 
                 {/* Descuento de Proveedor */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Descuento de Proveedor</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">💰 Descuento de Proveedor</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
