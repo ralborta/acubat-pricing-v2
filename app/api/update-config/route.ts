@@ -35,21 +35,51 @@ export async function POST(request: NextRequest) {
       ultimaActualizacion: new Date().toISOString()
     }
     
-    // Insertar nueva configuración
-    const { data, error } = await supabase
+    // 🔄 UPSERT: Actualizar si existe, insertar si no existe
+    let data, error;
+    
+    // Primero intentar actualizar
+    const updateResult = await supabase
       .from('config')
-      .insert({
+      .update({
         config_data: configToSave,
-        created_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
       })
+      .eq('id', 1)
       .select()
     
-    if (error) {
-      console.error('❌ Error actualizando configuración:', error)
+    if (updateResult.error) {
+      console.error('❌ Error actualizando configuración:', updateResult.error)
       return NextResponse.json({ 
         success: false, 
-        error: error.message 
+        error: updateResult.error.message 
       }, { status: 500 })
+    }
+    
+    // Si no hay datos (no existe el registro), insertar uno nuevo
+    if (!updateResult.data || updateResult.data.length === 0) {
+      console.log('📝 Registro no existe, creando nuevo...')
+      const insertResult = await supabase
+        .from('config')
+        .insert({
+          id: 1,
+          config_data: configToSave,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+      
+      if (insertResult.error) {
+        console.error('❌ Error insertando configuración:', insertResult.error)
+        return NextResponse.json({ 
+          success: false, 
+          error: insertResult.error.message 
+        }, { status: 500 })
+      }
+      
+      data = insertResult.data;
+    } else {
+      data = updateResult.data;
     }
     
     console.log('✅ Configuración actualizada en Supabase:', data)
