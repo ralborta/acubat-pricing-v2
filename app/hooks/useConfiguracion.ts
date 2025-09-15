@@ -42,7 +42,27 @@ export function useConfiguracion() {
     try {
       setLoading(true);
       
-      // Usar localStorage por ahora (funciona localmente y en Vercel)
+      // 🚀 PRIMERO: Intentar cargar desde Supabase
+      try {
+        console.log('🔍 Cargando configuración desde Supabase...');
+        const response = await fetch('/api/init-config');
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            const configTyped = ensureConfigType(result.data.config_data);
+            setConfiguracion(configTyped);
+            setError(null);
+            console.log('✅ Configuración cargada desde Supabase:', configTyped);
+            return;
+          }
+        }
+      } catch (supabaseError) {
+        console.warn('⚠️ Error cargando desde Supabase, usando localStorage:', supabaseError);
+      }
+      
+      // 🔄 SEGUNDO: Fallback a localStorage
+      console.log('🔍 Cargando configuración desde localStorage...');
       const config = await configManager.getCurrentConfig();
       const configTyped = ensureConfigType(config);
       setConfiguracion(configTyped);
@@ -64,10 +84,32 @@ export function useConfiguracion() {
       // Crear configuración completa
       const configCompleta = {
         ...configuracion,
-        ...nuevaConfig
+        ...nuevaConfig,
+        ultimaActualizacion: new Date().toISOString()
       };
       
-      // Guardar en localStorage (funciona localmente y en Vercel)
+      // 🚀 PRIMERO: Guardar en Supabase (base de datos)
+      try {
+        console.log('💾 Guardando configuración en Supabase...');
+        const response = await fetch('/api/update-config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(configCompleta)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('✅ Configuración guardada en Supabase:', result);
+      } catch (supabaseError) {
+        console.warn('⚠️ Error guardando en Supabase, continuando con localStorage:', supabaseError);
+      }
+      
+      // 🔄 SEGUNDO: Guardar en localStorage como respaldo
       const configGuardada = await configManager.saveConfig(configCompleta);
       const configTyped = ensureConfigType(configGuardada);
       setConfiguracion(configTyped);
