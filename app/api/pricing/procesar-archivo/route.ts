@@ -735,6 +735,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('   - Markup Minorista:', configFinal.markups.directa + '%')
       console.log('   - Markup Mayorista:', configFinal.markups.mayorista + '%')
       console.log('   - Markup Distribución:', configFinal.markups.distribucion + '%')
+      console.log('   - Descuento Proveedor:', (configFinal.descuentoProveedor || 0) + '%')
       console.log('   - Promociones:', configFinal.promociones ? 'Activas' : 'Inactivas')
       
       const ivaMultiplier = 1 + (configFinal.iva / 100)
