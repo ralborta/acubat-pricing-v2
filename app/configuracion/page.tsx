@@ -443,6 +443,52 @@ export default function ConfiguracionPage() {
                   </div>
                 </div>
 
+                {/* Descuento de Proveedor */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Descuento de Proveedor</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Porcentaje de Descuento
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={configuracion.descuentoProveedor || 0}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            handleConfigChange('descuentoProveedor', value ? parseFloat(value) : 0);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 sm:text-sm">%</span>
+                        </div>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Descuento aplicado al precio de lista del proveedor
+                      </p>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <CurrencyDollarIcon className="h-5 w-5 text-blue-400" />
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm font-medium text-blue-800">
+                              Precio Final = (Precio Lista - Descuento) × Markup × IVA
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Markups por Canal */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Markups por Canal</h3>

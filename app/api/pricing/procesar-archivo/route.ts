@@ -710,16 +710,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Mayorista: Usa precioVarta si existe, sino precioBase
       let mayoristaBase = equivalenciaVarta?.precio_varta || precioBase
       
+      // 🎯 APLICAR DESCUENTO DE PROVEEDOR (si está configurado)
+      const descuentoProveedor = config.descuentoProveedor || 0;
+      const precioBaseConDescuento = precioBase * (1 - descuentoProveedor / 100);
+      const mayoristaBaseConDescuento = mayoristaBase * (1 - descuentoProveedor / 100);
+      
       console.log(`\n💰 DEFINICIÓN DE PRECIOS BASE DEL PRODUCTO ${index + 1}:`)
-      console.log(`   - Precio Base Minorista: ${precioBase} (del archivo subido)`)
-      console.log(`   - Precio Base Mayorista: ${mayoristaBase} (${equivalenciaVarta ? 'de tabla Varta' : 'del archivo subido'})`)
+      console.log(`   - Precio Base Original: ${precioBase} (del archivo subido)`)
+      console.log(`   - Descuento Proveedor: ${descuentoProveedor}%`)
+      console.log(`   - Precio Base Minorista: ${precioBaseConDescuento} (con descuento aplicado)`)
+      console.log(`   - Precio Base Mayorista: ${mayoristaBaseConDescuento} (${equivalenciaVarta ? 'de tabla Varta' : 'del archivo subido'} con descuento aplicado)`)
 
-      // Costos estimados separados por canal
-      const costoEstimadoMinorista = precioBase * 0.6 // 60% del precio base minorista
-      const costoEstimadoMayorista = mayoristaBase * 0.6 // 60% del precio base mayorista
-      console.log(`\n💰 COSTOS ESTIMADOS (60% del precio base):`)
-      console.log(`   - Costo Minorista: ${precioBase} * 0.6 = ${costoEstimadoMinorista}`)
-      console.log(`   - Costo Mayorista: ${mayoristaBase} * 0.6 = ${costoEstimadoMayorista}`)
+      // Costos estimados separados por canal (usando precios con descuento)
+      const costoEstimadoMinorista = precioBaseConDescuento * 0.6 // 60% del precio base minorista con descuento
+      const costoEstimadoMayorista = mayoristaBaseConDescuento * 0.6 // 60% del precio base mayorista con descuento
+      console.log(`\n💰 COSTOS ESTIMADOS (60% del precio base con descuento):`)
+      console.log(`   - Costo Minorista: ${precioBaseConDescuento} * 0.6 = ${costoEstimadoMinorista}`)
+      console.log(`   - Costo Mayorista: ${mayoristaBaseConDescuento} * 0.6 = ${costoEstimadoMayorista}`)
 
       // 🎯 APLICAR CONFIGURACIÓN EN CÁLCULO MINORISTA
       const configFinal = config
@@ -740,12 +747,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // Cálculo Minorista (precio más alto para venta al público)
       console.log(`\n💰 CÁLCULO MINORISTA DEL PRODUCTO ${index + 1}:`)
-      const minoristaNeto = precioBase * markupMinorista // Markup desde configuración
+      const minoristaNeto = precioBaseConDescuento * markupMinorista // Markup desde configuración sobre precio con descuento
       const minoristaFinal = Math.round((minoristaNeto * ivaMultiplier) / 10) * 10
-      const minoristaRentabilidad = ((minoristaNeto - precioBase) / minoristaNeto) * 100
+      const minoristaRentabilidad = ((minoristaNeto - precioBaseConDescuento) / minoristaNeto) * 100
       
-      console.log(`   - Precio Base: ${precioBase}`)
-      console.log(`   - +${configFinal.markups.directa}%: ${precioBase} * ${markupMinorista} = ${minoristaNeto}`)
+      console.log(`   - Precio Base Original: ${precioBase}`)
+      console.log(`   - Descuento Proveedor: ${descuentoProveedor}%`)
+      console.log(`   - Precio Base con Descuento: ${precioBaseConDescuento}`)
+      console.log(`   - +${configFinal.markups.directa}%: ${precioBaseConDescuento} * ${markupMinorista} = ${minoristaNeto}`)
       console.log(`   - +IVA (${configFinal.iva}%): ${minoristaNeto} * ${ivaMultiplier} = ${minoristaNeto * ivaMultiplier}`)
       console.log(`   - Redondeado: ${minoristaFinal}`)
       console.log(`   - Rentabilidad: ${minoristaRentabilidad.toFixed(1)}%`)
@@ -759,20 +768,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       if (equivalenciaVarta) {
         console.log(`   - Usando precio Varta: ${mayoristaBase}`)
-        console.log(`   - Markup: ${configFinal.markups.mayorista}% sobre precio Varta`)
-        mayoristaNeto = mayoristaBase * markupMayorista // Markup desde configuración
+        console.log(`   - Descuento Proveedor: ${descuentoProveedor}%`)
+        console.log(`   - Precio Varta con Descuento: ${mayoristaBaseConDescuento}`)
+        console.log(`   - Markup: ${configFinal.markups.mayorista}% sobre precio Varta con descuento`)
+        mayoristaNeto = mayoristaBaseConDescuento * markupMayorista // Markup desde configuración sobre precio con descuento
         mayoristaFinal = Math.round((mayoristaNeto * ivaMultiplier) / 10) * 10
-        mayoristaRentabilidad = ((mayoristaNeto - mayoristaBase) / mayoristaNeto) * 100
+        mayoristaRentabilidad = ((mayoristaNeto - mayoristaBaseConDescuento) / mayoristaNeto) * 100
       } else {
         console.log(`   - Usando precio base del archivo: ${mayoristaBase}`)
-        console.log(`   - Markup: ${configFinal.markups.mayorista}% sobre precio base del archivo`)
-        mayoristaNeto = precioBase * markupMayorista // Markup desde configuración
+        console.log(`   - Descuento Proveedor: ${descuentoProveedor}%`)
+        console.log(`   - Precio Base con Descuento: ${precioBaseConDescuento}`)
+        console.log(`   - Markup: ${configFinal.markups.mayorista}% sobre precio base con descuento`)
+        mayoristaNeto = precioBaseConDescuento * markupMayorista // Markup desde configuración sobre precio con descuento
         mayoristaFinal = Math.round((mayoristaNeto * ivaMultiplier) / 10) * 10
-        mayoristaRentabilidad = ((mayoristaNeto - precioBase) / mayoristaNeto) * 100
+        mayoristaRentabilidad = ((mayoristaNeto - precioBaseConDescuento) / mayoristaNeto) * 100
       }
       
-      console.log(`   - Base: ${mayoristaBase}`)
-      console.log(`   - Markup aplicado: ${equivalenciaVarta ? `${configFinal.markups.mayorista}% sobre Varta` : `${configFinal.markups.mayorista}% sobre archivo`}`)
+      console.log(`   - Base Original: ${mayoristaBase}`)
+      console.log(`   - Base con Descuento: ${equivalenciaVarta ? mayoristaBaseConDescuento : precioBaseConDescuento}`)
+      console.log(`   - Markup aplicado: ${equivalenciaVarta ? `${configFinal.markups.mayorista}% sobre Varta con descuento` : `${configFinal.markups.mayorista}% sobre archivo con descuento`}`)
       console.log(`   - Neto: ${mayoristaNeto}`)
       console.log(`   - +IVA (${configFinal.iva}%): ${mayoristaNeto} * ${ivaMultiplier} = ${mayoristaNeto * ivaMultiplier}`)
       console.log(`   - Redondeado: ${mayoristaFinal}`)
@@ -799,7 +813,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       // 🔍 DEBUG: Ver resultados del cálculo
       console.log(`\n🔍 RESUMEN DE CÁLCULOS DEL PRODUCTO ${index + 1}:`)
-      console.log(`   - Precio Base: ${precioBase}`)
+      console.log(`   - Precio Base Original: ${precioBase}`)
+      console.log(`   - Descuento Proveedor: ${descuentoProveedor}%`)
+      console.log(`   - Precio Base con Descuento: ${precioBaseConDescuento}`)
       console.log(`   - Costo Estimado Minorista: ${costoEstimadoMinorista}`)
       console.log(`   - Costo Estimado Mayorista: ${costoEstimadoMayorista}`)
       console.log(`   - Minorista Neto: ${minoristaNeto}`)
@@ -812,8 +828,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         producto: descripcion || modelo || tipo || 'N/A',
         tipo: tipo,
         modelo: modelo,
-        precio_base_minorista: precioBase,  // ✅ Precio base para Minorista (del archivo)
-        precio_base_mayorista: mayoristaBase,  // ✅ Precio base para Mayorista (Varta o archivo)
+        precio_base_original: precioBase,  // ✅ Precio base original (del archivo)
+        precio_base_minorista: precioBaseConDescuento,  // ✅ Precio base para Minorista (con descuento)
+        precio_base_mayorista: mayoristaBaseConDescuento,  // ✅ Precio base para Mayorista (con descuento)
+        descuento_proveedor: descuentoProveedor,  // ✅ % Descuento de proveedor aplicado
         costo_estimado_minorista: costoEstimadoMinorista,  // ✅ Costo estimado para Minorista
         costo_estimado_mayorista: costoEstimadoMayorista,  // ✅ Costo estimado para Mayorista
         validacion_moneda: validacionMoneda,

@@ -19,6 +19,7 @@ export interface ConfiguracionSistema {
     directa: number;
     distribucion: number;
   };
+  descuentoProveedor: number; // ✅ Nuevo: % Descuento de proveedor (default: 0)
   ultimaActualizacion: string;
 }
 

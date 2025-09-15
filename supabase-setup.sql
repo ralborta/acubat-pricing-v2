@@ -32,6 +32,7 @@ INSERT INTO config (config_data) VALUES (
       "directa": 8,
       "distribucion": 6
     },
+    "descuentoProveedor": 0,
     "ultimaActualizacion": "2024-01-15T10:00:00.000Z"
   }'::jsonb
 ) ON CONFLICT DO NOTHING;

@@ -24,6 +24,7 @@ const ensureConfigType = (config: any): ConfiguracionSistema => {
       directa: config.comisiones?.directa || 8,
       distribucion: config.comisiones?.distribucion || 6
     },
+    descuentoProveedor: config.descuentoProveedor || 0, // ✅ Nuevo: % Descuento de proveedor (default: 0)
     ultimaActualizacion: config.ultimaActualizacion || new Date().toISOString()
   };
 };
