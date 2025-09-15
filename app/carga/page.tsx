@@ -27,11 +27,13 @@ interface Producto {
     precio_neto: number
     precio_final: number
     rentabilidad: string
+    markup_aplicado: string  // ✅ Markup real usado
   }
   mayorista: {
     precio_neto: number
     precio_final: number
     rentabilidad: string
+    markup_aplicado: string  // ✅ Markup real usado
   }
 }
 
@@ -378,7 +380,7 @@ export default function CargaPage() {
         producto.minorista.precio_neto || 0,
         (producto.minorista.precio_final || 0) - (producto.minorista.precio_neto || 0),
         producto.minorista.precio_final || 0,
-        '+70%',
+        producto.minorista.markup_aplicado || '0%',
         producto.minorista.rentabilidad || '0%'
       ].join(','))
       
@@ -392,7 +394,7 @@ export default function CargaPage() {
         producto.mayorista.precio_neto || 0,
         (producto.mayorista.precio_final || 0) - (producto.mayorista.precio_neto || 0),
         producto.mayorista.precio_final || 0,
-        producto.equivalencia_varta?.encontrada ? '+30%' : '+40%',
+        producto.mayorista.markup_aplicado || '0%',
         producto.mayorista.rentabilidad || '0%'
       ].join(','))
     })
@@ -1016,7 +1018,7 @@ export default function CargaPage() {
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
-                                  <div className="text-sm font-semibold text-blue-600">+70%</div>
+                                  <div className="text-sm font-semibold text-blue-600">{producto.minorista.markup_aplicado || '0%'}</div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                   <div className="text-sm font-semibold text-blue-600">{producto.minorista.rentabilidad}</div>
@@ -1068,7 +1070,7 @@ export default function CargaPage() {
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                   <div className="text-sm font-semibold text-green-600">
-                                    {producto.equivalencia_varta?.encontrada ? '+30%' : '+40%'}
+                                    {producto.mayorista.markup_aplicado || '0%'}
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
@@ -1116,8 +1118,8 @@ export default function CargaPage() {
                       <div className="mt-3 flex flex-wrap justify-center gap-2">
                         {[
                           'Procesamiento Excel',
-                          'Cálculo Minorista +70%',
-                          'Cálculo Mayorista +40%',
+                          'Cálculo Minorista (configuración DB)',
+                          'Cálculo Mayorista (configuración DB)',
                           'Rentabilidad Automática',
                           'Redondeo Inteligente',
                           'Exportación CSV'

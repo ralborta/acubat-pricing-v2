@@ -828,12 +828,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         minorista: {
           precio_neto: minoristaNeto,
           precio_final: minoristaFinal,
-          rentabilidad: minoristaRentabilidad.toFixed(1) + '%'
+          rentabilidad: minoristaRentabilidad.toFixed(1) + '%',
+          markup_aplicado: configFinal.markups.directa + '%'  // ✅ Markup real usado
         },
         mayorista: {
           precio_neto: mayoristaNeto,
           precio_final: mayoristaFinal,
-          rentabilidad: mayoristaRentabilidad.toFixed(1) + '%'
+          rentabilidad: mayoristaRentabilidad.toFixed(1) + '%',
+          markup_aplicado: configFinal.markups.mayorista + '%'  // ✅ Markup real usado
         }
       }
       
