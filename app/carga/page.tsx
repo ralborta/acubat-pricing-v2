@@ -154,16 +154,21 @@ export default function CargaPage() {
     Object.keys(productosPorMarca).forEach(marca => {
       const productosMarca = productosPorMarca[marca]
       
-      // Preparar datos SOLO con precios base
+      // Preparar datos SOLO con precios base (compatibles con interfaz Producto)
       const preciosBase = productosMarca.map((producto, index) => ({
         id: index + 1,
         producto: producto.producto,
         tipo: producto.tipo,
         modelo: producto.modelo,
-        precio_base_original: producto.precio_base_original || producto.precio_base_minorista,
         precio_base_minorista: producto.precio_base_minorista,
         precio_base_mayorista: producto.precio_base_mayorista,
-        descuento_proveedor: producto.descuento_proveedor || 0
+        costo_estimado_minorista: producto.costo_estimado_minorista || 0,
+        costo_estimado_mayorista: producto.costo_estimado_mayorista || 0,
+        equivalencia_varta: producto.equivalencia_varta,
+        margen_minorista: producto.margen_minorista,
+        margen_mayorista: producto.margen_mayorista,
+        rentabilidad: producto.rentabilidad,
+        observaciones: `Descuento Proveedor: ${producto.descuento_proveedor || 0}%`
       }))
 
       // Exportar a Excel
