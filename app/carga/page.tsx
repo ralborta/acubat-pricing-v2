@@ -165,9 +165,9 @@ export default function CargaPage() {
         costo_estimado_minorista: producto.costo_estimado_minorista || 0,
         costo_estimado_mayorista: producto.costo_estimado_mayorista || 0,
         equivalencia_varta: producto.equivalencia_varta,
-        margen_minorista: producto.margen_minorista,
-        margen_mayorista: producto.margen_mayorista,
-        rentabilidad: producto.rentabilidad,
+        margen_minorista: producto.minorista?.rentabilidad || '',
+        margen_mayorista: producto.mayorista?.rentabilidad || '',
+        rentabilidad: `${producto.minorista?.rentabilidad || ''} / ${producto.mayorista?.rentabilidad || ''}`,
         observaciones: `Descuento Proveedor: ${producto.descuento_proveedor || 0}%`
       }))
 
