@@ -154,26 +154,58 @@ export default function CargaPage() {
     Object.keys(productosPorMarca).forEach(marca => {
       const productosMarca = productosPorMarca[marca]
       
-      // Preparar datos SOLO con precios base (compatibles con interfaz Producto)
+      // Preparar datos SOLO con precios base (estructura simple para Excel)
       const preciosBase = productosMarca.map((producto, index) => ({
-        id: index + 1,
-        producto: producto.producto,
-        tipo: producto.tipo,
-        modelo: producto.modelo,
-        precio_base_minorista: producto.precio_base_minorista,
-        precio_base_mayorista: producto.precio_base_mayorista,
-        costo_estimado_minorista: producto.costo_estimado_minorista || 0,
-        costo_estimado_mayorista: producto.costo_estimado_mayorista || 0,
-        equivalencia_varta: producto.equivalencia_varta,
-        margen_minorista: producto.minorista?.rentabilidad || '',
-        margen_mayorista: producto.mayorista?.rentabilidad || '',
-        rentabilidad: `${producto.minorista?.rentabilidad || ''} / ${producto.mayorista?.rentabilidad || ''}`,
-        observaciones: `Descuento Proveedor: ${producto.descuento_proveedor || 0}%`
+        'ID': index + 1,
+        'Producto': producto.producto,
+        'Tipo': producto.tipo,
+        'Modelo': producto.modelo,
+        'Precio Base Minorista': producto.precio_base_minorista,
+        'Precio Base Mayorista': producto.precio_base_mayorista,
+        'Costo Estimado Minorista': producto.costo_estimado_minorista || 0,
+        'Costo Estimado Mayorista': producto.costo_estimado_mayorista || 0,
+        'Descuento Proveedor': `${producto.descuento_proveedor || 0}%`,
+        'Rentabilidad Minorista': producto.minorista?.rentabilidad || '',
+        'Rentabilidad Mayorista': producto.mayorista?.rentabilidad || ''
       }))
 
-      // Exportar a Excel
-      const nombreArchivo = `precios_base_${marca}_${archivoNombre.replace(/\.[^/.]+$/, '')}`
-      exportarAExcel(preciosBase, nombreArchivo)
+      // Generar Excel directamente (sin usar exportarAExcel)
+      const nombreArchivo = `precios_base_${marca}_${archivoNombre.replace(/\.[^/.]+$/, '')}.xlsx`
+      
+      // Crear workbook y worksheet
+      const XLSX = require('xlsx')
+      const workbook = XLSX.utils.book_new()
+      const worksheet = XLSX.utils.json_to_sheet(preciosBase)
+      
+      // Ajustar ancho de columnas
+      worksheet['!cols'] = [
+        { wch: 5 },   // ID
+        { wch: 30 },  // Producto
+        { wch: 15 },  // Tipo
+        { wch: 20 },  // Modelo
+        { wch: 20 },  // Precio Base Minorista
+        { wch: 20 },  // Precio Base Mayorista
+        { wch: 20 },  // Costo Estimado Minorista
+        { wch: 20 },  // Costo Estimado Mayorista
+        { wch: 15 },  // Descuento Proveedor
+        { wch: 20 },  // Rentabilidad Minorista
+        { wch: 20 }   // Rentabilidad Mayorista
+      ]
+      
+      // Agregar hoja al workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Precios Base')
+      
+      // Generar y descargar archivo
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = nombreArchivo
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
     })
 
     // Mostrar mensaje de confirmación
