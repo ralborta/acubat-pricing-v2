@@ -133,6 +133,48 @@ export default function CargaPage() {
     exportarAExcel(productosExcel, nombreArchivo)
   }
 
+  // Función para exportar SOLO precios base por marca
+  const handleExportarPreciosBasePorMarca = () => {
+    if (!resultado) return
+
+    // Agrupar productos por marca (extraer marca del producto)
+    const productosPorMarca: { [marca: string]: Producto[] } = {}
+    
+    resultado.productos.forEach(producto => {
+      // Extraer marca del nombre del producto (primera palabra)
+      const marca = producto.producto.split(' ')[0] || 'Sin Marca'
+      
+      if (!productosPorMarca[marca]) {
+        productosPorMarca[marca] = []
+      }
+      productosPorMarca[marca].push(producto)
+    })
+
+    // Generar un archivo por cada marca
+    Object.keys(productosPorMarca).forEach(marca => {
+      const productosMarca = productosPorMarca[marca]
+      
+      // Preparar datos SOLO con precios base
+      const preciosBase = productosMarca.map((producto, index) => ({
+        id: index + 1,
+        producto: producto.producto,
+        tipo: producto.tipo,
+        modelo: producto.modelo,
+        precio_base_original: producto.precio_base_original || producto.precio_base_minorista,
+        precio_base_minorista: producto.precio_base_minorista,
+        precio_base_mayorista: producto.precio_base_mayorista,
+        descuento_proveedor: producto.descuento_proveedor || 0
+      }))
+
+      // Exportar a Excel
+      const nombreArchivo = `precios_base_${marca}_${archivoNombre.replace(/\.[^/.]+$/, '')}`
+      exportarAExcel(preciosBase, nombreArchivo)
+    })
+
+    // Mostrar mensaje de confirmación
+    alert(`✅ Archivos generados!\n\n📁 Se crearon ${Object.keys(productosPorMarca).length} archivos:\n${Object.keys(productosPorMarca).map(marca => `• precios_base_${marca}_...`).join('\n')}`)
+  }
+
   // Función para descargar archivo
   const descargarArchivo = (base64: string, filename: string, mimeType: string): boolean => {
     try {
@@ -919,14 +961,22 @@ export default function CargaPage() {
                     </div>
                   </div>
 
-                  {/* Botón de descarga */}
+                  {/* Botones de descarga */}
                   <div className="text-center mb-6">
-                    <button
-                      onClick={handleExportarExcel}
-                      className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md transition-colors duration-200"
-                    >
-                      📊 Descargar Excel con Resultados
-                    </button>
+                    <div className="flex flex-wrap gap-3 justify-center">
+                      <button
+                        onClick={handleExportarExcel}
+                        className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md transition-colors duration-200"
+                      >
+                        📊 Descargar Excel con Resultados
+                      </button>
+                      <button
+                        onClick={handleExportarPreciosBasePorMarca}
+                        className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md transition-colors duration-200"
+                      >
+                        💰 Exportar Precios Base por Marca
+                      </button>
+                    </div>
                   </div>
 
                   {/* Vista Previa de Productos Procesados */}
