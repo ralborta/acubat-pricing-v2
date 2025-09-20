@@ -11,7 +11,8 @@ import {
   HelpCircle,
   ChevronDown,
   Bell,
-  Search
+  Search,
+  Building2
 } from 'lucide-react'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -29,6 +30,12 @@ const menuItems = [
     label: 'Carga de Archivos',
     icon: Upload,
     description: 'Subir archivos Excel'
+  },
+  {
+    id: 'conciliacion',
+    label: 'Conciliación Bancaria',
+    icon: Building2,
+    description: 'Sistema de conciliación secuencial'
   },
   {
     id: 'simulaciones',
