@@ -411,7 +411,7 @@ export default function PricingAnalysisMejorado({ isVisible, onClose, fileName, 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-semibold text-blue-600">
-                            {product.margin.toFixed(1)}%
+                            {formatPercentage(product.margin)}
                           </div>
                         </td>
                       </tr>
@@ -468,7 +468,7 @@ export default function PricingAnalysisMejorado({ isVisible, onClose, fileName, 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-semibold text-green-600">
-                            {((product.channels.wholesale - product.cost) / product.channels.wholesale * 100).toFixed(1)}%
+                            {formatPercentage((product.channels.wholesale - product.cost) / product.channels.wholesale * 100)}
                           </div>
                         </td>
                       </tr>
@@ -518,7 +518,7 @@ export default function PricingAnalysisMejorado({ isVisible, onClose, fileName, 
                     </div>
                     <div className="bg-green-50 rounded-lg p-3">
                       <div className="text-sm text-green-600">Margen</div>
-                      <div className="text-lg font-semibold text-green-900">{selectedProduct.margin.toFixed(1)}%</div>
+                      <div className="text-lg font-semibold text-green-900">{formatPercentage(selectedProduct.margin)}</div>
                     </div>
                   </div>
                 </div>

@@ -1250,7 +1250,7 @@ export default function ConfiguracionPage() {
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600">Margen Promedio:</span>
-                              <span className="font-semibold">{resultadosCalculo.precios_canales?.mayorista?.margen_promedio?.toFixed(1) || 'N/A'}%</span>
+                              <span className="font-semibold">{formatPercentage(resultadosCalculo.precios_canales?.mayorista?.margen_promedio || 0)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600">Redondeo:</span>
@@ -1269,7 +1269,7 @@ export default function ConfiguracionPage() {
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600">Margen Promedio:</span>
-                              <span className="font-semibold">{resultadosCalculo.precios_canales?.directa?.margen_promedio?.toFixed(1) || 'N/A'}%</span>
+                              <span className="font-semibold">{formatPercentage(resultadosCalculo.precios_canales?.directa?.margen_promedio || 0)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600">Redondeo:</span>
@@ -1360,8 +1360,8 @@ export default function ConfiguracionPage() {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(producto.precio_base_moura || 0)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(producto.precio_varta_canal || 0)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{formatCurrency(producto.precio_final || 0)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{producto.markup_aplicado?.toFixed(1) || 'N/A'}%</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{producto.margen_bruto?.toFixed(1) || 'N/A'}%</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatPercentage(producto.markup_aplicado || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatPercentage(producto.margen_bruto || 0)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                                         producto.rentabilidad === 'RENTABLE' 
