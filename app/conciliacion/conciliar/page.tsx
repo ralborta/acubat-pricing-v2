@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatCurrency, formatNumber, formatPercentage } from '../../../lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -367,7 +368,7 @@ export default function ConciliarPage() {
                         <div className="text-sm text-gray-600">{detalle.fecha}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">${detalle.monto.toLocaleString()}</div>
+                        <div className="font-semibold">{formatCurrency(detalle.monto)}</div>
                         <div className="text-sm text-gray-600">{detalle.banco}</div>
                       </div>
                     </div>

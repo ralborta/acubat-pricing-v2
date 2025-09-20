@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatCurrency, formatNumber, formatPercentage } from '../../../lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -231,7 +232,7 @@ export default function ReportesPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Monto Total</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  ${estadisticas.reduce((sum, stat) => sum + stat.montoTotal, 0).toLocaleString()}
+                  {formatCurrency(estadisticas.reduce((sum, stat) => sum + stat.montoTotal, 0))}
                 </p>
               </div>
             </div>
@@ -355,7 +356,7 @@ export default function ReportesPage() {
                   <div className="text-right">
                     <p className="text-sm font-medium text-gray-600">Monto</p>
                     <p className="text-lg font-bold text-gray-900">
-                      ${stat.montoConciliado.toLocaleString()}
+                      {formatCurrency(stat.montoConciliado)}
                     </p>
                   </div>
                   <div className="w-32 bg-gray-200 rounded-full h-2">

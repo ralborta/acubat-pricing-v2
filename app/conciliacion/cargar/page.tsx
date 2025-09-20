@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { formatCurrency, formatNumber, formatPercentage } from '../../../lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -39,7 +40,7 @@ export default function CargarArchivosPage() {
       nombre: file.name,
       tipo,
       tamaño: file.size,
-      fecha: new Date().toLocaleString(),
+      fecha: new Date().toLocaleString('es-AR'),
       estado: 'cargando'
     }
 

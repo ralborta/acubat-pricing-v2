@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import ProcessVisualizer from '@/components/ProcessVisualizer'
 import { exportarAExcel } from '../../lib/excel-export'
+import { formatCurrency, formatNumber, formatPercentage } from '../../lib/formatters'
 
 interface Producto {
   id: number
@@ -70,26 +71,7 @@ export default function CargaPage() {
   const [progresoConversion, setProgresoConversion] = useState(0)
   const [mensajeConversion, setMensajeConversion] = useState('')
 
-  // Función para formatear moneda
-  const formatCurrency = (amount: number | string): string => {
-    if (typeof amount !== 'number' || isNaN(amount)) {
-      return '$0'
-    }
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount)
-  }
 
-  // Función para formatear porcentaje
-  const formatPercentage = (amount: number | string): string => {
-    if (typeof amount !== 'number' || isNaN(amount)) {
-      return '0%'
-    }
-    return `${amount.toFixed(1)}%`
-  }
 
   // Función para formatear tamaño de archivo
   const formatFileSize = (bytes: number): string => {
@@ -133,8 +115,8 @@ export default function CargaPage() {
     exportarAExcel(productosExcel, nombreArchivo)
   }
 
-  // Función para exportar SOLO precios base por marca
-  const handleExportarPreciosBasePorMarca = () => {
+  // Función para exportar SOLO costos base por marca
+  const handleExportarCostosBasePorMarca = () => {
     if (!resultado) return
 
     // Agrupar productos por marca (extraer marca del producto)
@@ -154,7 +136,7 @@ export default function CargaPage() {
     Object.keys(productosPorMarca).forEach(marca => {
       const productosMarca = productosPorMarca[marca]
       
-      // Preparar datos SOLO con precios base (estructura simple para Excel)
+      // Preparar datos con precios base + COSTO agregado
       const preciosBase = productosMarca.map((producto, index) => ({
         'ID': index + 1,
         'Producto': producto.producto,
@@ -162,15 +144,14 @@ export default function CargaPage() {
         'Modelo': producto.modelo,
         'Precio Base Minorista': producto.precio_base_minorista,
         'Precio Base Mayorista': producto.precio_base_mayorista,
-        'Costo Estimado Minorista': producto.costo_estimado_minorista || 0,
-        'Costo Estimado Mayorista': producto.costo_estimado_mayorista || 0,
+        'Costo': producto.costo_estimado_minorista || 0,  // ✅ SOLO AGREGAR COSTO
         'Descuento Proveedor': `${producto.descuento_proveedor || 0}%`,
         'Rentabilidad Minorista': producto.minorista?.rentabilidad || '',
         'Rentabilidad Mayorista': producto.mayorista?.rentabilidad || ''
       }))
 
       // Generar Excel directamente (sin usar exportarAExcel)
-      const nombreArchivo = `precios_base_${marca}_${archivoNombre.replace(/\.[^/.]+$/, '')}.xlsx`
+      const nombreArchivo = `costos_base_${marca}_${archivoNombre.replace(/\.[^/.]+$/, '')}.xlsx`
       
       // Crear workbook y worksheet
       const XLSX = require('xlsx')
@@ -185,15 +166,14 @@ export default function CargaPage() {
         { wch: 20 },  // Modelo
         { wch: 20 },  // Precio Base Minorista
         { wch: 20 },  // Precio Base Mayorista
-        { wch: 20 },  // Costo Estimado Minorista
-        { wch: 20 },  // Costo Estimado Mayorista
+        { wch: 20 },  // Costo
         { wch: 15 },  // Descuento Proveedor
         { wch: 20 },  // Rentabilidad Minorista
         { wch: 20 }   // Rentabilidad Mayorista
       ]
       
       // Agregar hoja al workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Precios Base')
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Costos Base')
       
       // Generar y descargar archivo
       const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
@@ -1008,10 +988,10 @@ export default function CargaPage() {
                         📊 Descargar Excel con Resultados
                       </button>
                       <button
-                        onClick={handleExportarPreciosBasePorMarca}
+                        onClick={handleExportarCostosBasePorMarca}
                         className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md transition-colors duration-200"
                       >
-                        💰 Exportar Precios Base por Marca
+                        💰 Exportar Costos Base por Marca
                       </button>
                     </div>
                   </div>

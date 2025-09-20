@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatCurrency, formatNumber, formatPercentage } from '../lib/formatters'
 import { 
   DollarSign, 
   TrendingUp, 
@@ -380,7 +381,7 @@ export default function PricingAnalysisMejorado({ isVisible, onClose, fileName, 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                           <div className="text-sm font-semibold text-gray-900">
-                            ${product.cost.toLocaleString()}
+                            {formatCurrency(product.cost)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -390,17 +391,17 @@ export default function PricingAnalysisMejorado({ isVisible, onClose, fileName, 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            ${product.channels.retail.toLocaleString()}
+                            {formatCurrency(product.channels.retail)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            ${(product.channels.retail - product.cost).toLocaleString()}
+                            {formatCurrency(product.channels.retail - product.cost)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
-                            ${product.channels.retail.toLocaleString()}
+                            {formatCurrency(product.channels.retail)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -437,7 +438,7 @@ export default function PricingAnalysisMejorado({ isVisible, onClose, fileName, 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                           <div className="text-sm font-semibold text-gray-900">
-                            ${product.cost.toLocaleString()}
+                            {formatCurrency(product.cost)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -447,17 +448,17 @@ export default function PricingAnalysisMejorado({ isVisible, onClose, fileName, 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            ${product.channels.wholesale.toLocaleString()}
+                            {formatCurrency(product.channels.wholesale)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            ${(product.channels.wholesale - product.cost).toLocaleString()}
+                            {formatCurrency(product.channels.wholesale - product.cost)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
-                            ${product.channels.wholesale.toLocaleString()}
+                            {formatCurrency(product.channels.wholesale)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">

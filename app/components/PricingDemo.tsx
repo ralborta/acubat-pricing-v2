@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react';
+import { formatCurrency, formatNumber, formatPercentage } from '../../lib/formatters';
 import { useConfiguracion } from '../hooks/useConfiguracion';
 import { aplicarConfiguracionPricing } from '../lib/pricing_mapper';
 
@@ -113,22 +114,22 @@ export default function PricingDemo() {
           
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="font-medium">Precio Base:</span> ${precioBase.toLocaleString()}
+              <span className="font-medium">Precio Base:</span> {formatCurrency(precioBase)}
             </div>
             <div>
-              <span className="font-medium">IVA ({resultado.iva}%):</span> ${resultado.precioConIva.toLocaleString()}
+              <span className="font-medium">IVA ({resultado.iva}%):</span> {formatCurrency(resultado.precioConIva)}
             </div>
             <div>
-              <span className="font-medium">Markup ({resultado.markup}%):</span> ${resultado.precioConMarkup.toLocaleString()}
+              <span className="font-medium">Markup ({resultado.markup}%):</span> {formatCurrency(resultado.precioConMarkup)}
             </div>
             <div>
-              <span className="font-medium">Comisión ({resultado.comision}%):</span> ${resultado.precioFinal.toLocaleString()}
+              <span className="font-medium">Comisión ({resultado.comision}%):</span> {formatCurrency(resultado.precioFinal)}
             </div>
           </div>
           
           <div className="mt-3 p-3 bg-white rounded border">
             <div className="text-lg font-bold text-green-600">
-              💰 Precio Final: ${resultado.precioFinal.toLocaleString()}
+              💰 Precio Final: {formatCurrency(resultado.precioFinal)}
             </div>
           </div>
         </div>

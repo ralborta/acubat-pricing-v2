@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatCurrency, formatNumber, formatPercentage } from '../../lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -147,7 +148,7 @@ export default function ConciliacionPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Transacciones</p>
-                <p className="text-2xl font-bold text-gray-900">{resumen.totalTransacciones.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">{formatNumber(resumen.totalTransacciones)}</p>
               </div>
             </div>
           </CardContent>
@@ -161,7 +162,7 @@ export default function ConciliacionPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Conciliadas</p>
-                <p className="text-2xl font-bold text-gray-900">{resumen.totalConciliadas.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">{formatNumber(resumen.totalConciliadas)}</p>
               </div>
             </div>
           </CardContent>
@@ -175,7 +176,7 @@ export default function ConciliacionPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                <p className="text-2xl font-bold text-gray-900">{resumen.totalPendientes.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">{formatNumber(resumen.totalPendientes)}</p>
               </div>
             </div>
           </CardContent>

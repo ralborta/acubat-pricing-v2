@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatCurrency, formatNumber, formatPercentage } from '../../lib/formatters'
 import { Cog6ToothIcon, CurrencyDollarIcon, ChartBarIcon, DocumentTextIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
@@ -1245,7 +1246,7 @@ export default function ConfiguracionPage() {
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                               <span className="text-gray-600">Precio Promedio:</span>
-                              <span className="font-semibold">${resultadosCalculo.precios_canales?.mayorista?.precio_promedio_final?.toLocaleString() || 'N/A'}</span>
+                              <span className="font-semibold">{formatCurrency(resultadosCalculo.precios_canales?.mayorista?.precio_promedio_final || 0)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600">Margen Promedio:</span>
@@ -1264,7 +1265,7 @@ export default function ConfiguracionPage() {
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                               <span className="text-gray-600">Precio Promedio:</span>
-                              <span className="font-semibold">${resultadosCalculo.precios_canales?.directa?.precio_promedio_final?.toLocaleString() || 'N/A'}</span>
+                              <span className="font-semibold">{formatCurrency(resultadosCalculo.precios_canales?.directa?.precio_promedio_final || 0)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600">Margen Promedio:</span>
@@ -1308,7 +1309,7 @@ export default function ConfiguracionPage() {
                             </div>
                             <div>
                               <span className="text-gray-600">Aplica desde:</span>
-                              <span className="font-semibold ml-2">${promociones.aplicaDesde.toLocaleString()}</span>
+                              <span className="font-semibold ml-2">{formatCurrency(promociones.aplicaDesde)}</span>
                             </div>
                             <div>
                               <span className="text-gray-600">Descuento Efectivo:</span>
@@ -1356,9 +1357,9 @@ export default function ConfiguracionPage() {
                                         {producto.canal?.toUpperCase() || 'N/A'}
                                       </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.precio_base_moura?.toLocaleString() || 'N/A'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.precio_varta_canal?.toLocaleString() || '0'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">${producto.precio_final?.toLocaleString() || 'N/A'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(producto.precio_base_moura || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(producto.precio_varta_canal || 0)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{formatCurrency(producto.precio_final || 0)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{producto.markup_aplicado?.toFixed(1) || 'N/A'}%</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{producto.margen_bruto?.toFixed(1) || 'N/A'}%</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
