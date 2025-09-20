@@ -153,7 +153,7 @@ export default function CargaPage() {
     ]
     
     // Agregar hoja al workbook
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Costos / Rentabilidad')
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Costos Rentabilidad')
     
     // Generar y descargar archivo
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
