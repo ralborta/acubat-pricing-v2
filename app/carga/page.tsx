@@ -7,6 +7,7 @@ import Header from '@/components/Header'
 import ProcessVisualizer from '@/components/ProcessVisualizer'
 import { exportarAExcel } from '../../lib/excel-export'
 import { formatCurrency, formatNumber, formatPercentage } from '../../lib/formatters'
+import * as XLSX from 'xlsx'
 
 interface Producto {
   id: number
