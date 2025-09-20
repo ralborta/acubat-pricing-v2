@@ -14,6 +14,7 @@ interface Producto {
   producto: string
   tipo: string
   modelo: string
+  proveedor?: string  // ✅ Proveedor detectado por IA
   precio_base_original?: number  // ✅ Precio base original (antes del descuento)
   precio_base_minorista: number  // ✅ Precio base para Minorista (con descuento)
   precio_base_mayorista: number  // ✅ Precio base para Mayorista (con descuento)
@@ -122,15 +123,12 @@ export default function CargaPage() {
 
     // Preparar datos con las 6 columnas necesarias para TODOS los productos
     const costosBase = resultado.productos.map((producto, index) => {
-      // Extraer marca del nombre del producto (primera palabra)
-      const marca = producto.producto.split(' ')[0] || 'Sin Marca'
-      
       return {
         'ID': index + 1,
         'Producto': producto.producto,
         'Tipo': producto.tipo,
         'Modelo': producto.modelo,
-        'Proveedor': marca,  // ✅ PROVEEDOR POR PRODUCTO
+        'Proveedor': producto.proveedor || 'Sin Marca',  // ✅ PROVEEDOR DETECTADO POR IA
         'Costo': producto.costo_estimado_minorista || 0  // ✅ SOLO EL COSTO
       }
     })

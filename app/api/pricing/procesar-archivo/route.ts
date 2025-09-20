@@ -81,6 +81,7 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       modelo (código identificador: p.ej. "M18FD", "M20GD", "M22ED")
       precio_ars (precio en pesos argentinos - columna "Contado" tiene prioridad)
       descripcion (descripción comercial del producto)
+      proveedor (nombre del proveedor/fabricante: p.ej. "Moura", "Varta", "Bosch", "ACDelco")
       
       REGLAS OBLIGATORIAS:
       Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
@@ -105,6 +106,12 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       1. Usa la misma columna que TIPO si es descriptiva
       2. O busca columna con descripciones detalladas del producto
       
+      PROVEEDOR (NUEVO):
+      1. Busca columna "Proveedor", "Fabricante", "Marca", "Supplier", "Brand"
+      2. Si no existe columna específica, analiza el nombre del producto para extraer la marca
+      3. Marcas conocidas: Moura, Varta, Bosch, ACDelco, Exide, Delkor, Banner, etc.
+      4. Si no se puede determinar, usa "Sin Marca"
+      
       Salida estricta: responde solo con JSON que cumpla el schema provisto (sin texto extra).
       
       COLUMNAS: ${headers.join(', ')}
@@ -117,7 +124,8 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
         "modelo": "nombre_columna", 
         "precio": "nombre_columna",
         "contado": "nombre_columna",
-        "descripcion": "nombre_columna"
+        "descripcion": "nombre_columna",
+        "proveedor": "nombre_columna_o_analisis"
       }
     `
 
@@ -538,15 +546,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`\n🔍 EXTRACCIÓN DE DATOS DEL PRODUCTO ${index + 1}:`)
       console.log('📋 Mapeo de columnas:', columnMapping)
       
-      // 🎯 SISTEMA SIMPLIFICADO: Solo Tipo, Modelo y Precio
+      // 🎯 SISTEMA SIMPLIFICADO: Tipo, Modelo, Precio y Proveedor
       const tipo = columnMapping.tipo ? producto[columnMapping.tipo] : 'BATERIA'
       const modelo = columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A'
       const descripcion = columnMapping.descripcion ? producto[columnMapping.descripcion] : modelo
+      
+      // 🧠 DETECCIÓN DE PROVEEDOR CON IA
+      let proveedor = 'Sin Marca'
+      if (columnMapping.proveedor && producto[columnMapping.proveedor]) {
+        // Si hay columna específica de proveedor
+        proveedor = producto[columnMapping.proveedor]
+      } else {
+        // Analizar nombre del producto para extraer marca
+        const nombreProducto = descripcion || modelo || ''
+        const marcasConocidas = ['Moura', 'Varta', 'Bosch', 'ACDelco', 'Exide', 'Delkor', 'Banner', 'GS', 'Panasonic', 'Yuasa']
+        
+        for (const marca of marcasConocidas) {
+          if (nombreProducto.toLowerCase().includes(marca.toLowerCase())) {
+            proveedor = marca
+            break
+          }
+        }
+        
+        // Si no se encuentra marca conocida, usar primera palabra
+        if (proveedor === 'Sin Marca') {
+          const primeraPalabra = nombreProducto.split(' ')[0]
+          if (primeraPalabra && primeraPalabra.length > 2) {
+            proveedor = primeraPalabra
+          }
+        }
+      }
       
       console.log(`✅ Datos extraídos (SISTEMA SIMPLIFICADO):`)
       console.log(`   - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
       console.log(`   - Modelo: "${modelo}" (columna: ${columnMapping.modelo})`)
       console.log(`   - Descripción: "${descripcion}" (columna: ${columnMapping.descripcion})`)
+      console.log(`   - Proveedor: "${proveedor}" (detectado por IA)`)
       
       // Buscar precio (prioridad: Contado > precio > pdv > pvp)
       console.log(`\n💰 BÚSQUEDA DE PRECIO DEL PRODUCTO ${index + 1}:`)
@@ -829,6 +864,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         producto: descripcion || modelo || tipo || 'N/A',
         tipo: tipo,
         modelo: modelo,
+        proveedor: proveedor,  // ✅ Proveedor detectado por IA
         precio_base_original: precioBase,  // ✅ Precio base original (del archivo)
         precio_base_minorista: precioBaseConDescuento,  // ✅ Precio base para Minorista (con descuento)
         precio_base_mayorista: mayoristaBaseConDescuento,  // ✅ Precio base para Mayorista (con descuento)
