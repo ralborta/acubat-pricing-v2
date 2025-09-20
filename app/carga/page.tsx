@@ -119,59 +119,46 @@ export default function CargaPage() {
   const handleExportarCostosBasePorMarca = () => {
     if (!resultado) return
 
-    // Agrupar productos por marca (extraer marca del producto)
-    const productosPorMarca: { [marca: string]: Producto[] } = {}
-    
-    resultado.productos.forEach(producto => {
+    // Preparar datos con las 6 columnas necesarias para TODOS los productos
+    const costosBase = resultado.productos.map((producto, index) => {
       // Extraer marca del nombre del producto (primera palabra)
       const marca = producto.producto.split(' ')[0] || 'Sin Marca'
       
-      if (!productosPorMarca[marca]) {
-        productosPorMarca[marca] = []
-      }
-      productosPorMarca[marca].push(producto)
-    })
-
-    // Generar un archivo por cada marca
-    Object.keys(productosPorMarca).forEach(marca => {
-      const productosMarca = productosPorMarca[marca]
-      
-      // Preparar datos con las 6 columnas necesarias
-      const costosBase = productosMarca.map((producto, index) => ({
+      return {
         'ID': index + 1,
         'Producto': producto.producto,
         'Tipo': producto.tipo,
         'Modelo': producto.modelo,
-        'Proveedor': marca,  // ✅ MISMO PROVEEDOR PARA TODA LA LISTA
+        'Proveedor': marca,  // ✅ PROVEEDOR POR PRODUCTO
         'Costo': producto.costo_estimado_minorista || 0  // ✅ SOLO EL COSTO
-      }))
-
-      // Usar la función de exportación existente pero con datos simplificados
-      const nombreArchivo = `costos_rentabilidad_${marca}_${archivoNombre.replace(/\.[^/.]+$/, '')}`
-      
-      // Convertir datos al formato esperado por exportarAExcel
-      const productosSimplificados = costosBase.map((item, index) => ({
-        id: item.ID,
-        producto: item.Producto,
-        tipo: item.Tipo,
-        modelo: item.Modelo,
-        precio_base_minorista: 0,
-        precio_base_mayorista: 0,
-        costo_estimado_minorista: item.Costo,
-        costo_estimado_mayorista: item.Costo,
-        equivalencia_varta: { encontrada: false },
-        margen_minorista: 0,
-        margen_mayorista: 0,
-        rentabilidad: 'N/A',
-        observaciones: `Proveedor: ${item.Proveedor}`
-      }))
-      
-      // Usar la función de exportación existente
-      exportarAExcel(productosSimplificados, nombreArchivo)
+      }
     })
 
+    // Usar la función de exportación existente pero con datos simplificados
+    const nombreArchivo = `costos_rentabilidad_${archivoNombre.replace(/\.[^/.]+$/, '')}`
+    
+    // Convertir datos al formato esperado por exportarAExcel
+    const productosSimplificados = costosBase.map((item, index) => ({
+      id: item.ID,
+      producto: item.Producto,
+      tipo: item.Tipo,
+      modelo: item.Modelo,
+      precio_base_minorista: 0,
+      precio_base_mayorista: 0,
+      costo_estimado_minorista: item.Costo,
+      costo_estimado_mayorista: item.Costo,
+      equivalencia_varta: { encontrada: false },
+      margen_minorista: 0,
+      margen_mayorista: 0,
+      rentabilidad: 'N/A',
+      observaciones: `Proveedor: ${item.Proveedor}`
+    }))
+    
+    // Usar la función de exportación existente
+    exportarAExcel(productosSimplificados, nombreArchivo)
+
     // Mostrar mensaje de confirmación
-    alert(`✅ Archivos generados!\n\n📁 Se crearon ${Object.keys(productosPorMarca).length} archivos:\n${Object.keys(productosPorMarca).map(marca => `• precios_base_${marca}_...`).join('\n')}`)
+    alert(`✅ Archivo generado!\n\n📁 Se creó: ${nombreArchivo}\n📊 Productos incluidos: ${resultado.productos.length}`)
   }
 
   // Función para descargar archivo
