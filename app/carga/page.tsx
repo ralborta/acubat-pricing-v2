@@ -136,44 +136,36 @@ export default function CargaPage() {
     Object.keys(productosPorMarca).forEach(marca => {
       const productosMarca = productosPorMarca[marca]
       
-      // Preparar datos con precios base + COSTO agregado
-      const preciosBase = productosMarca.map((producto, index) => ({
+      // Preparar datos con las 6 columnas necesarias
+      const costosBase = productosMarca.map((producto, index) => ({
         'ID': index + 1,
         'Producto': producto.producto,
         'Tipo': producto.tipo,
         'Modelo': producto.modelo,
-        'Precio Base Minorista': producto.precio_base_minorista,
-        'Precio Base Mayorista': producto.precio_base_mayorista,
-        'Costo': producto.costo_estimado_minorista || 0,  // ✅ SOLO AGREGAR COSTO
-        'Descuento Proveedor': `${producto.descuento_proveedor || 0}%`,
-        'Rentabilidad Minorista': producto.minorista?.rentabilidad || '',
-        'Rentabilidad Mayorista': producto.mayorista?.rentabilidad || ''
+        'Proveedor': marca,  // ✅ MISMO PROVEEDOR PARA TODA LA LISTA
+        'Costo': producto.costo_estimado_minorista || 0  // ✅ SOLO EL COSTO
       }))
 
       // Generar Excel directamente (sin usar exportarAExcel)
-      const nombreArchivo = `costos_base_${marca}_${archivoNombre.replace(/\.[^/.]+$/, '')}.xlsx`
+      const nombreArchivo = `costos_rentabilidad_${marca}_${archivoNombre.replace(/\.[^/.]+$/, '')}.xlsx`
       
       // Crear workbook y worksheet
       const XLSX = require('xlsx')
       const workbook = XLSX.utils.book_new()
-      const worksheet = XLSX.utils.json_to_sheet(preciosBase)
+      const worksheet = XLSX.utils.json_to_sheet(costosBase)
       
       // Ajustar ancho de columnas
       worksheet['!cols'] = [
         { wch: 5 },   // ID
-        { wch: 30 },  // Producto
+        { wch: 20 },  // Producto
         { wch: 15 },  // Tipo
         { wch: 20 },  // Modelo
-        { wch: 20 },  // Precio Base Minorista
-        { wch: 20 },  // Precio Base Mayorista
-        { wch: 20 },  // Costo
-        { wch: 15 },  // Descuento Proveedor
-        { wch: 20 },  // Rentabilidad Minorista
-        { wch: 20 }   // Rentabilidad Mayorista
+        { wch: 15 },  // Proveedor
+        { wch: 20 }   // Costo
       ]
       
       // Agregar hoja al workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Costos Base')
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Costos / Rentabilidad')
       
       // Generar y descargar archivo
       const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
@@ -991,7 +983,7 @@ export default function CargaPage() {
                         onClick={handleExportarCostosBasePorMarca}
                         className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md transition-colors duration-200"
                       >
-                        💰 Exportar Costos Base por Marca
+                        💰 Costos / Rentabilidad
                       </button>
                     </div>
                   </div>
