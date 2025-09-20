@@ -8,6 +8,7 @@ export interface MapeoColumnas {
   pdv?: string
   pvp?: string
   contado?: string
+  proveedor?: string  // ✅ Proveedor detectado por IA
 }
 
 /**
