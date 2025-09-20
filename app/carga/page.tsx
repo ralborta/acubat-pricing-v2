@@ -134,28 +134,37 @@ export default function CargaPage() {
       }
     })
 
-    // Usar la función de exportación existente pero con datos simplificados
-    const nombreArchivo = `costos_rentabilidad_${archivoNombre.replace(/\.[^/.]+$/, '')}`
+    // Generar Excel directamente con solo las 6 columnas
+    const nombreArchivo = `costos_rentabilidad_${archivoNombre.replace(/\.[^/.]+$/, '')}.xlsx`
     
-    // Convertir datos al formato esperado por exportarAExcel
-    const productosSimplificados = costosBase.map((item, index) => ({
-      id: item.ID,
-      producto: item.Producto,
-      tipo: item.Tipo,
-      modelo: item.Modelo,
-      precio_base_minorista: 0,
-      precio_base_mayorista: 0,
-      costo_estimado_minorista: item.Costo,
-      costo_estimado_mayorista: item.Costo,
-      equivalencia_varta: { encontrada: false },
-      margen_minorista: 0,
-      margen_mayorista: 0,
-      rentabilidad: 'N/A',
-      observaciones: `Proveedor: ${item.Proveedor}`
-    }))
+    // Crear workbook y worksheet
+    const workbook = XLSX.utils.book_new()
+    const worksheet = XLSX.utils.json_to_sheet(costosBase)
     
-    // Usar la función de exportación existente
-    exportarAExcel(productosSimplificados, nombreArchivo)
+    // Ajustar ancho de columnas
+    worksheet['!cols'] = [
+      { wch: 5 },   // ID
+      { wch: 20 },  // Producto
+      { wch: 15 },  // Tipo
+      { wch: 20 },  // Modelo
+      { wch: 15 },  // Proveedor
+      { wch: 20 }   // Costo
+    ]
+    
+    // Agregar hoja al workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Costos / Rentabilidad')
+    
+    // Generar y descargar archivo
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = nombreArchivo
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
 
     // Mostrar mensaje de confirmación
     alert(`✅ Archivo generado!\n\n📁 Se creó: ${nombreArchivo}\n📊 Productos incluidos: ${resultado.productos.length}`)
