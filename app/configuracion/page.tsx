@@ -22,7 +22,10 @@ export default function ConfiguracionPage() {
     loading: configLoading, 
     error: configError, 
     guardarConfiguracion, 
-    resetearConfiguracion 
+    resetearConfiguracion,
+    guardarOverrideProveedor,
+    proveedorActual,
+    setProveedorActual
   } = useConfiguracion()
   
   // Estados locales para funcionalidades adicionales (no parte del core)
@@ -61,6 +64,9 @@ export default function ConfiguracionPage() {
   const [mesActual, setMesActual] = useState(new Date())
 
   const [opcionSeleccionada, setOpcionSeleccionada] = useState<'variables' | 'rentabilidad' | 'agente' | null>(null)
+
+  // Estado local para crear proveedor
+  const [nuevoProveedor, setNuevoProveedor] = useState('')
 
   const handleConfigChange = async (path: string, value: any) => {
     if (!configuracion) return
@@ -418,6 +424,81 @@ export default function ConfiguracionPage() {
               </div>
 
               <div className="space-y-6">
+                {/* Proveedor (opcional) */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Proveedor (opcional)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Seleccionar proveedor</label>
+                      <select
+                        value={proveedorActual || ''}
+                        onChange={(e) => setProveedorActual(e.target.value || null)}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      >
+                        <option value="">Global (sin proveedor)</option>
+                        {Object.keys(configuracion.proveedores || {}).map((prov) => (
+                          <option key={prov} value={prov}>{prov}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nuevo proveedor</label>
+                      <input
+                        type="text"
+                        value={nuevoProveedor}
+                        onChange={(e) => setNuevoProveedor(e.target.value)}
+                        placeholder="Ej.: Moura, Varta, Bosch"
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+                    <div>
+                      <button
+                        onClick={async () => {
+                          const nombre = nuevoProveedor.trim()
+                          if (!nombre) return
+                          await guardarOverrideProveedor(nombre, {})
+                          setProveedorActual(nombre)
+                          setNuevoProveedor('')
+                        }}
+                        className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md transition-colors duration-200"
+                      >
+                        Agregar y Seleccionar
+                      </button>
+                    </div>
+                  </div>
+
+                  {proveedorActual && (
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Descuento para {proveedorActual}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={(configuracion.proveedores?.[proveedorActual]?.descuentoProveedor ?? 0) as number}
+                            onChange={async (e) => {
+                              const value = e.target.value
+                              const numero = value === '' ? 0 : parseFloat(value)
+                              await guardarOverrideProveedor(proveedorActual, { descuentoProveedor: isNaN(numero) ? 0 : numero } as any)
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                          />
+                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <span className="text-gray-500 sm:text-sm">%</span>
+                          </div>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Override específico; si no se define, se usa el global.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* IVA */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Configuración de IVA</h3>

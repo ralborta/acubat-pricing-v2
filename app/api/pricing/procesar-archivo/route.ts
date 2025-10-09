@@ -745,8 +745,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Mayorista: Usa precioVarta si existe, sino precioBase
       let mayoristaBase = equivalenciaVarta?.precio_varta || precioBase
       
-      // 🎯 APLICAR DESCUENTO DE PROVEEDOR (si está configurado)
-      const descuentoProveedor = config.descuentoProveedor || 0;
+      // 🎯 APLICAR DESCUENTO DE PROVEEDOR (override por proveedor con fallback global)
+      const descuentoProveedor = (() => {
+        try {
+          const overrides = (config as any)?.proveedores || {}
+          const clave = String(proveedor || '').trim()
+          if (clave && overrides[clave] && typeof overrides[clave].descuentoProveedor === 'number') {
+            return overrides[clave].descuentoProveedor
+          }
+        } catch (e) {
+          // Ignorar y usar global
+        }
+        return config.descuentoProveedor || 0
+      })();
       const precioBaseConDescuento = precioBase * (1 - descuentoProveedor / 100);
       const mayoristaBaseConDescuento = mayoristaBase * (1 - descuentoProveedor / 100);
       
