@@ -260,6 +260,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const formData = await request.formData()
     const file = formData.get('file') as File
     const configuracion = formData.get('configuracion') as string
+    const proveedorForzado = (formData.get('proveedorSeleccionado') as string) || ''
     
     console.log('📁 Archivo recibido:', file?.name, 'Tamaño:', file?.size)
     console.log('⚙️ Configuración recibida:', configuracion)
@@ -551,28 +552,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const modelo = columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A'
       const descripcion = columnMapping.descripcion ? producto[columnMapping.descripcion] : modelo
       
-      // 🧠 DETECCIÓN DE PROVEEDOR CON IA
-      let proveedor = 'Sin Marca'
-      if (columnMapping.proveedor && producto[columnMapping.proveedor]) {
-        // Si hay columna específica de proveedor
-        proveedor = producto[columnMapping.proveedor]
-      } else {
-        // Analizar nombre del producto para extraer marca
-        const nombreProducto = descripcion || modelo || ''
-        const marcasConocidas = ['Moura', 'Varta', 'Bosch', 'ACDelco', 'Exide', 'Delkor', 'Banner', 'GS', 'Panasonic', 'Yuasa']
-        
-        for (const marca of marcasConocidas) {
-          if (nombreProducto.toLowerCase().includes(marca.toLowerCase())) {
-            proveedor = marca
-            break
+      // 🧠 PROVEEDOR: forzado por UI o detección
+      let proveedor = proveedorForzado || 'Sin Marca'
+      if (!proveedorForzado) {
+        if (columnMapping.proveedor && producto[columnMapping.proveedor]) {
+          proveedor = producto[columnMapping.proveedor]
+        } else {
+          // Analizar nombre del producto para extraer marca
+          const nombreProducto = descripcion || modelo || ''
+          const marcasConocidas = ['Moura', 'Varta', 'Bosch', 'ACDelco', 'Exide', 'Delkor', 'Banner', 'GS', 'Panasonic', 'Yuasa']
+          for (const marca of marcasConocidas) {
+            if (nombreProducto.toLowerCase().includes(marca.toLowerCase())) {
+              proveedor = marca
+              break
+            }
           }
-        }
-        
-        // Si no se encuentra marca conocida, usar primera palabra
-        if (proveedor === 'Sin Marca') {
-          const primeraPalabra = nombreProducto.split(' ')[0]
-          if (primeraPalabra && primeraPalabra.length > 2) {
-            proveedor = primeraPalabra
+          if (proveedor === 'Sin Marca') {
+            const primeraPalabra = nombreProducto.split(' ')[0]
+            if (primeraPalabra && primeraPalabra.length > 2) {
+              proveedor = primeraPalabra
+            }
           }
         }
       }

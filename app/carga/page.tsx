@@ -8,6 +8,7 @@ import ProcessVisualizer from '@/components/ProcessVisualizer'
 import { exportarAExcel } from '../../lib/excel-export'
 import { formatCurrency, formatNumber, formatPercentage } from '../../lib/formatters'
 import * as XLSX from 'xlsx'
+import { useConfiguracion } from '../hooks/useConfiguracion'
 
 interface Producto {
   id: number
@@ -67,6 +68,8 @@ export default function CargaPage() {
   const [showProcessVisualizer, setShowProcessVisualizer] = useState(false)
   const [productosAMostrar, setProductosAMostrar] = useState<Producto[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { configuracion } = useConfiguracion()
+  const [proveedorSeleccionado, setProveedorSeleccionado] = useState<string>('')
   
   // Estados para conversión PDF
   const [convirtiendoPDF, setConvirtiendoPDF] = useState(false)
@@ -345,6 +348,9 @@ export default function CargaPage() {
       // Llamada real a la API
       const formData = new FormData()
       formData.append('file', archivoSeleccionado)
+      if (proveedorSeleccionado) {
+        formData.append('proveedorSeleccionado', proveedorSeleccionado)
+      }
       
       // Obtener configuración actual del localStorage
       const configuracionActual = localStorage.getItem('acubat_config')
@@ -772,6 +778,28 @@ export default function CargaPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Proveedor para aplicar configuración */}
+                <div className="mt-4 text-left">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Proveedor para aplicar variables
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                    <select
+                      value={proveedorSeleccionado}
+                      onChange={(e) => setProveedorSeleccionado(e.target.value)}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    >
+                      <option value="">Detectar automáticamente</option>
+                      {Object.keys(configuracion?.proveedores || {}).map((prov) => (
+                        <option key={prov} value={prov}>{prov}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 md:col-span-2">
+                      Si elegís un proveedor, se aplicarán sus variables (descuento) y no la detección automática.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Botón de Procesar */}
