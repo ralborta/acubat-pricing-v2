@@ -67,6 +67,22 @@ export default function ConfiguracionPage() {
 
   // Estado local para crear proveedor
   const [nuevoProveedor, setNuevoProveedor] = useState('')
+  // Estado local para editar descuento sin guardar en cada tecla
+  const [descuentoProveedorLocal, setDescuentoProveedorLocal] = useState<string>('')
+
+  // Sincronizar el valor local al cambiar de proveedor o cuando cargue la config
+  useEffect(() => {
+    if (!configuracion) return
+    if (proveedorActual) {
+      const valor = (configuracion.proveedores?.[proveedorActual]?.descuentoProveedor ?? '') as any
+      setDescuentoProveedorLocal(
+        valor === '' || valor === null || typeof valor === 'undefined' ? '' : String(valor)
+      )
+    } else {
+      // Modo global: no usamos el local aquí
+      setDescuentoProveedorLocal('')
+    }
+  }, [proveedorActual, configuracion])
 
   const handleConfigChange = async (path: string, value: any) => {
     if (!configuracion) return
@@ -476,11 +492,16 @@ export default function ConfiguracionPage() {
                         <div className="relative">
                           <input
                             type="number"
-                            value={(configuracion.proveedores?.[proveedorActual]?.descuentoProveedor ?? 0) as number}
-                            onChange={async (e) => {
-                              const value = e.target.value
-                              const numero = value === '' ? 0 : parseFloat(value)
-                              await guardarOverrideProveedor(proveedorActual, { descuentoProveedor: isNaN(numero) ? 0 : numero } as any)
+                            value={descuentoProveedorLocal}
+                            onChange={(e) => {
+                              setDescuentoProveedorLocal(e.target.value)
+                            }}
+                            onBlur={async () => {
+                              const numero = descuentoProveedorLocal === '' ? 0 : parseFloat(descuentoProveedorLocal)
+                              await guardarOverrideProveedor(
+                                proveedorActual,
+                                { descuentoProveedor: isNaN(numero) ? 0 : numero } as any
+                              )
                             }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             min="0"
@@ -492,7 +513,7 @@ export default function ConfiguracionPage() {
                           </div>
                         </div>
                         <p className="mt-1 text-sm text-gray-500">
-                          Override específico; si no se define, se usa el global.
+                          Se guarda al salir del campo. Si no se define, se usa el valor global.
                         </p>
                       </div>
                     </div>
