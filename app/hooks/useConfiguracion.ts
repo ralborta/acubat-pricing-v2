@@ -25,6 +25,7 @@ const ensureConfigType = (config: any): ConfiguracionSistema => {
       distribucion: config.comisiones?.distribucion || 6
     },
     descuentoProveedor: config.descuentoProveedor || 0, // ✅ Nuevo: % Descuento de proveedor (default: 0)
+    proveedores: config.proveedores || {},
     ultimaActualizacion: config.ultimaActualizacion || new Date().toISOString()
   };
 };
@@ -33,6 +34,7 @@ export function useConfiguracion() {
   const [configuracion, setConfiguracion] = useState<ConfiguracionSistema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [proveedorActual, setProveedorActual] = useState<string | null>(null);
 
   // Cargar configuración inicial
   useEffect(() => {
@@ -133,6 +135,39 @@ export function useConfiguracion() {
     }
   };
 
+  // Guardar override para un proveedor específico
+  const guardarOverrideProveedor = async (proveedor: string, overrides: Partial<ConfiguracionSistema>): Promise<ApiResponse<ConfiguracionSistema>> => {
+    try {
+      if (!configuracion) {
+        return { success: false, error: 'Configuración no cargada' };
+      }
+
+      const clave = proveedor.trim();
+      const overridesReducidos: any = {};
+      if (typeof overrides.descuentoProveedor === 'number') {
+        overridesReducidos.descuentoProveedor = overrides.descuentoProveedor;
+      }
+
+      const nuevaConfig = {
+        ...configuracion,
+        proveedores: {
+          ...(configuracion.proveedores || {}),
+          [clave]: {
+            ...(configuracion.proveedores?.[clave] || {}),
+            ...overridesReducidos
+          }
+        }
+      } as ConfiguracionSistema;
+
+      return await guardarConfiguracion(nuevaConfig);
+    } catch (err) {
+      const errorMsg = 'Error al guardar override de proveedor';
+      setError(errorMsg);
+      console.error('❌', err);
+      return { success: false, error: errorMsg };
+    }
+  };
+
   // Resetear a configuración por defecto
   const resetearConfiguracion = async (): Promise<ApiResponse<ConfiguracionSistema>> => {
     try {
@@ -177,7 +212,10 @@ export function useConfiguracion() {
     loading,
     error,
     guardarConfiguracion,
+    guardarOverrideProveedor,
     resetearConfiguracion,
-    cargarConfiguracion
+    cargarConfiguracion,
+    proveedorActual,
+    setProveedorActual
   };
 }

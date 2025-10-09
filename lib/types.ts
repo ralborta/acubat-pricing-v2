@@ -20,6 +20,8 @@ export interface ConfiguracionSistema {
     distribucion: number;
   };
   descuentoProveedor: number; // ✅ Nuevo: % Descuento de proveedor (default: 0)
+  // ✅ Overrides por proveedor (ej. { "Varta": { descuentoProveedor: 5 } })
+  proveedores: Record<string, ProveedorOverrides>;
   ultimaActualizacion: string;
 }
 
@@ -59,4 +61,11 @@ export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// Tipos auxiliares
+export interface ProveedorOverrides {
+  // Por ahora solo soportamos descuento por proveedor.
+  // Se puede extender luego (markups, factores, etc.).
+  descuentoProveedor?: number;
 }
