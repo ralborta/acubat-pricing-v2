@@ -546,9 +546,12 @@ export default function ConfiguracionPage() {
                   </div>
                 </div>
 
-                {/* Descuento de Proveedor */}
+                {/* Descuento Global (solo si no hay proveedor seleccionado) */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">💰 Descuento de Proveedor</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-1">💰 {proveedorActual ? 'Descuento Global (deshabilitado por proveedor seleccionado)' : 'Descuento de Proveedor (Global)'}</h3>
+                  {proveedorActual && (
+                    <p className="text-sm text-gray-500 mb-3">Actualmente tenés seleccionado el proveedor <span className="font-medium">{proveedorActual}</span>. Se usará su descuento específico y el global no aplica.</p>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -562,7 +565,8 @@ export default function ConfiguracionPage() {
                             const value = e.target.value;
                             handleConfigChange('descuentoProveedor', value ? parseFloat(value) : 0);
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${proveedorActual ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                          disabled={!!proveedorActual}
                           min="0"
                           max="100"
                           step="0.1"
@@ -571,9 +575,11 @@ export default function ConfiguracionPage() {
                           <span className="text-gray-500 sm:text-sm">%</span>
                         </div>
                       </div>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Descuento aplicado al precio de lista del proveedor
-                      </p>
+                      {!proveedorActual ? (
+                        <p className="mt-1 text-sm text-gray-500">Descuento aplicado al precio de lista del proveedor (cuando no se selecciona proveedor específico).</p>
+                      ) : (
+                        <p className="mt-1 text-sm text-gray-500">El descuento global está deshabilitado porque se usará el descuento de <span className="font-medium">{proveedorActual}</span>.</p>
+                      )}
                     </div>
                     <div className="flex items-center">
                       <div className="bg-blue-50 p-4 rounded-lg">
