@@ -97,6 +97,7 @@ export default function CargaPage() {
       producto: producto.producto,
       tipo: producto.tipo,
       modelo: producto.modelo || producto.producto,
+      proveedor: producto.proveedor || proveedorSeleccionado || 'Sin Marca',
       precio_base_minorista: producto.precio_base_minorista || 0,
       precio_base_mayorista: producto.precio_base_mayorista || 0,
       costo_estimado_minorista: producto.costo_estimado_minorista || 0,
@@ -116,7 +117,7 @@ export default function CargaPage() {
     }
 
     // Exportar a Excel
-    const nombreArchivo = `reporte_${archivoNombre.replace(/\.[^/.]+$/, '')}`
+    const nombreArchivo = `reporte_${(proveedorSeleccionado || 'sin_marca')}_${archivoNombre.replace(/\.[^/.]+$/, '')}`
     exportarAExcel(productosExcel, nombreArchivo)
   }
 
@@ -131,13 +132,13 @@ export default function CargaPage() {
         'Producto': producto.producto,
         'Tipo': producto.tipo,
         'Modelo': producto.modelo,
-        'Proveedor': producto.proveedor || 'Sin Marca',  // ✅ PROVEEDOR DETECTADO POR IA
+        'Proveedor': producto.proveedor || proveedorSeleccionado || 'Sin Marca',  // ✅ PROVEEDOR DETECTADO O FORZADO
         'Costo': producto.costo_estimado_minorista || 0  // ✅ SOLO EL COSTO
       }
     })
 
     // Generar Excel directamente con solo las 6 columnas
-    const nombreArchivo = `costos_rentabilidad_${archivoNombre.replace(/\.[^/.]+$/, '')}.xlsx`
+    const nombreArchivo = `costos_rentabilidad_${(proveedorSeleccionado || 'sin_marca')}_${archivoNombre.replace(/\.[^/.]+$/, '')}.xlsx`
     
     // Crear workbook y worksheet
     const workbook = XLSX.utils.book_new()
@@ -779,24 +780,24 @@ export default function CargaPage() {
                   </div>
                 )}
 
-                {/* Proveedor para aplicar configuración */}
-                <div className="mt-4 text-left">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                {/* Proveedor para aplicar configuración (resaltado) */}
+                <div className="mt-4 text-left rounded-lg border border-indigo-300 bg-indigo-50 p-4">
+                  <label className="block text-sm font-semibold text-indigo-900 mb-2">
                     Proveedor para aplicar variables
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
                     <select
                       value={proveedorSeleccionado}
                       onChange={(e) => setProveedorSeleccionado(e.target.value)}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      className="block w-full rounded-md border-indigo-300 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                     >
                       <option value="">Detectar automáticamente</option>
                       {Object.keys(configuracion?.proveedores || {}).map((prov) => (
                         <option key={prov} value={prov}>{prov}</option>
                       ))}
                     </select>
-                    <p className="text-xs text-gray-500 md:col-span-2">
-                      Si elegís un proveedor, se aplicarán sus variables (descuento) y no la detección automática.
+                    <p className="text-xs text-indigo-700 md:col-span-2">
+                      Elegí un proveedor para aplicar sus descuentos preconfigurados a esta corrida de pricing.
                     </p>
                   </div>
                 </div>
