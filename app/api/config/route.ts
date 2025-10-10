@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import configManager from '@/lib/configManagerLocal';
+import { config as unifiedConfig } from '@/lib/config';
 
 // GET - Obtener configuración actual
 export async function GET() {
   try {
-    const config = await configManager.getCurrentConfig();
+    const config = await unifiedConfig.load();
     
     return NextResponse.json({
       success: true,
@@ -25,20 +25,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Validar configuración
-    const validation = configManager.validateConfig(body);
-    if (!validation.isValid) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Configuración inválida',
-          details: validation.errors
-        },
-        { status: 400 }
-      );
-    }
-
-    // Guardar configuración
-    const savedConfig = await configManager.saveConfig(body);
+    // Guardar configuración en origen de servidor (Supabase)
+    const savedConfig = await unifiedConfig.save(body, 'supabase');
     
     return NextResponse.json({
       success: true,
@@ -60,24 +48,9 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     
     // Obtener configuración actual y actualizarla
-    const currentConfig = await configManager.getCurrentConfig();
+    const currentConfig = await unifiedConfig.load();
     const updatedConfig = { ...currentConfig, ...body };
-    
-    // Validar configuración actualizada
-    const validation = configManager.validateConfig(updatedConfig);
-    if (!validation.isValid) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Configuración inválida',
-          details: validation.errors
-        },
-        { status: 400 }
-      );
-    }
-
-    // Guardar configuración actualizada
-    const savedConfig = await configManager.saveConfig(updatedConfig);
+    const savedConfig = await unifiedConfig.save(updatedConfig, 'supabase');
     
     return NextResponse.json({
       success: true,
@@ -96,7 +69,7 @@ export async function PUT(request: NextRequest) {
 // DELETE - Resetear a configuración por defecto
 export async function DELETE() {
   try {
-    const resetConfig = await configManager.resetConfig();
+    const resetConfig = await unifiedConfig.reset('supabase');
     
     return NextResponse.json({
       success: true,

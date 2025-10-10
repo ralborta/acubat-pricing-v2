@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import configManager from '../../lib/configManagerLocal';
+import { config } from '@/lib/config';
 import { ConfiguracionSistema, ApiResponse } from '../../lib/types';
 
 // Función helper para asegurar que la configuración tenga el tipo correcto
@@ -64,10 +64,10 @@ export function useConfiguracion() {
         console.warn('⚠️ Error cargando desde Supabase, usando localStorage:', supabaseError);
       }
       
-      // 🔄 SEGUNDO: Fallback a localStorage
-      console.log('🔍 Cargando configuración desde localStorage...');
-      const config = await configManager.getCurrentConfig();
-      const configTyped = ensureConfigType(config);
+      // 🔄 SEGUNDO: Fallback a gestor local unificado
+      console.log('🔍 Cargando configuración desde gestor local...');
+      const cfg = await config.load();
+      const configTyped = ensureConfigType(cfg);
       setConfiguracion(configTyped);
       setError(null);
       console.log('✅ Configuración cargada desde localStorage:', configTyped);
@@ -112,9 +112,9 @@ export function useConfiguracion() {
         console.warn('⚠️ Error guardando en Supabase, continuando con localStorage:', supabaseError);
       }
       
-      // 🔄 SEGUNDO: Guardar en localStorage como respaldo
-      const configGuardada = await configManager.saveConfig(configCompleta);
-      const configTyped = ensureConfigType(configGuardada);
+      // 🔄 SEGUNDO: Guardar usando gestor unificado en cliente (local)
+      const guardada = await config.save(configCompleta, 'local');
+      const configTyped = ensureConfigType(guardada);
       setConfiguracion(configTyped);
       setError(null);
       
@@ -172,7 +172,7 @@ export function useConfiguracion() {
   const resetearConfiguracion = async (): Promise<ApiResponse<ConfiguracionSistema>> => {
     try {
       setLoading(true);
-      const configReset = await configManager.resetConfig();
+      const configReset = await config.reset('local');
       // Asegurar que el tipo sea correcto
       const configTyped = ensureConfigType(configReset);
       setConfiguracion(configTyped);
