@@ -811,32 +811,39 @@ export default function CargaPage() {
                       ¿Listo para procesar?
                     </h3>
                     
-                    {/* Botón de procesar con progress */}
-                    <button
-                      onClick={procesarArchivo}
-                      disabled={procesando}
-                      className={`relative overflow-hidden inline-flex items-center px-6 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
-                        procesando 
-                          ? 'bg-gray-400 cursor-not-allowed text-white' 
-                          : 'bg-green-600 hover:bg-green-700 text-white'
-                      }`}
-                    >
-                      {procesando ? (
-                        <>
-                          <span className="relative z-10">Procesando...</span>
-                          {/* Progress bar */}
-                          <div 
-                            className="absolute inset-0 bg-green-500 transition-all duration-300 ease-out"
-                            style={{ width: `${progreso}%` }}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <PlayIcon className="w-4 h-4 mr-2" />
-                          Procesar Archivo
-                        </>
+                    {/* Botón de procesar con badge de proveedor */}
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        onClick={procesarArchivo}
+                        disabled={procesando}
+                        className={`relative overflow-hidden inline-flex items-center px-6 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                          procesando 
+                            ? 'bg-gray-400 cursor-not-allowed text-white' 
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
+                      >
+                        {procesando ? (
+                          <>
+                            <span className="relative z-10">Procesando...</span>
+                            {/* Progress bar */}
+                            <div 
+                              className="absolute inset-0 bg-green-500 transition-all duration-300 ease-out"
+                              style={{ width: `${progreso}%` }}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <PlayIcon className="w-4 h-4 mr-2" />
+                            Procesar Archivo
+                          </>
+                        )}
+                      </button>
+                      {proveedorSeleccionado && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
+                          Marca: {proveedorSeleccionado}
+                        </span>
                       )}
-                    </button>
+                    </div>
 
                     {/* Barra de progreso */}
                     {procesando && (
