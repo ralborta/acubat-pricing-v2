@@ -950,6 +950,13 @@ export default function CargaPage() {
                     <p className="text-gray-600 text-sm">
                       Archivo procesado exitosamente con {resultado.estadisticas.total_productos} productos
                     </p>
+                    { (proveedorSeleccionado || (resultado.productos?.[0]?.proveedor)) && (
+                      <div className="mt-3">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
+                          Marca seleccionada: {proveedorSeleccionado || resultado.productos?.[0]?.proveedor}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Estadísticas */}
