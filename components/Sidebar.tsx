@@ -98,7 +98,7 @@ export default function Sidebar() {
             <div className="flex-1">
               <div className="font-semibold text-gray-900">Administrador</div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span>admin@acubat.com</span>
+                <span>acubat</span>
                 <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                 <Bell className="w-4 h-4" />
               </div>

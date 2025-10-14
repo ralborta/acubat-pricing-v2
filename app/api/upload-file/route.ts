@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const usuario = formData.get('usuario') as string || 'admin@acubat.com';
+    const usuario = formData.get('usuario') as string || 'acubat';
 
     if (!file) {
       return NextResponse.json(
