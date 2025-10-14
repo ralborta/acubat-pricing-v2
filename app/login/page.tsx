@@ -31,7 +31,7 @@ export default function LoginPage() {
       }))
       
       // Redirigir al dashboard
-      router.push('/')
+      window.location.href = '/'
     } else {
       console.log('❌ Credenciales incorrectas')
       setError('Usuario o contraseña incorrectos')
@@ -151,7 +151,7 @@ export default function LoginPage() {
 
       {/* Copyright */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-500">
-        <p>AcuBat v1.0.0 - © 2025 AcuBat - Todos los derechos reservados</p>
+        <p>AcuBat v1.0.0 - © 2025 AcuBat - Propiedad de empleados</p>
       </div>
     </div>
   )

@@ -42,7 +42,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     if (isAuthenticated === false && pathname !== '/login') {
       router.push('/login')
     } else if (isAuthenticated === true && pathname === '/login') {
-      router.push('/')
+      // Usar window.location para forzar recarga completa
+      window.location.href = '/'
     }
   }, [isAuthenticated, pathname, router])
 
