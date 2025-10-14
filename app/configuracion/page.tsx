@@ -236,14 +236,22 @@ export default function ConfiguracionPage() {
     }
   }
 
-  // Función para resetear configuración usando el hook
+  // Función para resetear configuración usando el endpoint
   const handleResetearConfiguracion = async () => {
-    if (confirm('¿Estás seguro de que quieres resetear toda la configuración?')) {
-      const result = await resetearConfiguracion()
-      if (result.success) {
-        alert('Configuración reseteada exitosamente')
-      } else {
-        alert(`Error al resetear: ${result.error}`)
+    if (confirm('¿Estás seguro de que quieres resetear toda la configuración a valores por defecto?')) {
+      try {
+        const response = await fetch('/api/reset-config', { method: 'POST' })
+        const result = await response.json()
+        
+        if (result.success) {
+          alert('✅ Configuración reseteada exitosamente')
+          // Recargar la configuración
+          window.location.reload()
+        } else {
+          alert(`❌ Error al resetear: ${result.error}`)
+        }
+      } catch (error) {
+        alert(`❌ Error al resetear: ${error instanceof Error ? error.message : 'Error desconocido'}`)
       }
     }
   }
