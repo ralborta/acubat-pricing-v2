@@ -14,8 +14,16 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
 
+    // Limpiar espacios en blanco
+    const usuarioTrimmed = usuario.trim()
+    const passwordTrimmed = password.trim()
+
+    console.log('🔐 Intentando login:', { usuario: usuarioTrimmed, password: passwordTrimmed })
+
     // Credenciales hardcodeadas
-    if (usuario === 'acubat' && password === '123456') {
+    if (usuarioTrimmed === 'acubat' && passwordTrimmed === '123456') {
+      console.log('✅ Credenciales correctas, iniciando sesión...')
+      
       // Guardar sesión en localStorage
       localStorage.setItem('acubat_session', JSON.stringify({
         usuario: 'acubat',
@@ -25,6 +33,7 @@ export default function LoginPage() {
       // Redirigir al dashboard
       router.push('/')
     } else {
+      console.log('❌ Credenciales incorrectas')
       setError('Usuario o contraseña incorrectos')
     }
   }
@@ -67,6 +76,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsuario(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
                 placeholder="Ingresa tu usuario"
+                autoComplete="username"
                 required
               />
             </div>
@@ -89,6 +99,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
                 placeholder="Ingresa tu contraseña"
+                autoComplete="current-password"
                 required
               />
               <button
