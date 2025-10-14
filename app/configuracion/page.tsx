@@ -245,6 +245,10 @@ export default function ConfiguracionPage() {
         
         if (result.success) {
           alert('✅ Configuración reseteada exitosamente')
+          // Limpiar localStorage si el servidor lo indica
+          if (result.clearLocalStorage) {
+            localStorage.clear()
+          }
           // Recargar la configuración
           window.location.reload()
         } else {

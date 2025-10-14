@@ -8,10 +8,12 @@ export async function POST() {
     // Resetear en Supabase (si está disponible)
     await unifiedConfig.reset('supabase')
     
+    // También limpiar localStorage en el cliente
     return NextResponse.json({ 
       success: true, 
       message: 'Configuración reseteada a valores por defecto',
-      data: null
+      data: null,
+      clearLocalStorage: true
     })
   } catch (error) {
     console.error('❌ Error reseteando configuración:', error)

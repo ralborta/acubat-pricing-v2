@@ -167,9 +167,9 @@ export default function Sidebar() {
         <button
           onClick={() => {
             if (confirm('¿Estás seguro de que quieres cerrar sesión?')) {
-              // Limpiar localStorage y recargar
+              // Limpiar localStorage y redirigir a login
               localStorage.clear()
-              window.location.href = '/'
+              window.location.href = '/login'
             }
           }}
           className="w-full p-3 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-200 flex items-center gap-3 justify-center mb-2"
