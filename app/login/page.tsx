@@ -142,9 +142,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-gray-200">
           <div className="text-center text-xs text-gray-500">
-            <p className="mb-2">Credenciales por defecto:</p>
-            <p><strong>Usuario:</strong> acubat</p>
-            <p><strong>Contraseña:</strong> 123456</p>
+            <p>Contacta al administrador para obtener acceso</p>
           </div>
         </div>
       </div>
