@@ -238,24 +238,22 @@ export default function ConfiguracionPage() {
 
   // Función para resetear configuración usando el endpoint
   const handleResetearConfiguracion = async () => {
-    if (confirm('¿Estás seguro de que quieres resetear toda la configuración a valores por defecto?')) {
+    if (confirm('¿Estás seguro de que quieres LIMPIAR COMPLETAMENTE toda la configuración? Esto eliminará todos los proveedores y datos guardados.')) {
       try {
-        const response = await fetch('/api/reset-config', { method: 'POST' })
+        const response = await fetch('/api/clear-all', { method: 'POST' })
         const result = await response.json()
         
         if (result.success) {
-          alert('✅ Configuración reseteada exitosamente')
-          // Limpiar localStorage si el servidor lo indica
-          if (result.clearLocalStorage) {
-            localStorage.clear()
-          }
-          // Recargar la configuración
-          window.location.reload()
+          alert('✅ Configuración completamente limpiada y reseteada')
+          // Limpiar localStorage completamente
+          localStorage.clear()
+          // Forzar recarga completa de la página
+          window.location.href = '/configuracion'
         } else {
-          alert(`❌ Error al resetear: ${result.error}`)
+          alert(`❌ Error al limpiar: ${result.error}`)
         }
       } catch (error) {
-        alert(`❌ Error al resetear: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+        alert(`❌ Error al limpiar: ${error instanceof Error ? error.message : 'Error desconocido'}`)
       }
     }
   }
