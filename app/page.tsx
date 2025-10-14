@@ -18,57 +18,57 @@ import DoughnutChart from '@/components/DoughnutChart'
 const kpiData = [
   {
     title: 'Total de Productos',
-    value: '1,247',
-    change: '+12% Mejorando',
-    changeType: 'positive' as const,
-    progress: 70,
+    value: '0',
+    change: 'Sin datos',
+    changeType: 'neutral' as const,
+    progress: 0,
     icon: Phone,
-    iconColor: 'text-blue-500'
+    iconColor: 'text-gray-400'
   },
   {
     title: 'Margen Promedio',
-    value: '35.2%',
-    change: '+5% Mejorando',
-    changeType: 'positive' as const,
-    progress: 60,
+    value: '0%',
+    change: 'Sin datos',
+    changeType: 'neutral' as const,
+    progress: 0,
     icon: Clock,
-    iconColor: 'text-green-500'
+    iconColor: 'text-gray-400'
   },
   {
     title: 'Tasa de Éxito',
-    value: '87%',
-    change: '+8% Mejorando',
-    changeType: 'positive' as const,
-    progress: 85,
+    value: '0%',
+    change: 'Sin datos',
+    changeType: 'neutral' as const,
+    progress: 0,
     icon: TrendingUp,
-    iconColor: 'text-purple-500'
+    iconColor: 'text-gray-400'
   },
   {
     title: 'Productos Críticos',
-    value: '89',
-    change: '-3% Necesita atención',
-    changeType: 'negative' as const,
-    progress: 20,
+    value: '0',
+    change: 'Sin datos',
+    changeType: 'neutral' as const,
+    progress: 0,
     icon: AlertTriangle,
-    iconColor: 'text-orange-500'
+    iconColor: 'text-gray-400'
   },
   {
     title: 'Simulaciones',
-    value: '23',
-    change: '-15% Mejorando',
-    changeType: 'negative' as const,
-    progress: 40,
+    value: '0',
+    change: 'Sin datos',
+    changeType: 'neutral' as const,
+    progress: 0,
     icon: Users,
-    iconColor: 'text-indigo-500'
+    iconColor: 'text-gray-400'
   },
   {
     title: 'Tiempo Total',
-    value: '94h 12m',
-    change: '+7% Mejorando',
-    changeType: 'positive' as const,
-    progress: 90,
+    value: '0h 0m',
+    change: 'Sin datos',
+    changeType: 'neutral' as const,
+    progress: 0,
     icon: BarChart3,
-    iconColor: 'text-cyan-500'
+    iconColor: 'text-gray-400'
   }
 ]
 
@@ -84,6 +84,11 @@ export default function Dashboard() {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
             <p className="text-gray-600">Resumen de actividad de la plataforma de pricing</p>
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-800 text-sm">
+                <strong>Estado:</strong> Sin datos disponibles. Los indicadores se actualizarán cuando comiences a procesar archivos de pricing.
+              </p>
+            </div>
           </div>
           
           {/* KPI Cards Grid */}

@@ -29,13 +29,13 @@ const data = {
   datasets: [
     {
       label: 'Productos',
-      data: [25, 35, 45, 30, 50, 40, 55],
-      borderColor: '#3b82f6',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      data: [0, 0, 0, 0, 0, 0, 0],
+      borderColor: '#9ca3af',
+      backgroundColor: 'rgba(156, 163, 175, 0.1)',
       borderWidth: 2,
       fill: true,
       tension: 0.4,
-      pointBackgroundColor: '#3b82f6',
+      pointBackgroundColor: '#9ca3af',
       pointBorderColor: '#ffffff',
       pointBorderWidth: 2,
       pointRadius: 4,
@@ -84,8 +84,8 @@ const options = {
           return value
         },
       },
-      min: 15,
-      max: 60,
+      min: 0,
+      max: 10,
     },
   },
   elements: {

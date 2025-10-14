@@ -14,16 +14,16 @@ const data = {
   labels: ['Óptimo (≥20%)', 'Advertencia (10-20%)', 'Crítico (<10%)'],
   datasets: [
     {
-      data: [65, 25, 10],
+      data: [0, 0, 0],
       backgroundColor: [
-        '#10b981', // Green
-        '#f59e0b', // Orange
-        '#ef4444', // Red
+        '#9ca3af', // Gray
+        '#9ca3af', // Gray
+        '#9ca3af', // Gray
       ],
       borderColor: [
-        '#10b981',
-        '#f59e0b',
-        '#ef4444',
+        '#9ca3af',
+        '#9ca3af',
+        '#9ca3af',
       ],
       borderWidth: 2,
       cutout: '70%',
