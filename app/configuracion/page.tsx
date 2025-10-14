@@ -236,6 +236,27 @@ export default function ConfiguracionPage() {
     }
   }
 
+  // Función para borrar un proveedor específico
+  const handleBorrarProveedor = async (proveedor: string) => {
+    if (confirm(`¿Estás seguro de que quieres borrar el proveedor "${proveedor}"?`)) {
+      if (!configuracion) return
+      
+      const nuevaConfig = { ...configuracion }
+      delete nuevaConfig.proveedores[proveedor]
+      
+      const result = await guardarConfiguracion(nuevaConfig)
+      if (result.success) {
+        alert(`✅ Proveedor "${proveedor}" borrado exitosamente`)
+        // Si era el proveedor actual, limpiarlo
+        if (proveedorActual === proveedor) {
+          setProveedorActual(null)
+        }
+      } else {
+        alert(`❌ Error al borrar proveedor: ${result.error}`)
+      }
+    }
+  }
+
   // Función para resetear configuración usando el endpoint
   const handleResetearConfiguracion = async () => {
     if (confirm('¿Estás seguro de que quieres LIMPIAR COMPLETAMENTE toda la configuración? Esto eliminará todos los proveedores y datos guardados.')) {
@@ -556,6 +577,42 @@ export default function ConfiguracionPage() {
                   </div>
                 </div>
 
+                {/* Lista de Proveedores Existentes */}
+                {Object.keys(configuracion.proveedores || {}).length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Proveedores Configurados</h3>
+                    <div className="space-y-3">
+                      {Object.entries(configuracion.proveedores || {}).map(([nombre, config]) => (
+                        <div key={nombre} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{nombre}</div>
+                            <div className="text-sm text-gray-500">
+                              Descuento: {config.descuentoProveedor || 0}%
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setProveedorActual(nombre)}
+                              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                            >
+                              Seleccionar
+                            </button>
+                            <button
+                              onClick={() => handleBorrarProveedor(nombre)}
+                              className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors flex items-center gap-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Borrar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Descuento Global (solo si no hay proveedor seleccionado) */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-1">💰 {proveedorActual ? 'Descuento Global (deshabilitado por proveedor seleccionado)' : 'Descuento de Proveedor (Global)'}</h3>
@@ -865,7 +922,7 @@ export default function ConfiguracionPage() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                      Limpiar Variables
+                      Borrar Proveedores
                     </button>
                     <button
                       onClick={handleResetearConfiguracion}
