@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
+import { formatNumber, formatCurrency } from '../../../lib/formatters'
 import { 
   TrendingUp, 
   TrendingDown,
@@ -91,17 +92,13 @@ export default function ReporteRentabilidadPage() {
     }
   }
 
-  const formatearPrecio = (precio: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(precio)
-  }
 
   const formatearPorcentaje = (valor: number) => {
     return `${valor.toFixed(1)}%`
+  }
+
+  const formatearPrecio = (precio: number) => {
+    return formatCurrency(precio, false)
   }
 
   const productosFiltrados = productos.filter(producto => {

@@ -608,6 +608,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // Intentar parsear como número
           let precio = parseFloat(valor)
           
+          // 🎯 DETECCIÓN DE FORMATO ARGENTINO: Si el número tiene 3 dígitos después del punto
+          if (!isNaN(precio)) {
+            const valorStr = String(valor)
+            // Verificar si tiene punto y exactamente 3 dígitos después (formato argentino: 136.490)
+            if (valorStr.includes('.') && valorStr.split('.')[1] && valorStr.split('.')[1].length === 3) {
+              // Es formato argentino: 136.490 -> 136490
+              const valorLimpio = valorStr.replace('.', '')
+              precio = parseFloat(valorLimpio)
+              console.log(`🔍 Formato argentino detectado: ${valorStr} -> ${valorLimpio} -> ${precio}`)
+            }
+          }
+          
           // Si no es número, intentar limpiar formato argentino
           if (isNaN(precio) && typeof valor === 'string') {
             const valorLimpio = valor.replace(/\./g, '').replace(',', '.')
@@ -633,10 +645,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               // 🔍 BÚSQUEDA ALTERNATIVA: Solo si NO se encontró precio
       console.log(`🔍 BÚSQUEDA ALTERNATIVA DE PRECIO...`)
       for (const [key, value] of Object.entries(producto)) {
-        if (typeof value === 'number' && value > 1000 && value < 1000000) {
-          precioBase = value
-          console.log(`✅ Precio encontrado por búsqueda alternativa en '${key}': ${precioBase}`)
-          break
+        if (typeof value === 'number') {
+          // 🎯 DETECCIÓN DE FORMATO ARGENTINO: Si el número tiene 3 dígitos después del punto
+          let precio = value
+          const valorStr = String(value)
+          if (valorStr.includes('.') && valorStr.split('.')[1] && valorStr.split('.')[1].length === 3) {
+            // Es formato argentino: 136.490 -> 136490
+            const valorLimpio = valorStr.replace('.', '')
+            precio = parseFloat(valorLimpio)
+            console.log(`🔍 Formato argentino detectado en búsqueda alternativa: ${valorStr} -> ${valorLimpio} -> ${precio}`)
+          }
+          
+          if (precio > 1000 && precio < 1000000) {
+            precioBase = precio
+            console.log(`✅ Precio encontrado por búsqueda alternativa en '${key}': ${precioBase}`)
+            break
+          }
         }
       }
       

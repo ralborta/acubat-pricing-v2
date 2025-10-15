@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
+import { formatNumber, formatCurrency } from '../../../lib/formatters'
 import { 
   Package, 
   TrendingUp, 
@@ -116,12 +117,7 @@ export default function ReporteProveedorPage() {
   }
 
   const formatearPrecio = (precio: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(precio)
+    return formatCurrency(precio, false)
   }
 
   const formatearPorcentaje = (valor: number) => {
