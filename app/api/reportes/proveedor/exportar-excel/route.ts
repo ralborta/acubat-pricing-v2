@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { HistorialPricing } from '../../../../lib/supabase-historial'
+import { HistorialPricing } from "@/lib/supabase-historial"
 import * as XLSX from 'xlsx'
 
 export async function GET(request: NextRequest) {
@@ -40,11 +40,11 @@ export async function GET(request: NextRequest) {
     })
 
     // Calcular estadísticas por proveedor
-    const estadisticasProveedores = []
+    const estadisticasProveedores: any[] = []
     Object.keys(productosPorProveedor).forEach(proveedor => {
       const productos = productosPorProveedor[proveedor]
       const cantidadProductos = productos.length
-      const productosRentables = productos.filter(p => 
+      const productosRentables = productos.filter((p: any) => 
         p.minorista_rentabilidad > 0 && p.mayorista_rentabilidad > 0
       ).length
       const porcentajeRentables = cantidadProductos > 0 
@@ -52,17 +52,17 @@ export async function GET(request: NextRequest) {
         : 0
 
       const rentabilidadPromedioMinorista = productos.length > 0
-        ? productos.reduce((sum, p) => sum + (p.minorista_rentabilidad || 0), 0) / productos.length
+        ? productos.reduce((sum: number, p: any) => sum + (p.minorista_rentabilidad || 0), 0) / productos.length
         : 0
 
       const rentabilidadPromedioMayorista = productos.length > 0
-        ? productos.reduce((sum, p) => sum + (p.mayorista_rentabilidad || 0), 0) / productos.length
+        ? productos.reduce((sum: number, p: any) => sum + (p.mayorista_rentabilidad || 0), 0) / productos.length
         : 0
 
-      const valorTotalMinorista = productos.reduce((sum, p) => sum + (p.minorista_precio_final || 0), 0)
-      const valorTotalMayorista = productos.reduce((sum, p) => sum + (p.mayorista_precio_final || 0), 0)
+      const valorTotalMinorista = productos.reduce((sum: number, p: any) => sum + (p.minorista_precio_final || 0), 0)
+      const valorTotalMayorista = productos.reduce((sum: number, p: any) => sum + (p.mayorista_precio_final || 0), 0)
 
-      const conEquivalenciaVarta = productos.filter(p => p.equivalencia_varta?.encontrada).length
+      const conEquivalenciaVarta = productos.filter((p: any) => p.equivalencia_varta?.encontrada).length
       const porcentajeVarta = cantidadProductos > 0 
         ? (conEquivalenciaVarta / cantidadProductos) * 100 
         : 0
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     }))
 
     // Top productos por proveedor
-    const topProductosPorProveedor = []
+    const topProductosPorProveedor: any[] = []
     Object.keys(productosPorProveedor).forEach(proveedor => {
       const productos = productosPorProveedor[proveedor]
       const topProductos = [...productos]
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Productos problemáticos por proveedor
-    const productosProblematicos = []
+    const productosProblematicos: any[] = []
     Object.keys(productosPorProveedor).forEach(proveedor => {
       const productos = productosPorProveedor[proveedor]
       const problematicos = [...productos]

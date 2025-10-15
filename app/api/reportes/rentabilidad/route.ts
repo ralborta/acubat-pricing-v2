@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { HistorialPricing } from '../../../../lib/supabase-historial'
+import { HistorialPricing } from "@/lib/supabase-historial"
 
 export async function GET(request: NextRequest) {
   try {

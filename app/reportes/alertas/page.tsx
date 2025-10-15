@@ -15,7 +15,7 @@ import {
   DollarSign,
   Package,
   Clock,
-  ExclamationTriangle
+  BarChart3
 } from 'lucide-react'
 
 interface Alerta {
@@ -118,7 +118,7 @@ export default function CentroAlertasPage() {
       case 'alta': return <XCircle className="h-5 w-5 text-red-600" />
       case 'media': return <AlertTriangle className="h-5 w-5 text-yellow-600" />
       case 'baja': return <AlertCircle className="h-5 w-5 text-blue-600" />
-      default: return <ExclamationTriangle className="h-5 w-5 text-gray-600" />
+      default: return <AlertTriangle className="h-5 w-5 text-gray-600" />
     }
   }
 
@@ -138,7 +138,7 @@ export default function CentroAlertasPage() {
       case 'sin_varta': return <Package className="h-4 w-4" />
       case 'error_procesamiento': return <XCircle className="h-4 w-4" />
       case 'rentabilidad_baja': return <AlertTriangle className="h-4 w-4" />
-      default: return <ExclamationTriangle className="h-4 w-4" />
+      default: return <AlertTriangle className="h-4 w-4" />
     }
   }
 

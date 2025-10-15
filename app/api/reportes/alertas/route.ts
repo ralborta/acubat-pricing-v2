@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { HistorialPricing } from '../../../../lib/supabase-historial'
+import { HistorialPricing } from "@/lib/supabase-historial"
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Generar alertas
-    const alertas = []
+    const alertas: any[] = []
 
     // 1. Alertas de rentabilidad negativa
     const productosRentabilidadNegativa = todosProductos.filter(p => 
@@ -235,8 +235,8 @@ export async function GET(request: NextRequest) {
       },
       alertas: alertas.sort((a, b) => {
         // Ordenar por severidad (alta primero) y luego por fecha
-        const severidadOrder = { alta: 3, media: 2, baja: 1 }
-        const severidadDiff = severidadOrder[b.severidad] - severidadOrder[a.severidad]
+        const severidadOrder: { [key: string]: number } = { alta: 3, media: 2, baja: 1 }
+        const severidadDiff = (severidadOrder[b.severidad] || 0) - (severidadOrder[a.severidad] || 0)
         if (severidadDiff !== 0) return severidadDiff
         return new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
       }),

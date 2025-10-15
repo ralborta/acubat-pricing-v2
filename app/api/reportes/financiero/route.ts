@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { HistorialPricing } from '../../../../lib/supabase-historial'
+import { HistorialPricing } from "@/lib/supabase-historial"
 
 export async function GET(request: NextRequest) {
   try {
@@ -90,10 +90,10 @@ export async function GET(request: NextRequest) {
 
     const analisisPorProveedor = Object.keys(productosPorProveedor).map(proveedor => {
       const productos = productosPorProveedor[proveedor]
-      const valorProcesado = productos.reduce((sum, p) => sum + (p.minorista_precio_final || 0), 0)
-      const valorAgregado = productos.reduce((sum, p) => sum + (p.valor_agregado_minorista || 0), 0)
+      const valorProcesado = productos.reduce((sum: number, p: any) => sum + (p.minorista_precio_final || 0), 0)
+      const valorAgregado = productos.reduce((sum: number, p: any) => sum + (p.valor_agregado_minorista || 0), 0)
       const rentabilidadPromedio = productos.length > 0
-        ? productos.reduce((sum, p) => sum + (p.minorista_rentabilidad || 0), 0) / productos.length
+        ? productos.reduce((sum: number, p: any) => sum + (p.minorista_rentabilidad || 0), 0) / productos.length
         : 0
       const porcentajeParticipacion = valorTotalProcesado > 0 
         ? (valorProcesado / valorTotalProcesado) * 100 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { HistorialPricing } from '../../../../lib/supabase-historial'
+import { HistorialPricing } from "@/lib/supabase-historial"
 import * as XLSX from 'xlsx'
 
 export async function GET(request: NextRequest) {
@@ -93,9 +93,9 @@ export async function GET(request: NextRequest) {
         'Fecha Anterior': new Date(sesionAnterior.fecha_procesamiento).toLocaleDateString('es-AR'),
         'Cambio Productos': cambioProductos,
         'Cambio Productos (%)': porcentajeProductos.toFixed(2),
-        'Cambio Rentabilidad Minorista (%)': cambioRentabilidadMinorista.toFixed(2),
+        'Cambio Rentabilidad Minorista': cambioRentabilidadMinorista.toFixed(2),
         'Cambio Rentabilidad Minorista (%)': porcentajeRentabilidadMinorista.toFixed(2),
-        'Cambio Rentabilidad Mayorista (%)': cambioRentabilidadMayorista.toFixed(2),
+        'Cambio Rentabilidad Mayorista': cambioRentabilidadMayorista.toFixed(2),
         'Cambio Rentabilidad Mayorista (%)': porcentajeRentabilidadMayorista.toFixed(2),
         'Cambio Valor Total': cambioValorTotal,
         'Cambio Valor Total (%)': porcentajeValorTotal.toFixed(2)

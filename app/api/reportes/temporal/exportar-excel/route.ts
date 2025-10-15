@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { HistorialPricing } from '../../../../lib/supabase-historial'
+import { HistorialPricing } from "@/lib/supabase-historial"
 import * as XLSX from 'xlsx'
 
 export async function GET(request: NextRequest) {
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
     )
 
     // Preparar datos para Excel
-    const tendenciasDiariasExcel = tendenciasDiariasArray.map(dia => ({
+    const tendenciasDiariasExcel = tendenciasDiariasArray.map((dia: any) => ({
       'Fecha': new Date(dia.fecha).toLocaleDateString('es-AR'),
       'Sesiones': dia.sesiones,
       'Productos': dia.productos,
@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
       'Con Varta': dia.con_varta
     }))
 
-    const tendenciasSemanalesExcel = tendenciasSemanalesArray.map(semana => ({
+    const tendenciasSemanalesExcel = tendenciasSemanalesArray.map((semana: any) => ({
       'Semana Inicio': new Date(semana.fecha).toLocaleDateString('es-AR'),
       'Sesiones': semana.sesiones,
       'Productos': semana.productos,
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
       'Con Varta': semana.con_varta
     }))
 
-    const tendenciasMensualesExcel = tendenciasMensualesArray.map(mes => ({
+    const tendenciasMensualesExcel = tendenciasMensualesArray.map((mes: any) => ({
       'Mes': mes.fecha,
       'Sesiones': mes.sesiones,
       'Productos': mes.productos,
@@ -219,30 +219,30 @@ export async function GET(request: NextRequest) {
     // Estadísticas generales
     const totalDiasActivos = tendenciasDiariasArray.length
     const promedioSesionesPorDia = totalDiasActivos > 0 
-      ? tendenciasDiariasArray.reduce((sum, dia) => sum + dia.sesiones, 0) / totalDiasActivos 
+      ? tendenciasDiariasArray.reduce((sum: number, dia: any) => sum + dia.sesiones, 0) / totalDiasActivos 
       : 0
     const promedioProductosPorDia = totalDiasActivos > 0 
-      ? tendenciasDiariasArray.reduce((sum, dia) => sum + dia.productos, 0) / totalDiasActivos 
+      ? tendenciasDiariasArray.reduce((sum: number, dia: any) => sum + dia.productos, 0) / totalDiasActivos 
       : 0
 
     const diaMasActivo = tendenciasDiariasArray.length > 0 
-      ? tendenciasDiariasArray.reduce((max, dia) => dia.sesiones > max.sesiones ? dia : max, tendenciasDiariasArray[0]).fecha
+      ? (tendenciasDiariasArray as any[]).reduce((max: any, dia: any) => dia.sesiones > max.sesiones ? dia : max, (tendenciasDiariasArray as any[])[0]).fecha
       : ''
 
     const mesMasActivo = tendenciasMensualesArray.length > 0 
-      ? tendenciasMensualesArray.reduce((max, mes) => mes.sesiones > max.sesiones ? mes : max, tendenciasMensualesArray[0]).fecha
+      ? (tendenciasMensualesArray as any[]).reduce((max: any, mes: any) => mes.sesiones > max.sesiones ? mes : max, (tendenciasMensualesArray as any[])[0]).fecha
       : ''
 
     const crecimientoSesiones = tendenciasDiariasArray.length >= 2 
-      ? ((tendenciasDiariasArray[tendenciasDiariasArray.length - 1].sesiones - tendenciasDiariasArray[0].sesiones) / tendenciasDiariasArray[0].sesiones) * 100
+      ? (((tendenciasDiariasArray as any[])[tendenciasDiariasArray.length - 1].sesiones - (tendenciasDiariasArray as any[])[0].sesiones) / (tendenciasDiariasArray as any[])[0].sesiones) * 100
       : 0
 
     const crecimientoProductos = tendenciasDiariasArray.length >= 2 
-      ? ((tendenciasDiariasArray[tendenciasDiariasArray.length - 1].productos - tendenciasDiariasArray[0].productos) / tendenciasDiariasArray[0].productos) * 100
+      ? (((tendenciasDiariasArray as any[])[tendenciasDiariasArray.length - 1].productos - (tendenciasDiariasArray as any[])[0].productos) / (tendenciasDiariasArray as any[])[0].productos) * 100
       : 0
 
     const crecimientoRentabilidad = tendenciasDiariasArray.length >= 2 
-      ? tendenciasDiariasArray[tendenciasDiariasArray.length - 1].rentabilidad_promedio - tendenciasDiariasArray[0].rentabilidad_promedio
+      ? (tendenciasDiariasArray as any[])[tendenciasDiariasArray.length - 1].rentabilidad_promedio - (tendenciasDiariasArray as any[])[0].rentabilidad_promedio
       : 0
 
     const estadisticasGenerales = [

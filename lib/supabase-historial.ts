@@ -21,7 +21,7 @@ export interface SesionPricing {
 }
 
 export interface ProductoPricing {
-  sesion_id: number
+  sesion_id?: number
   producto: string
   tipo?: string
   modelo?: string

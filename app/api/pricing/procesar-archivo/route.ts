@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
 import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
-import { HistorialPricing } from '../../../../lib/supabase-historial'
+import { HistorialPricing } from "@/lib/supabase-historial"
 
 // 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN CON FALLBACK ROBUSTO
 async function obtenerConfiguracion() {

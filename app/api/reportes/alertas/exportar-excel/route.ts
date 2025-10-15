@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { HistorialPricing } from '../../../../lib/supabase-historial'
+import { HistorialPricing } from "@/lib/supabase-historial"
 import * as XLSX from 'xlsx'
 
 export async function GET(request: NextRequest) {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Generar alertas (misma lógica que la API)
-    const alertas = []
+    const alertas: any[] = []
 
     // 1. Alertas de rentabilidad negativa
     const productosRentabilidadNegativa = todosProductos.filter(p => 

@@ -141,7 +141,10 @@ export default function HistorialPage() {
           <CardContent>
             <div className="text-2xl font-bold">
               {sesiones.length > 0 
-                ? (sesiones.reduce((acc, s) => acc + parseFloat(calcularRentabilidadPromedio(s.estadisticas)), 0) / sesiones.length).toFixed(1)
+                ? (sesiones.reduce((acc, s) => {
+                    const rentabilidad = calcularRentabilidadPromedio(s.estadisticas)
+                    return acc + (typeof rentabilidad === 'string' ? parseFloat(rentabilidad) : rentabilidad)
+                  }, 0) / sesiones.length).toFixed(1)
                 : 0}%
             </div>
             <p className="text-xs text-muted-foreground">

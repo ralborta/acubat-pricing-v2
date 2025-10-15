@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { HistorialPricing } from '../../../../lib/supabase-historial'
+import { HistorialPricing } from "@/lib/supabase-historial"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
             sesion_anterior: null,
             sesion_actual: null,
             cambios: {
-              productos: { valor: 0, porcentaje: 0, tendencia: 'stable' as const },
-              rentabilidad_minorista: { valor: 0, porcentaje: 0, tendencia: 'stable' as const },
-              rentabilidad_mayorista: { valor: 0, porcentaje: 0, tendencia: 'stable' as const },
-              valor_total: { valor: 0, porcentaje: 0, tendencia: 'stable' as const }
+              productos: { valor: 0, porcentaje: 0, tendencia: 'stable' },
+              rentabilidad_minorista: { valor: 0, porcentaje: 0, tendencia: 'stable' },
+              rentabilidad_mayorista: { valor: 0, porcentaje: 0, tendencia: 'stable' },
+              valor_total: { valor: 0, porcentaje: 0, tendencia: 'stable' }
             }
           },
           tendencias: {
@@ -71,10 +71,10 @@ export async function GET(request: NextRequest) {
       sesion_anterior: null as any,
       sesion_actual: null as any,
       cambios: {
-        productos: { valor: 0, porcentaje: 0, tendencia: 'stable' as const },
-        rentabilidad_minorista: { valor: 0, porcentaje: 0, tendencia: 'stable' as const },
-        rentabilidad_mayorista: { valor: 0, porcentaje: 0, tendencia: 'stable' as const },
-        valor_total: { valor: 0, porcentaje: 0, tendencia: 'stable' as const }
+        productos: { valor: 0, porcentaje: 0, tendencia: 'stable' },
+        rentabilidad_minorista: { valor: 0, porcentaje: 0, tendencia: 'stable' },
+        rentabilidad_mayorista: { valor: 0, porcentaje: 0, tendencia: 'stable' },
+        valor_total: { valor: 0, porcentaje: 0, tendencia: 'stable' }
       }
     }
 
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
         : 0
       
       // Determinar tendencias
-      const getTendencia = (valor: number): 'up' | 'down' | 'stable' => {
+      const getTendencia = (valor: number) => {
         if (valor > 0.1) return 'up'
         if (valor < -0.1) return 'down'
         return 'stable'
