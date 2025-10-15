@@ -32,6 +32,18 @@ const menuItems = [
     description: 'Subir archivos Excel'
   },
   {
+    id: 'historial',
+    label: 'Historial',
+    icon: FileText,
+    description: 'Ver sesiones de pricing'
+  },
+  {
+    id: 'reportes',
+    label: 'Reportes',
+    icon: BarChart3,
+    description: 'Análisis y reportes de pricing'
+  },
+  {
     id: 'conciliacion',
     label: 'Conciliación Bancaria',
     icon: Building2,
