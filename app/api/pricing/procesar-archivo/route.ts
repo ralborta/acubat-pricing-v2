@@ -553,18 +553,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const modelo = columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A'
       const descripcion = columnMapping.descripcion ? producto[columnMapping.descripcion] : modelo
       
-      // 🧠 PROVEEDOR: forzado por UI o detección
+      // 🎯 DATOS ADICIONALES PARA LUSQTOFF: Código y Marca
+      const codigo = columnMapping.codigo ? producto[columnMapping.codigo] : modelo
+      const marca = columnMapping.marca ? producto[columnMapping.marca] : proveedor
+      
+      // 🧠 PROVEEDOR: forzado por UI o detección mejorada
       let proveedor = proveedorForzado || 'Sin Marca'
       if (!proveedorForzado) {
-        if (columnMapping.proveedor && producto[columnMapping.proveedor]) {
+        // 🎯 PRIORIDAD 1: Usar columna MARCA si está disponible (específico para LUSQTOFF)
+        if (columnMapping.marca && producto[columnMapping.marca]) {
+          proveedor = producto[columnMapping.marca]
+          console.log(`🎯 Proveedor detectado desde columna MARCA: ${proveedor}`)
+        }
+        // 🎯 PRIORIDAD 2: Usar columna PROVEEDOR si está disponible
+        else if (columnMapping.proveedor && producto[columnMapping.proveedor]) {
           proveedor = producto[columnMapping.proveedor]
-        } else {
-          // Analizar nombre del producto para extraer marca
+          console.log(`🎯 Proveedor detectado desde columna PROVEEDOR: ${proveedor}`)
+        }
+        // 🎯 PRIORIDAD 3: Analizar nombre del producto para extraer marca
+        else {
           const nombreProducto = descripcion || modelo || ''
-          const marcasConocidas = ['Moura', 'Varta', 'Bosch', 'ACDelco', 'Exide', 'Delkor', 'Banner', 'GS', 'Panasonic', 'Yuasa']
+          const marcasConocidas = ['Moura', 'Varta', 'Bosch', 'ACDelco', 'Exide', 'Delkor', 'Banner', 'GS', 'Panasonic', 'Yuasa', 'LUSQTOFF', 'LÜSQTOFF']
           for (const marca of marcasConocidas) {
             if (nombreProducto.toLowerCase().includes(marca.toLowerCase())) {
               proveedor = marca
+              console.log(`🎯 Proveedor detectado desde nombre del producto: ${proveedor}`)
               break
             }
           }
@@ -572,6 +585,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             const primeraPalabra = nombreProducto.split(' ')[0]
             if (primeraPalabra && primeraPalabra.length > 2) {
               proveedor = primeraPalabra
+              console.log(`🎯 Proveedor detectado desde primera palabra: ${proveedor}`)
             }
           }
         }
@@ -581,6 +595,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
       console.log(`   - Modelo: "${modelo}" (columna: ${columnMapping.modelo})`)
       console.log(`   - Descripción: "${descripcion}" (columna: ${columnMapping.descripcion})`)
+      console.log(`   - Código: "${codigo}" (columna: ${columnMapping.codigo})`)
+      console.log(`   - Marca: "${marca}" (columna: ${columnMapping.marca})`)
       console.log(`   - Proveedor: "${proveedor}" (detectado por IA)`)
       
       // Buscar precio (prioridad: Contado > precio > pdv > pvp)

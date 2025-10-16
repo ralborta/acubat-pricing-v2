@@ -5,6 +5,8 @@ export interface MapeoColumnas {
   tipo: string
   modelo?: string
   descripcion?: string
+  marca?: string  // ✅ Marca para LUSQTOFF
+  codigo?: string  // ✅ Código para LUSQTOFF
   pdv?: string
   pvp?: string
   pvp_off_line?: string  // ✅ PVP Off Line para LUSQTOFF
@@ -31,6 +33,18 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   mapeo.producto = headers.find(h => 
     productoPatterns.some(pattern => h.toLowerCase().includes(pattern))
   ) || headers[0] || ''
+  
+  // Buscar columna de marca (específico para LUSQTOFF)
+  const marcaPatterns = ['marca', 'brand', 'fabricante', 'manufacturer']
+  mapeo.marca = headers.find(h => 
+    marcaPatterns.some(pattern => h.toLowerCase().includes(pattern))
+  ) || ''
+  
+  // Buscar columna de código (específico para LUSQTOFF)
+  const codigoPatterns = ['codigo', 'code', 'sku', 'referencia', 'ref', 'articulo']
+  mapeo.codigo = headers.find(h => 
+    codigoPatterns.some(pattern => h.toLowerCase().includes(pattern))
+  ) || ''
   
   // Buscar columna de precio
   const precioPatterns = ['precio', 'costo', 'valor', 'price', 'cost', 'pvp', 'pdv', 'lista', 'venta', 'publico', 'final']
