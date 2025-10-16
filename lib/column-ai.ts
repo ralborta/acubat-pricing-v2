@@ -7,6 +7,7 @@ export interface MapeoColumnas {
   descripcion?: string
   pdv?: string
   pvp?: string
+  pvp_off_line?: string  // ✅ PVP Off Line para LUSQTOFF
   contado?: string
   proveedor?: string  // ✅ Proveedor detectado por IA
 }
@@ -71,6 +72,12 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   const pvpPatterns = ['pvp', 'precio_venta_publico', 'precio_publico']
   mapeo.pvp = headers.find(h => 
     pvpPatterns.some(pattern => h.toLowerCase().includes(pattern))
+  ) || ''
+  
+  // Buscar columna PVP Off Line (específico para LUSQTOFF)
+  const pvpOffLinePatterns = ['pvp off line', 'pvp_off_line', 'pvp off', 'off line', 'offline']
+  mapeo.pvp_off_line = headers.find(h => 
+    pvpOffLinePatterns.some(pattern => h.toLowerCase().includes(pattern))
   ) || ''
   
   console.log('📊 Mapeo detectado:', mapeo)

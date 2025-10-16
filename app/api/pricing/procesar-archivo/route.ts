@@ -588,13 +588,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`🔍 Mapeo de columnas disponible:`, columnMapping)
       let precioBase = 0
       
-      // Buscar en todas las columnas de precio disponibles (prioridad: Contado)
-      const columnasPrecio = [
-        { key: 'contado', value: columnMapping.contado },
-        { key: 'precio', value: columnMapping.precio },
-        { key: 'pdv', value: columnMapping.pdv },
-        { key: 'pvp', value: columnMapping.pvp }
-      ].filter(col => col.value)
+      // 🎯 LÓGICA ESPECÍFICA PARA LUSQTOFF: Priorizar "PVP Off Line" sobre "Precio de Lista"
+      let columnasPrecio = []
+      
+      if (proveedor && proveedor.toUpperCase().includes('LUSQTOFF')) {
+        console.log(`🎯 PROVEEDOR LUSQTOFF DETECTADO - Priorizando PVP Off Line`)
+        // Para LUSQTOFF, buscar específicamente en PVP Off Line primero
+        columnasPrecio = [
+          { key: 'pvp_off_line', value: columnMapping.pvp_off_line },
+          { key: 'contado', value: columnMapping.contado },
+          { key: 'precio', value: columnMapping.precio },
+          { key: 'pdv', value: columnMapping.pdv },
+          { key: 'pvp', value: columnMapping.pvp }
+        ].filter(col => col.value)
+      } else {
+        // Para otros proveedores, usar la prioridad normal
+        columnasPrecio = [
+          { key: 'contado', value: columnMapping.contado },
+          { key: 'precio', value: columnMapping.precio },
+          { key: 'pdv', value: columnMapping.pdv },
+          { key: 'pvp', value: columnMapping.pvp }
+        ].filter(col => col.value)
+      }
       
       console.log(`🔍 Columnas de precio a buscar:`, columnasPrecio)
       
