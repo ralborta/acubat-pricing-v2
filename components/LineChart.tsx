@@ -24,78 +24,83 @@ ChartJS.register(
   Filler
 )
 
-const data = {
-  labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-  datasets: [
-    {
-      label: 'Productos',
-      data: [0, 0, 0, 0, 0, 0, 0],
-      borderColor: '#9ca3af',
-      backgroundColor: 'rgba(156, 163, 175, 0.1)',
-      borderWidth: 2,
-      fill: true,
-      tension: 0.4,
-      pointBackgroundColor: '#9ca3af',
-      pointBorderColor: '#ffffff',
-      pointBorderWidth: 2,
-      pointRadius: 4,
-    },
-  ],
+interface LineChartProps {
+  data?: number[]
+  hasData?: boolean
 }
 
-const options = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false,
-    },
-    tooltip: {
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: '#ffffff',
-      bodyColor: '#ffffff',
-      borderColor: '#3b82f6',
-      borderWidth: 1,
-    },
-  },
-  scales: {
-    x: {
-      grid: {
+export default function LineChart({ data: chartData, hasData = false }: LineChartProps) {
+  const data = {
+    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+    datasets: [
+      {
+        label: 'Productos',
+        data: hasData && chartData ? chartData : [0, 0, 0, 0, 0, 0, 0],
+        borderColor: hasData ? '#3b82f6' : '#9ca3af',
+        backgroundColor: hasData ? 'rgba(59, 130, 246, 0.1)' : 'rgba(156, 163, 175, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: hasData ? '#3b82f6' : '#9ca3af',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+      },
+    ],
+  }
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
         display: false,
       },
-      ticks: {
-        color: '#6b7280',
-        font: {
-          size: 12,
-        },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#ffffff',
+        bodyColor: '#ffffff',
+        borderColor: '#3b82f6',
+        borderWidth: 1,
       },
     },
-    y: {
-      grid: {
-        color: '#e5e7eb',
-        borderDash: [5, 5],
-      },
-      ticks: {
-        color: '#6b7280',
-        font: {
-          size: 12,
+    scales: {
+      x: {
+        grid: {
+          display: false,
         },
-        callback: function(value: any) {
-          return value
+        ticks: {
+          color: '#6b7280',
+          font: {
+            size: 12,
+          },
         },
       },
-      min: 0,
-      max: 10,
+      y: {
+        grid: {
+          color: '#e5e7eb',
+          borderDash: [5, 5],
+        },
+        ticks: {
+          color: '#6b7280',
+          font: {
+            size: 12,
+          },
+          callback: function(value: any) {
+            return value
+          },
+        },
+        min: 0,
+        max: hasData && chartData ? Math.max(...chartData) + 5 : 10,
+      },
     },
-  },
-  elements: {
-    point: {
-      hoverRadius: 6,
+    elements: {
+      point: {
+        hoverRadius: 6,
+      },
     },
-  },
-}
+  }
 
-export default function LineChart() {
   return (
     <div className="h-64">
       <Line data={data} options={options} />
