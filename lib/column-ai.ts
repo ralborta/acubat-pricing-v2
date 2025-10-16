@@ -10,6 +10,8 @@ export interface MapeoColumnas {
   pdv?: string
   pvp?: string
   pvp_off_line?: string  // ✅ PVP Off Line para LUSQTOFF
+  precio_1?: string  // ✅ Precio 1 para LIQUI MOLY
+  precio_2?: string  // ✅ Precio 2 para LIQUI MOLY
   contado?: string
   proveedor?: string  // ✅ Proveedor detectado por IA
 }
@@ -92,6 +94,18 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   const pvpOffLinePatterns = ['pvp off line', 'pvp_off_line', 'pvp off', 'off line', 'offline']
   mapeo.pvp_off_line = headers.find(h => 
     pvpOffLinePatterns.some(pattern => h.toLowerCase().includes(pattern))
+  ) || ''
+  
+  // Buscar columna PRECIO 1 (específico para LIQUI MOLY)
+  const precio1Patterns = ['precio 1', 'precio_1', 'precio unitario cont', 'precio con iva', 'en caja con iva']
+  mapeo.precio_1 = headers.find(h => 
+    precio1Patterns.some(pattern => h.toLowerCase().includes(pattern))
+  ) || ''
+  
+  // Buscar columna PRECIO 2 (específico para LIQUI MOLY)
+  const precio2Patterns = ['precio 2', 'precio_2', 'pago a 30', 'pago a 30 dias', 'caja sin']
+  mapeo.precio_2 = headers.find(h => 
+    precio2Patterns.some(pattern => h.toLowerCase().includes(pattern))
   ) || ''
   
   console.log('📊 Mapeo detectado:', mapeo)
