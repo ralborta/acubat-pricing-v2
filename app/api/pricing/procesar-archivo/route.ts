@@ -553,10 +553,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const modelo = columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A'
       const descripcion = columnMapping.descripcion ? producto[columnMapping.descripcion] : modelo
       
-      // 🎯 DATOS ADICIONALES PARA LUSQTOFF: Código y Marca
-      const codigo = columnMapping.codigo ? producto[columnMapping.codigo] : modelo
-      const marca = columnMapping.marca ? producto[columnMapping.marca] : proveedor
-      
       // 🧠 PROVEEDOR: forzado por UI o detección mejorada
       let proveedor = proveedorForzado || 'Sin Marca'
       if (!proveedorForzado) {
@@ -590,6 +586,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           }
         }
       }
+      
+      // 🎯 DATOS ADICIONALES PARA LUSQTOFF: Código y Marca (después de detectar proveedor)
+      const codigo = columnMapping.codigo ? producto[columnMapping.codigo] : modelo
+      const marca = columnMapping.marca ? producto[columnMapping.marca] : proveedor
       
       console.log(`✅ Datos extraídos (SISTEMA SIMPLIFICADO):`)
       console.log(`   - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
