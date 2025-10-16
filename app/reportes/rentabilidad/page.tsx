@@ -93,22 +93,29 @@ export default function ReporteRentabilidadPage() {
   }
 
 
-  const formatearPorcentaje = (valor: number) => {
+  const formatearPorcentaje = (valor: number | null | undefined) => {
+    if (valor === null || valor === undefined || isNaN(valor)) {
+      return '0.0%'
+    }
     return `${valor.toFixed(1)}%`
   }
 
-  const formatearPrecio = (precio: number) => {
+  const formatearPrecio = (precio: number | null | undefined) => {
+    if (precio === null || precio === undefined || isNaN(precio)) {
+      return '$0'
+    }
     return formatCurrency(precio, false)
   }
 
   const productosFiltrados = productos.filter(producto => {
+    if (!producto) return false
     if (filtros.proveedor !== 'todos' && producto.proveedor !== filtros.proveedor) {
       return false
     }
-    if (filtros.rentabilidad_minima > 0 && producto.minorista_rentabilidad < filtros.rentabilidad_minima) {
+    if (filtros.rentabilidad_minima > 0 && (producto.minorista_rentabilidad || 0) < filtros.rentabilidad_minima) {
       return false
     }
-    if (filtros.solo_rentables && (producto.minorista_rentabilidad <= 0 || producto.mayorista_rentabilidad <= 0)) {
+    if (filtros.solo_rentables && ((producto.minorista_rentabilidad || 0) <= 0 || (producto.mayorista_rentabilidad || 0) <= 0)) {
       return false
     }
     return true
@@ -174,7 +181,7 @@ export default function ReporteRentabilidadPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {formatearPorcentaje(estadisticas.rentabilidad_promedio_minorista)}
+                {formatearPorcentaje(estadisticas?.rentabilidad_promedio_minorista)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Promedio general
@@ -189,7 +196,7 @@ export default function ReporteRentabilidadPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                {formatearPorcentaje(estadisticas.rentabilidad_promedio_mayorista)}
+                {formatearPorcentaje(estadisticas?.rentabilidad_promedio_mayorista)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Promedio general
@@ -204,10 +211,10 @@ export default function ReporteRentabilidadPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {estadisticas.productos_rentables}
+                {estadisticas?.productos_rentables || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                De {estadisticas.total_productos} total
+                De {estadisticas?.total_productos || 0} total
               </p>
             </CardContent>
           </Card>
@@ -219,7 +226,7 @@ export default function ReporteRentabilidadPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {estadisticas.productos_no_rentables}
+                {estadisticas?.productos_no_rentables || 0}
               </div>
               <p className="text-xs text-muted-foreground">
                 Requieren atención
