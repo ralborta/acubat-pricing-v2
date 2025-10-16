@@ -588,7 +588,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       
       // 🎯 DATOS ADICIONALES PARA LUSQTOFF: Código y Marca (después de detectar proveedor)
-      const codigo = columnMapping.codigo ? producto[columnMapping.codigo] : modelo
+      const codigo = columnMapping.codigo ? producto[columnMapping.codigo] : (columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A')
       const marca = columnMapping.marca ? producto[columnMapping.marca] : proveedor
       
       console.log(`✅ Datos extraídos (SISTEMA SIMPLIFICADO):`)
@@ -636,26 +636,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         console.log(`🔍 Buscando en '${columna.key}' (${columna.value}): ${valor}`)
         
         if (valor !== undefined && valor !== null && valor !== '') {
+          // 🧹 LIMPIAR VALOR: Quitar símbolos y caracteres no numéricos
+          let valorLimpio = String(valor)
+            .replace(/\$/g, '') // Quitar símbolo $
+            .replace(/[^\d.,]/g, '') // Quitar todo excepto dígitos, puntos y comas
+            .trim()
+          
+          console.log(`🔍 Valor original: "${valor}" -> Valor limpio: "${valorLimpio}"`)
+          
           // Intentar parsear como número
-          let precio = parseFloat(valor)
+          let precio = parseFloat(valorLimpio)
           
           // 🎯 DETECCIÓN DE FORMATO ARGENTINO: Si el número tiene 3 dígitos después del punto
           if (!isNaN(precio)) {
-            const valorStr = String(valor)
             // Verificar si tiene punto y exactamente 3 dígitos después (formato argentino: 136.490)
-            if (valorStr.includes('.') && valorStr.split('.')[1] && valorStr.split('.')[1].length === 3) {
+            if (valorLimpio.includes('.') && valorLimpio.split('.')[1] && valorLimpio.split('.')[1].length === 3) {
               // Es formato argentino: 136.490 -> 136490
-              const valorLimpio = valorStr.replace('.', '')
-              precio = parseFloat(valorLimpio)
-              console.log(`🔍 Formato argentino detectado: ${valorStr} -> ${valorLimpio} -> ${precio}`)
+              const valorArgentino = valorLimpio.replace('.', '')
+              precio = parseFloat(valorArgentino)
+              console.log(`🔍 Formato argentino detectado: ${valorLimpio} -> ${valorArgentino} -> ${precio}`)
             }
           }
           
-          // Si no es número, intentar limpiar formato argentino
-          if (isNaN(precio) && typeof valor === 'string') {
-            const valorLimpio = valor.replace(/\./g, '').replace(',', '.')
-            precio = parseFloat(valorLimpio)
-            console.log(`🔍 Valor limpio: ${valorLimpio} -> ${precio}`)
+          // Si no es número, intentar limpiar formato argentino completo
+          if (isNaN(precio) && typeof valorLimpio === 'string') {
+            const valorFinal = valorLimpio.replace(/\./g, '').replace(',', '.')
+            precio = parseFloat(valorFinal)
+            console.log(`🔍 Valor final limpio: ${valorFinal} -> ${precio}`)
           }
           
           if (!isNaN(precio) && precio > 0) {
@@ -676,18 +683,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               // 🔍 BÚSQUEDA ALTERNATIVA: Solo si NO se encontró precio
       console.log(`🔍 BÚSQUEDA ALTERNATIVA DE PRECIO...`)
       for (const [key, value] of Object.entries(producto)) {
-        if (typeof value === 'number') {
+        if (value !== undefined && value !== null && value !== '') {
+          // 🧹 LIMPIAR VALOR: Quitar símbolos y caracteres no numéricos
+          let valorLimpio = String(value)
+            .replace(/\$/g, '') // Quitar símbolo $
+            .replace(/[^\d.,]/g, '') // Quitar todo excepto dígitos, puntos y comas
+            .trim()
+          
+          console.log(`🔍 Búsqueda alternativa - Valor original: "${value}" -> Valor limpio: "${valorLimpio}"`)
+          
+          // Intentar parsear como número
+          let precio = parseFloat(valorLimpio)
+          
           // 🎯 DETECCIÓN DE FORMATO ARGENTINO: Si el número tiene 3 dígitos después del punto
-          let precio = value
-          const valorStr = String(value)
-          if (valorStr.includes('.') && valorStr.split('.')[1] && valorStr.split('.')[1].length === 3) {
-            // Es formato argentino: 136.490 -> 136490
-            const valorLimpio = valorStr.replace('.', '')
-            precio = parseFloat(valorLimpio)
-            console.log(`🔍 Formato argentino detectado en búsqueda alternativa: ${valorStr} -> ${valorLimpio} -> ${precio}`)
+          if (!isNaN(precio)) {
+            // Verificar si tiene punto y exactamente 3 dígitos después (formato argentino: 136.490)
+            if (valorLimpio.includes('.') && valorLimpio.split('.')[1] && valorLimpio.split('.')[1].length === 3) {
+              // Es formato argentino: 136.490 -> 136490
+              const valorArgentino = valorLimpio.replace('.', '')
+              precio = parseFloat(valorArgentino)
+              console.log(`🔍 Formato argentino detectado en búsqueda alternativa: ${valorLimpio} -> ${valorArgentino} -> ${precio}`)
+            }
           }
           
-          if (precio > 1000 && precio < 1000000) {
+          // Si no es número, intentar limpiar formato argentino completo
+          if (isNaN(precio) && typeof valorLimpio === 'string') {
+            const valorFinal = valorLimpio.replace(/\./g, '').replace(',', '.')
+            precio = parseFloat(valorFinal)
+            console.log(`🔍 Valor final limpio en búsqueda alternativa: ${valorFinal} -> ${precio}`)
+          }
+          
+          if (!isNaN(precio) && precio > 1000 && precio < 1000000) {
             precioBase = precio
             console.log(`✅ Precio encontrado por búsqueda alternativa en '${key}': ${precioBase}`)
             break
