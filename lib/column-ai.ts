@@ -17,10 +17,11 @@ export interface MapeoColumnas {
 }
 
 /**
- * Detecta columnas usando IA simple
+ * Detecta columnas usando IA simple con soporte para headers múltiples
  */
 export function detectarColumnas(headers: string[]): MapeoColumnas {
   console.log('🔍 Detectando columnas con IA simple...')
+  console.log('📋 Headers recibidos:', headers)
   
   // Mapeo simple basado en nombres comunes
   const mapeo: MapeoColumnas = {
@@ -30,83 +31,73 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
     modelo: ''
   }
   
+  // 🎯 DETECCIÓN INTELIGENTE DE HEADERS MÚLTIPLES
+  // Buscar en todas las filas para encontrar los headers reales
+  const todasLasFilas = headers.flatMap(h => h.split('\n').map(line => line.trim())).filter(Boolean)
+  console.log('🔍 Todas las filas analizadas:', todasLasFilas)
+  
+  // Buscar patrones de headers en cualquier fila
+  const buscarHeaderEnFilas = (patrones: string[], nombre: string) => {
+    for (const fila of todasLasFilas) {
+      if (patrones.some(pattern => fila.toLowerCase().includes(pattern))) {
+        console.log(`✅ Header '${nombre}' encontrado en fila: "${fila}"`)
+        return fila
+      }
+    }
+    return ''
+  }
+  
   // Buscar columna de producto
-  const productoPatterns = ['producto', 'nombre', 'descripcion', 'item', 'articulo']
-  mapeo.producto = headers.find(h => 
-    productoPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || headers[0] || ''
+  const productoPatterns = ['producto', 'nombre', 'descripcion', 'item', 'articulo', 'motorbike', 'engine']
+  mapeo.producto = buscarHeaderEnFilas(productoPatterns, 'producto') || headers[0] || ''
   
   // Buscar columna de marca (específico para LUSQTOFF)
   const marcaPatterns = ['marca', 'brand', 'fabricante', 'manufacturer']
-  mapeo.marca = headers.find(h => 
-    marcaPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  mapeo.marca = buscarHeaderEnFilas(marcaPatterns, 'marca') || ''
   
   // Buscar columna de código (específico para LUSQTOFF)
-  const codigoPatterns = ['codigo', 'code', 'sku', 'referencia', 'ref', 'articulo']
-  mapeo.codigo = headers.find(h => 
-    codigoPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  const codigoPatterns = ['codigo', 'code', 'sku', 'referencia', 'ref', 'articulo', 'unitaro']
+  mapeo.codigo = buscarHeaderEnFilas(codigoPatterns, 'codigo') || ''
   
   // Buscar columna de precio
   const precioPatterns = ['precio', 'costo', 'valor', 'price', 'cost', 'pvp', 'pdv', 'lista', 'venta', 'publico', 'final']
-  mapeo.precio = headers.find(h => 
-    precioPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || headers[1] || ''
+  mapeo.precio = buscarHeaderEnFilas(precioPatterns, 'precio') || headers[1] || ''
   
   // Buscar columna de contado (prioridad alta)
   const contadoPatterns = ['contado', 'cash', 'efectivo']
-  mapeo.contado = headers.find(h => 
-    contadoPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  mapeo.contado = buscarHeaderEnFilas(contadoPatterns, 'contado') || ''
   
   // Buscar columna de tipo
-  const tipoPatterns = ['tipo', 'categoria', 'clase', 'grupo', 'category']
-  mapeo.tipo = headers.find(h => 
-    tipoPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || headers[2] || ''
+  const tipoPatterns = ['tipo', 'categoria', 'clase', 'grupo', 'category', 'funcion', 'función']
+  mapeo.tipo = buscarHeaderEnFilas(tipoPatterns, 'tipo') || headers[2] || ''
   
   // Buscar columna de modelo (opcional)
   const modeloPatterns = ['modelo', 'model', 'codigo', 'sku', 'referencia']
-  mapeo.modelo = headers.find(h => 
-    modeloPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  mapeo.modelo = buscarHeaderEnFilas(modeloPatterns, 'modelo') || ''
   
   // Buscar columna de descripción (opcional)
-  const descripcionPatterns = ['descripcion', 'description', 'detalle', 'comentario']
-  mapeo.descripcion = headers.find(h => 
-    descripcionPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  const descripcionPatterns = ['descripcion', 'description', 'detalle', 'comentario', 'funcion', 'función']
+  mapeo.descripcion = buscarHeaderEnFilas(descripcionPatterns, 'descripcion') || ''
   
   // Buscar columna PDV (opcional)
   const pdvPatterns = ['pdv', 'precio_detalle', 'precio_detalle_venta']
-  mapeo.pdv = headers.find(h => 
-    pdvPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  mapeo.pdv = buscarHeaderEnFilas(pdvPatterns, 'pdv') || ''
   
   // Buscar columna PVP (opcional)
   const pvpPatterns = ['pvp', 'precio_venta_publico', 'precio_publico']
-  mapeo.pvp = headers.find(h => 
-    pvpPatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  mapeo.pvp = buscarHeaderEnFilas(pvpPatterns, 'pvp') || ''
   
   // Buscar columna PVP Off Line (específico para LUSQTOFF)
   const pvpOffLinePatterns = ['pvp off line', 'pvp_off_line', 'pvp off', 'off line', 'offline']
-  mapeo.pvp_off_line = headers.find(h => 
-    pvpOffLinePatterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  mapeo.pvp_off_line = buscarHeaderEnFilas(pvpOffLinePatterns, 'pvp_off_line') || ''
   
   // Buscar columna PRECIO 1 (específico para LIQUI MOLY)
-  const precio1Patterns = ['precio 1', 'precio_1', 'precio unitario cont', 'precio con iva', 'en caja con iva']
-  mapeo.precio_1 = headers.find(h => 
-    precio1Patterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  const precio1Patterns = ['precio 1', 'precio_1', 'precio unitario cont', 'precio con iva', 'en caja con iva', 'caja']
+  mapeo.precio_1 = buscarHeaderEnFilas(precio1Patterns, 'precio_1') || ''
   
   // Buscar columna PRECIO 2 (específico para LIQUI MOLY)
-  const precio2Patterns = ['precio 2', 'precio_2', 'pago a 30', 'pago a 30 dias', 'caja sin']
-  mapeo.precio_2 = headers.find(h => 
-    precio2Patterns.some(pattern => h.toLowerCase().includes(pattern))
-  ) || ''
+  const precio2Patterns = ['precio 2', 'precio_2', 'pago a 30', 'pago a 30 dias', 'caja sin', 'dias']
+  mapeo.precio_2 = buscarHeaderEnFilas(precio2Patterns, 'precio_2') || ''
   
   console.log('📊 Mapeo detectado:', mapeo)
   console.log('🔍 Headers analizados:', headers)
