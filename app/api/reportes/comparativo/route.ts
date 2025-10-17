@@ -5,8 +5,8 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🔍 Generando reporte comparativo...')
     
-    // Obtener todas las sesiones ordenadas por fecha
-    const sesiones = await HistorialPricing.obtenerSesiones(1000)
+    // Obtener sesiones limitadas para evitar archivos muy grandes
+    const sesiones = await HistorialPricing.obtenerSesiones(50)
     
     if (sesiones.length === 0) {
       return NextResponse.json({
