@@ -563,8 +563,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('🔍 Muestra de datos (primera fila):', datos[0])
     
     // 🚨 VALIDACIÓN CRÍTICA: Verificar que precio no esté mapeado a código
-    if (columnMapping.precio) {
-      const valorPrecio = datos[0]?.[columnMapping.precio]
+    if (columnMapping.precio && datos[0]) {
+      const valorPrecio = (datos[0] as any)?.[columnMapping.precio]
       console.log(`🔍 VALIDACIÓN PRECIO: Columna '${columnMapping.precio}' contiene: '${valorPrecio}'`)
       if (typeof valorPrecio === 'string' && valorPrecio.match(/^[A-Z]\d+$/)) {
         console.log(`❌ ERROR: La columna de precio está mapeada a un código! Ignorando...`)
