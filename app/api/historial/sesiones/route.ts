@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     console.log('📊 Obteniendo sesiones de historial...')
     
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 50) // Forzar máximo 50
     
     // Obtener sesiones
     const sesiones = await HistorialPricing.obtenerSesiones(limit)

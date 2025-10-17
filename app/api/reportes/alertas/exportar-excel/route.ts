@@ -8,10 +8,10 @@ export async function GET(request: NextRequest) {
     
     // Obtener parámetros de consulta para limitar datos
     const { searchParams } = new URL(request.url)
-    const limitSesiones = parseInt(searchParams.get('limit') || '50')
+    const limitSesiones = Math.min(parseInt(searchParams.get('limit') || '50'), 50) // Forzar máximo 50
     const soloAltaSeveridad = searchParams.get('solo_alta') === 'true'
     
-    console.log(`📊 Parámetros: limit=${limitSesiones}, solo_alta=${soloAltaSeveridad}`)
+    console.log(`📊 Parámetros: limit=${limitSesiones} (máximo 50), solo_alta=${soloAltaSeveridad}`)
     
     // Obtener datos de alertas (limitar sesiones para evitar archivos muy grandes)
     const sesiones = await HistorialPricing.obtenerSesiones(limitSesiones)
