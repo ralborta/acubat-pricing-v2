@@ -6,8 +6,15 @@ export async function GET(request: NextRequest) {
   try {
     console.log('📊 Exportando centro de alertas a Excel...')
     
-    // Obtener datos de alertas
-    const sesiones = await HistorialPricing.obtenerSesiones(1000)
+    // Obtener parámetros de consulta para limitar datos
+    const { searchParams } = new URL(request.url)
+    const limitSesiones = parseInt(searchParams.get('limit') || '50')
+    const soloAltaSeveridad = searchParams.get('solo_alta') === 'true'
+    
+    console.log(`📊 Parámetros: limit=${limitSesiones}, solo_alta=${soloAltaSeveridad}`)
+    
+    // Obtener datos de alertas (limitar sesiones para evitar archivos muy grandes)
+    const sesiones = await HistorialPricing.obtenerSesiones(limitSesiones)
     
     if (sesiones.length === 0) {
       return NextResponse.json({ error: 'No hay datos para exportar' }, { status: 400 })
@@ -170,13 +177,20 @@ export async function GET(request: NextRequest) {
       })
     })
 
+    // Filtrar alertas si se solicita solo alta severidad
+    let alertasFiltradas = alertas
+    if (soloAltaSeveridad) {
+      alertasFiltradas = alertas.filter(a => a.Severidad === 'Alta')
+      console.log(`🔍 Filtrado: ${alertas.length} alertas totales → ${alertasFiltradas.length} alertas de alta severidad`)
+    }
+
     // Calcular estadísticas
-    const totalAlertas = alertas.length
-    const alertasAlta = alertas.filter(a => a.Severidad === 'Alta').length
-    const alertasMedia = alertas.filter(a => a.Severidad === 'Media').length
-    const alertasBaja = alertas.filter(a => a.Severidad === 'Baja').length
-    const productosAfectados = new Set(alertas.map(a => a.Producto)).size
-    const sesionesAfectadas = new Set(alertas.map(a => a['Sesión ID'])).size
+    const totalAlertas = alertasFiltradas.length
+    const alertasAlta = alertasFiltradas.filter(a => a.Severidad === 'Alta').length
+    const alertasMedia = alertasFiltradas.filter(a => a.Severidad === 'Media').length
+    const alertasBaja = alertasFiltradas.filter(a => a.Severidad === 'Baja').length
+    const productosAfectados = new Set(alertasFiltradas.map(a => a.Producto)).size
+    const sesionesAfectadas = new Set(alertasFiltradas.map(a => a['Sesión ID'])).size
 
     // Contar por tipo
     const tiposAlertas = {
@@ -217,9 +231,9 @@ export async function GET(request: NextRequest) {
     // Crear workbook con múltiples hojas
     const workbook = XLSX.utils.book_new()
 
-    // Hoja 1: Todas las Alertas
-    const wsAlertas = XLSX.utils.json_to_sheet(alertas)
-    XLSX.utils.book_append_sheet(workbook, wsAlertas, 'Todas las Alertas')
+    // Hoja 1: Todas las Alertas (filtradas)
+    const wsAlertas = XLSX.utils.json_to_sheet(alertasFiltradas)
+    XLSX.utils.book_append_sheet(workbook, wsAlertas, soloAltaSeveridad ? 'Alertas Alta Severidad' : 'Todas las Alertas')
 
     // Hoja 2: Alertas por Severidad
     const wsSeveridad = XLSX.utils.json_to_sheet(resumenSeveridad)
