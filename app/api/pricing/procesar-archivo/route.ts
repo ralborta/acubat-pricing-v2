@@ -467,10 +467,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             }
             
             // Si es un número razonable para precio (entre 1000 y 1000000)
-            if (valor > 1000 && valor < 1000000) {
+            // PERO NO si el header contiene palabras que indican que es un código
+            const headerLower = header.toLowerCase()
+            const esCodigo = headerLower.includes('codigo') || 
+                           headerLower.includes('code') || 
+                           headerLower.includes('sku') ||
+                           headerLower.includes('referencia') ||
+                           headerLower.includes('ref') ||
+                           headerLower.includes('articulo') ||
+                           headerLower.includes('unitaro') ||
+                           headerLower.includes('marca') ||
+                           headerLower.includes('brand') ||
+                           headerLower.includes('fabricante') ||
+                           headerLower.includes('manufacturer') ||
+                           headerLower.includes('tipo') ||
+                           headerLower.includes('categoria') ||
+                           headerLower.includes('clase') ||
+                           headerLower.includes('grupo') ||
+                           headerLower.includes('category') ||
+                           headerLower.includes('funcion') ||
+                           headerLower.includes('función') ||
+                           headerLower.includes('modelo') ||
+                           headerLower.includes('model') ||
+                           headerLower.includes('descripcion') ||
+                           headerLower.includes('description') ||
+                           headerLower.includes('detalle') ||
+                           headerLower.includes('comentario')
+            
+            if (valor > 1000 && valor < 1000000 && !esCodigo) {
               mapeo.precio = header
               console.log(`✅ Precio detectado por ANÁLISIS DE CONTENIDO en '${header}': ${valor}`)
               break
+            } else if (esCodigo) {
+              console.log(`❌ Ignorando columna '${header}' porque parece ser código, no precio`)
             }
           }
         }

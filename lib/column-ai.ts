@@ -61,7 +61,44 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   
   // Buscar columna de precio
   const precioPatterns = ['precio', 'costo', 'valor', 'price', 'cost', 'pvp', 'pdv', 'lista', 'venta', 'publico', 'final']
-  mapeo.precio = buscarHeaderEnFilas(precioPatterns, 'precio') || headers[1] || ''
+  mapeo.precio = buscarHeaderEnFilas(precioPatterns, 'precio') || ''
+  
+  // 🚨 VALIDACIÓN: Si no se detectó precio, buscar por contenido numérico
+  if (!mapeo.precio) {
+    console.log('⚠️ No se detectó columna de precio por nombre, buscando por contenido...')
+    for (let i = 0; i < headers.length; i++) {
+      const header = headers[i]
+      // Verificar si la columna contiene valores que parecen precios
+      if (header && !header.toLowerCase().includes('codigo') && 
+          !header.toLowerCase().includes('code') && 
+          !header.toLowerCase().includes('sku') &&
+          !header.toLowerCase().includes('referencia') &&
+          !header.toLowerCase().includes('ref') &&
+          !header.toLowerCase().includes('articulo') &&
+          !header.toLowerCase().includes('unitaro') &&
+          !header.toLowerCase().includes('marca') &&
+          !header.toLowerCase().includes('brand') &&
+          !header.toLowerCase().includes('fabricante') &&
+          !header.toLowerCase().includes('manufacturer') &&
+          !header.toLowerCase().includes('tipo') &&
+          !header.toLowerCase().includes('categoria') &&
+          !header.toLowerCase().includes('clase') &&
+          !header.toLowerCase().includes('grupo') &&
+          !header.toLowerCase().includes('category') &&
+          !header.toLowerCase().includes('funcion') &&
+          !header.toLowerCase().includes('función') &&
+          !header.toLowerCase().includes('modelo') &&
+          !header.toLowerCase().includes('model') &&
+          !header.toLowerCase().includes('descripcion') &&
+          !header.toLowerCase().includes('description') &&
+          !header.toLowerCase().includes('detalle') &&
+          !header.toLowerCase().includes('comentario')) {
+        mapeo.precio = header
+        console.log(`✅ Precio detectado por exclusión: "${header}"`)
+        break
+      }
+    }
+  }
   
   // Buscar columna de contado (prioridad alta)
   const contadoPatterns = ['contado', 'cash', 'efectivo']
