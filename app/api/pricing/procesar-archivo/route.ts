@@ -559,6 +559,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 🔍 DEBUG: Mapeo final
     console.log('✅ MAPEO FINAL DE COLUMNAS:')
     console.log('📋 Mapeo final:', columnMapping)
+    console.log('🔍 Headers del archivo:', headers)
+    console.log('🔍 Muestra de datos (primera fila):', datos[0])
+    
+    // 🚨 VALIDACIÓN CRÍTICA: Verificar que precio no esté mapeado a código
+    if (columnMapping.precio) {
+      const valorPrecio = datos[0]?.[columnMapping.precio]
+      console.log(`🔍 VALIDACIÓN PRECIO: Columna '${columnMapping.precio}' contiene: '${valorPrecio}'`)
+      if (typeof valorPrecio === 'string' && valorPrecio.match(/^[A-Z]\d+$/)) {
+        console.log(`❌ ERROR: La columna de precio está mapeada a un código! Ignorando...`)
+        columnMapping.precio = ''
+      }
+    }
 
     // Procesar productos con sistema local confiable
     console.log('🚀 INICIANDO PROCESAMIENTO DE PRODUCTOS...')
@@ -668,12 +680,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       
       console.log(`🔍 Columnas de precio a buscar:`, columnasPrecio)
+      console.log(`🔍 Mapeo completo de columnas:`, columnMapping)
       
       for (const columna of columnasPrecio) {
         if (!columna.value) continue // Saltar si no hay valor
         
         const valor = producto[columna.value]
         console.log(`🔍 Buscando en '${columna.key}' (${columna.value}): ${valor}`)
+        console.log(`🔍 Tipo de valor: ${typeof valor}, Es string: ${typeof valor === 'string'}`)
+        
+        // 🚨 VALIDACIÓN ADICIONAL: Verificar que no sea un código
+        if (typeof valor === 'string' && valor.match(/^[A-Z]\d+$/)) {
+          console.log(`❌ IGNORANDO valor '${valor}' porque parece ser un código (formato: letra + números)`)
+          continue
+        }
         
         if (valor !== undefined && valor !== null && valor !== '') {
           // 🧹 LIMPIAR VALOR: Quitar símbolos y caracteres no numéricos
