@@ -398,8 +398,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // 🚨 SOBRESCRIBIR cualquier detección anterior
         }
         
-        // Precio - Buscar columnas que contengan números grandes (precios)
+        // Precio - PRIORIZAR PVP Off Line sobre otros precios
         if (!mapeo.precio && (
+          headerLower.includes('pvp off line') ||  // PRIORIDAD ALTA
+          headerLower.includes('pvp_off_line') ||
+          headerLower.includes('pvp off') ||
+          headerLower.includes('off line') ||
+          headerLower.includes('offline') ||
           headerLower.includes('precio') || 
           headerLower.includes('price') || 
           headerLower.includes('costo') ||
@@ -409,11 +414,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           headerLower.includes('precio lista') ||
           headerLower.includes('venta') ||
           headerLower.includes('publico') ||
-          headerLower.includes('pvp off line') ||
-          headerLower.includes('pvp_off_line') ||
-          headerLower.includes('pvp off') ||
-          headerLower.includes('off line') ||
-          headerLower.includes('offline') ||
           headerLower === 'precio' ||  // ✅ Agregar búsqueda exacta de "PRECIO"
           headerLower === 'precios'    // ✅ Agregar búsqueda exacta de "PRECIOS"
         )) {
