@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     console.log('📊 Exportando análisis por proveedor a Excel...')
     
     // Obtener datos de proveedores
-    const sesiones = await HistorialPricing.obtenerSesiones(1000)
+    const sesiones = await HistorialPricing.obtenerSesiones(50)
     
     if (sesiones.length === 0) {
       return NextResponse.json({ error: 'No hay datos para exportar' }, { status: 400 })

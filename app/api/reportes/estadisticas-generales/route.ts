@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     console.log('📊 Obteniendo estadísticas generales...')
     
     // Obtener todas las sesiones
-    const sesiones = await HistorialPricing.obtenerSesiones(1000) // Obtener más sesiones para estadísticas
+    const sesiones = await HistorialPricing.obtenerSesiones(50) // Obtener más sesiones para estadísticas
     
     if (sesiones.length === 0) {
       return NextResponse.json({

@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     console.log('⚠️ Generando centro de alertas...')
     
     // Obtener todas las sesiones
-    const sesiones = await HistorialPricing.obtenerSesiones(1000)
+    const sesiones = await HistorialPricing.obtenerSesiones(50)
     
     if (sesiones.length === 0) {
       return NextResponse.json({
