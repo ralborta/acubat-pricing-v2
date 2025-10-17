@@ -60,7 +60,10 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   mapeo.codigo = buscarHeaderEnFilas(codigoPatterns, 'codigo') || ''
   
   // Buscar columna de precio
-  const precioPatterns = ['precio', 'costo', 'valor', 'price', 'cost', 'pvp', 'pdv', 'lista', 'venta', 'publico', 'final']
+  const precioPatterns = [
+    'precio', 'costo', 'valor', 'price', 'cost', 'pvp', 'pdv', 'lista', 'venta', 'publico', 'final',
+    'pvp off line', 'pvp_off_line', 'pvp off', 'off line', 'offline', 'precio de lista', 'precio lista'
+  ]
   mapeo.precio = buscarHeaderEnFilas(precioPatterns, 'precio') || ''
   
   // 🚨 VALIDACIÓN: Si no se detectó precio, buscar por contenido numérico

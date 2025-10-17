@@ -409,6 +409,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           headerLower.includes('precio lista') ||
           headerLower.includes('venta') ||
           headerLower.includes('publico') ||
+          headerLower.includes('pvp off line') ||
+          headerLower.includes('pvp_off_line') ||
+          headerLower.includes('pvp off') ||
+          headerLower.includes('off line') ||
+          headerLower.includes('offline') ||
           headerLower === 'precio' ||  // ✅ Agregar búsqueda exacta de "PRECIO"
           headerLower === 'precios'    // ✅ Agregar búsqueda exacta de "PRECIOS"
         )) {
