@@ -31,19 +31,20 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
     modelo: ''
   }
   
-  // 🎯 DETECCIÓN INTELIGENTE DE HEADERS MÚLTIPLES
-  // Buscar en todas las filas para encontrar los headers reales
-  const todasLasFilas = headers.flatMap(h => h.split('\n').map(line => line.trim())).filter(Boolean)
-  console.log('🔍 Todas las filas analizadas:', todasLasFilas)
-  
-  // Buscar patrones de headers en cualquier fila
+  // 🎯 DETECCIÓN INTELIGENTE DE HEADERS
+  // Buscar patrones en los headers directamente
   const buscarHeaderEnFilas = (patrones: string[], nombre: string) => {
-    for (const fila of todasLasFilas) {
-      if (patrones.some(pattern => fila.toLowerCase().includes(pattern))) {
-        console.log(`✅ Header '${nombre}' encontrado en fila: "${fila}"`)
-        return fila
+    console.log(`🔍 Buscando '${nombre}' con patrones:`, patrones)
+    for (const header of headers) {
+      if (header && typeof header === 'string') {
+        const headerLower = header.toLowerCase()
+        if (patrones.some(pattern => headerLower.includes(pattern))) {
+          console.log(`✅ Header '${nombre}' encontrado: "${header}"`)
+          return header
+        }
       }
     }
+    console.log(`❌ Header '${nombre}' NO encontrado`)
     return ''
   }
   
