@@ -25,9 +25,14 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Obtener todos los productos de todas las sesiones
+    // Obtener productos limitados de las sesiones (máximo 1000 productos total)
     const todosProductos = []
+    const maxProductos = 1000
+    let productosObtenidos = 0
+    
     for (const sesion of sesiones) {
+      if (productosObtenidos >= maxProductos) break
+      
       try {
         const productos = await HistorialPricing.obtenerProductosSesion(sesion.id)
         const productosConSesion = productos.map(p => ({
@@ -35,11 +40,21 @@ export async function GET(request: NextRequest) {
           sesion_id: sesion.id,
           fecha_procesamiento: sesion.fecha_procesamiento
         }))
-        todosProductos.push(...productosConSesion)
+        
+        // Limitar productos por sesión para no exceder el total
+        const productosRestantes = maxProductos - productosObtenidos
+        const productosLimitados = productosConSesion.slice(0, productosRestantes)
+        
+        todosProductos.push(...productosLimitados)
+        productosObtenidos += productosLimitados.length
+        
+        console.log(`📊 Sesión ${sesion.id}: ${productosLimitados.length} productos (total: ${productosObtenidos})`)
       } catch (error) {
         console.warn(`Error obteniendo productos de sesión ${sesion.id}:`, error)
       }
     }
+    
+    console.log(`📊 Total productos procesados: ${todosProductos.length}`)
 
     // Calcular estadísticas
     const totalProductos = todosProductos.length
