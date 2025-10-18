@@ -131,7 +131,7 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       ⚠️ CRÍTICO: NUNCA devuelvas valores como "L3000", "$ 2.690", "LUSQTOFF". 
       ⚠️ SIEMPRE devuelve NOMBRES DE COLUMNAS como "CODIGO", "PVP Off Line", "MARCA".
       
-      Salida estricta: responde solo con JSON que cumpla el schema provisto (sin texto extra, sin markdown, sin ```).
+      Salida estricta: responde solo con JSON que cumpla el schema provisto (sin texto extra, sin markdown, sin backticks).
       
       COLUMNAS: ${headers.join(', ')}
       MUESTRA (hasta 10 filas reales):
