@@ -145,7 +145,6 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   
   console.log('📊 Mapeo detectado:', mapeo)
   console.log('🔍 Headers analizados:', headers)
-  console.log('🎯 Patrones de precio usados:', precioPatterns)
   return mapeo
 }
 
