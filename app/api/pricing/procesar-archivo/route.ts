@@ -85,35 +85,53 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       proveedor (nombre del proveedor/fabricante: p.ej. "Moura", "Varta", "Bosch", "ACDelco")
       
       REGLAS OBLIGATORIAS:
-      Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
+      - Devuelve SOLO nombres de columnas, NO valores de datos
+      - Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
       
       PRECIO (prioridad específica):
       1. Busca columna "Contado" - esta es la columna de precio base principal
       2. Si no existe "Contado", busca: precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
       3. Contenido: valores numéricos con formato $XXX,XX (pesos argentinos)
       4. Ejemplos válidos: $124,99, $122,99, $131,99, $137,99
+      5. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       TIPO (prioridad):
       1. Busca columna "DENOMINACION COMERCIAL" o similar
       2. Contenido: descripciones como "12-50 Clio, Ka, Twingo, Fiesta (N)"
       3. Si no existe, usa "Batería" como valor por defecto
+      4. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       MODELO (prioridad):
       1. Busca columna "Descripción Modelo SAP" o similar
       2. Contenido: códigos como "M18FD", "M20GD", "M22ED"
       3. Si no existe, usa el primer identificador disponible
+      4. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       DESCRIPCION:
       1. Usa la misma columna que TIPO si es descriptiva
       2. O busca columna con descripciones detalladas del producto
+      3. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       PROVEEDOR (NUEVO):
       1. Busca columna "Proveedor", "Fabricante", "Marca", "Supplier", "Brand"
       2. Si no existe columna específica, analiza el nombre del producto para extraer la marca
       3. Marcas conocidas: Moura, Varta, Bosch, ACDelco, Exide, Delkor, Banner, etc.
       4. Si no se puede determinar, usa "Sin Marca"
+      5. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
-      Salida estricta: responde solo con JSON que cumpla el schema provisto (sin texto extra).
+      EJEMPLO DE RESPUESTA CORRECTA:
+      {
+        "tipo": "RUBRO",
+        "modelo": "CODIGO", 
+        "precio_ars": "PVP Off Line",
+        "descripcion": "DESCRIPCION",
+        "proveedor": "MARCA"
+      }
+      
+      ⚠️ CRÍTICO: NUNCA devuelvas valores como "L3000", "$ 2.690", "LUSQTOFF". 
+      ⚠️ SIEMPRE devuelve NOMBRES DE COLUMNAS como "CODIGO", "PVP Off Line", "MARCA".
+      
+      Salida estricta: responde solo con JSON que cumpla el schema provisto (sin texto extra, sin markdown, sin ```).
       
       COLUMNAS: ${headers.join(', ')}
       MUESTRA (hasta 10 filas reales):
@@ -161,8 +179,108 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
     const respuestaGPT = data.choices[0].message.content
     
     try {
-      const mapeo = JSON.parse(respuestaGPT)
+      let mapeo = JSON.parse(respuestaGPT)
       console.log('🧠 GPT analizó el archivo:', mapeo)
+      
+      // 🔧 VALIDACIÓN Y CORRECCIÓN: Si la IA devolvió valores en lugar de nombres de columnas
+      console.log('🔍 Validando respuesta de la IA...')
+      
+      // Si la IA devolvió un array, tomar el primer elemento
+      if (Array.isArray(mapeo)) {
+        console.log('⚠️ La IA devolvió un array, tomando el primer elemento')
+        mapeo = mapeo[0]
+      }
+      
+      // Validar y corregir cada campo
+      const mapeoCorregido: any = {}
+      
+      // Corregir tipo
+      if (mapeo.tipo && typeof mapeo.tipo === 'string') {
+        if (mapeo.tipo.includes('Batería') || mapeo.tipo.includes('batería')) {
+          // Buscar columna de tipo en headers
+          const tipoColumn = headers.find(h => h && (
+            h.toLowerCase().includes('rubro') || 
+            h.toLowerCase().includes('tipo') || 
+            h.toLowerCase().includes('categoria') ||
+            h.toLowerCase().includes('familia')
+          ))
+          mapeoCorregido.tipo = tipoColumn || 'RUBRO'
+          console.log(`✅ Corregido tipo: "${mapeo.tipo}" → "${mapeoCorregido.tipo}"`)
+        } else {
+          mapeoCorregido.tipo = mapeo.tipo
+        }
+      }
+      
+      // Corregir modelo
+      if (mapeo.modelo && typeof mapeo.modelo === 'string') {
+        if (mapeo.modelo.match(/^[A-Z]\d+$/)) {
+          // Es un código, buscar columna de código
+          const codigoColumn = headers.find(h => h && (
+            h.toLowerCase().includes('codigo') || 
+            h.toLowerCase().includes('code') || 
+            h.toLowerCase().includes('sku') ||
+            h.toLowerCase().includes('referencia')
+          ))
+          mapeoCorregido.modelo = codigoColumn || 'CODIGO'
+          console.log(`✅ Corregido modelo: "${mapeo.modelo}" → "${mapeoCorregido.modelo}"`)
+        } else {
+          mapeoCorregido.modelo = mapeo.modelo
+        }
+      }
+      
+      // Corregir precio_ars
+      if (mapeo.precio_ars && typeof mapeo.precio_ars === 'string') {
+        if (mapeo.precio_ars.includes('$')) {
+          // Es un valor de precio, buscar columna de precio
+          const precioColumn = headers.find(h => h && (
+            h.toLowerCase().includes('pvp off line') ||
+            h.toLowerCase().includes('precio') || 
+            h.toLowerCase().includes('price') || 
+            h.toLowerCase().includes('pvp')
+          ))
+          mapeoCorregido.precio_ars = precioColumn || 'PVP Off Line'
+          console.log(`✅ Corregido precio_ars: "${mapeo.precio_ars}" → "${mapeoCorregido.precio_ars}"`)
+        } else {
+          mapeoCorregido.precio_ars = mapeo.precio_ars
+        }
+      }
+      
+      // Corregir descripcion
+      if (mapeo.descripcion && typeof mapeo.descripcion === 'string') {
+        if (mapeo.descripcion.includes('(') && mapeo.descripcion.includes(')')) {
+          // Es una descripción de producto, buscar columna de descripción
+          const descColumn = headers.find(h => h && (
+            h.toLowerCase().includes('descripcion') || 
+            h.toLowerCase().includes('description') || 
+            h.toLowerCase().includes('producto') ||
+            h.toLowerCase().includes('nombre')
+          ))
+          mapeoCorregido.descripcion = descColumn || 'DESCRIPCION'
+          console.log(`✅ Corregido descripcion: "${mapeo.descripcion}" → "${mapeoCorregido.descripcion}"`)
+        } else {
+          mapeoCorregido.descripcion = mapeo.descripcion
+        }
+      }
+      
+      // Corregir proveedor
+      if (mapeo.proveedor && typeof mapeo.proveedor === 'string') {
+        if (mapeo.proveedor.match(/^[A-Z]+$/)) {
+          // Es una marca, buscar columna de marca
+          const marcaColumn = headers.find(h => h && (
+            h.toLowerCase().includes('marca') || 
+            h.toLowerCase().includes('brand') || 
+            h.toLowerCase().includes('fabricante') ||
+            h.toLowerCase().includes('proveedor')
+          ))
+          mapeoCorregido.proveedor = marcaColumn || 'MARCA'
+          console.log(`✅ Corregido proveedor: "${mapeo.proveedor}" → "${mapeoCorregido.proveedor}"`)
+        } else {
+          mapeoCorregido.proveedor = mapeo.proveedor
+        }
+      }
+      
+      console.log('🎯 Mapeo corregido:', mapeoCorregido)
+      mapeo = mapeoCorregido
       
       // 🎯 ADAPTAR LA NUEVA ESTRUCTURA A LA EXISTENTE
       const resultadoAdaptado = {
