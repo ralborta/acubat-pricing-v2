@@ -665,54 +665,72 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 🔧 VALIDACIÓN AGRESIVA: Siempre verificar si el mapeo es correcto
     console.log('🔍 VALIDACIÓN AGRESIVA: Verificando mapeo de la IA...')
     
-    // Validar y corregir precio
-    if (columnMapping.precio && datos[0]) {
-      const valorPrecio = (datos[0] as any)?.[columnMapping.precio]
-      console.log(`🔍 VALIDACIÓN PRECIO: Columna '${columnMapping.precio}' contiene: '${valorPrecio}'`)
-      
-      // Si la columna de precio contiene un código, buscar la columna correcta
-      if (typeof valorPrecio === 'string' && valorPrecio.match(/^[A-Z]\d+$/)) {
-        console.log(`❌ ERROR: La columna de precio contiene un código! Buscando columna correcta...`)
-        const precioColumn = headers.find(h => h && (
-          h.toLowerCase().includes('pvp off line') ||
-          h.toLowerCase().includes('precio') || 
-          h.toLowerCase().includes('price') || 
-          h.toLowerCase().includes('pvp')
-        ))
-        if (precioColumn) {
-          columnMapping.precio = precioColumn
-          console.log(`✅ Corregido precio: "${valorPrecio}" → "${precioColumn}"`)
+    // Validar y corregir precio - FORZAR "PVP Off Line" si existe
+    if (datos[0]) {
+      const pvpOffLineColumn = headers.find(h => h && h.toLowerCase().includes('pvp off line'))
+      if (pvpOffLineColumn) {
+        const valorPrecio = (datos[0] as any)?.[pvpOffLineColumn]
+        console.log(`🔍 FORZANDO PRECIO: Columna '${pvpOffLineColumn}' contiene: '${valorPrecio}'`)
+        
+        // Verificar que contiene un precio válido (no un código)
+        if (typeof valorPrecio === 'string' && valorPrecio.includes('$')) {
+          columnMapping.precio = pvpOffLineColumn
+          console.log(`✅ Precio forzado a: "${pvpOffLineColumn}"`)
         } else {
-          columnMapping.precio = ''
-          console.log(`❌ No se encontró columna de precio válida`)
+          console.log(`❌ La columna PVP Off Line no contiene precio válido`)
         }
-      }
-    }
-    
-    // Validar y corregir modelo
-    if (columnMapping.modelo && datos[0]) {
-      const valorModelo = (datos[0] as any)?.[columnMapping.modelo]
-      console.log(`🔍 VALIDACIÓN MODELO: Columna '${columnMapping.modelo}' contiene: '${valorModelo}'`)
-      
-      // Si la columna de modelo contiene un código, buscar la columna correcta
-      if (typeof valorModelo === 'string' && valorModelo.match(/^[A-Z]\d+$/)) {
-        console.log(`✅ La columna de modelo contiene un código correcto: ${valorModelo}`)
       } else {
-        // Buscar columna de código
-        const codigoColumn = headers.find(h => h && (
-          h.toLowerCase().includes('codigo') || 
-          h.toLowerCase().includes('code') || 
-          h.toLowerCase().includes('sku') ||
-          h.toLowerCase().includes('referencia')
-        ))
-        if (codigoColumn) {
-          columnMapping.modelo = codigoColumn
-          console.log(`✅ Corregido modelo: "${valorModelo}" → "${codigoColumn}"`)
-        }
+        console.log(`❌ No se encontró columna "PVP Off Line"`)
       }
     }
     
-    console.log('🔧 RESULTADO DESPUÉS DE VALIDACIÓN:', columnMapping)
+    // Validar y corregir modelo - FORZAR "CODIGO" si existe
+    if (datos[0]) {
+      const codigoColumn = headers.find(h => h && h.toLowerCase().includes('codigo'))
+      if (codigoColumn) {
+        const valorModelo = (datos[0] as any)?.[codigoColumn]
+        console.log(`🔍 FORZANDO MODELO: Columna '${codigoColumn}' contiene: '${valorModelo}'`)
+        
+        // Verificar que contiene un código válido
+        if (typeof valorModelo === 'string' && valorModelo.match(/^[A-Z]\d+$/)) {
+          columnMapping.modelo = codigoColumn
+          console.log(`✅ Modelo forzado a: "${codigoColumn}"`)
+        } else {
+          console.log(`❌ La columna CODIGO no contiene código válido`)
+        }
+      } else {
+        console.log(`❌ No se encontró columna "CODIGO"`)
+      }
+    }
+    
+    // Validar y corregir tipo - FORZAR "RUBRO" si existe
+    if (datos[0]) {
+      const rubroColumn = headers.find(h => h && h.toLowerCase().includes('rubro'))
+      if (rubroColumn) {
+        columnMapping.tipo = rubroColumn
+        console.log(`✅ Tipo forzado a: "${rubroColumn}"`)
+      }
+    }
+    
+    // Validar y corregir descripcion - FORZAR "DESCRIPCION" si existe
+    if (datos[0]) {
+      const descripcionColumn = headers.find(h => h && h.toLowerCase().includes('descripcion'))
+      if (descripcionColumn) {
+        columnMapping.descripcion = descripcionColumn
+        console.log(`✅ Descripción forzada a: "${descripcionColumn}"`)
+      }
+    }
+    
+    // Validar y corregir proveedor - FORZAR "MARCA" si existe
+    if (datos[0]) {
+      const marcaColumn = headers.find(h => h && h.toLowerCase().includes('marca'))
+      if (marcaColumn) {
+        columnMapping.proveedor = marcaColumn
+        console.log(`✅ Proveedor forzado a: "${marcaColumn}"`)
+      }
+    }
+    
+    console.log('🔧 RESULTADO DESPUÉS DE VALIDACIÓN AGRESIVA:', columnMapping)
     
     // 🔍 DEBUG: Ver qué detectó la IA
     console.log('🧠 RESULTADO DE LA IA:')
