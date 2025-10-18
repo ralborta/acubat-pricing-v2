@@ -89,33 +89,33 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       - Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
       
       PRECIO (prioridad específica):
-      1. Busca columna "Contado" - esta es la columna de precio base principal
-      2. Si no existe "Contado", busca: precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
+      1. Busca columna "PVP Off Line" - esta es la columna de precio base principal
+      2. Si no existe "PVP Off Line", busca: "Contado", precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
       3. Contenido: valores numéricos con formato $XXX,XX (pesos argentinos)
       4. Ejemplos válidos: $124,99, $122,99, $131,99, $137,99
       5. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       TIPO (prioridad):
-      1. Busca columna "DENOMINACION COMERCIAL" o similar
-      2. Contenido: descripciones como "12-50 Clio, Ka, Twingo, Fiesta (N)"
-      3. Si no existe, usa "Batería" como valor por defecto
+      1. Busca columna "RUBRO" o similar
+      2. Contenido: descripciones como "HTAS. MANUALES", "COMBINADAS"
+      3. Si no existe, usa "RUBRO" como valor por defecto
       4. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       MODELO (prioridad):
-      1. Busca columna "Descripción Modelo SAP" o similar
-      2. Contenido: códigos como "M18FD", "M20GD", "M22ED"
+      1. Busca columna "CODIGO" o similar
+      2. Contenido: códigos como "L3000", "L3001", "L3002"
       3. Si no existe, usa el primer identificador disponible
       4. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       DESCRIPCION:
-      1. Usa la misma columna que TIPO si es descriptiva
-      2. O busca columna con descripciones detalladas del producto
+      1. Busca columna "DESCRIPCION" o similar
+      2. Contenido: descripciones detalladas del producto
       3. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       PROVEEDOR (NUEVO):
-      1. Busca columna "Proveedor", "Fabricante", "Marca", "Supplier", "Brand"
-      2. Si no existe columna específica, analiza el nombre del producto para extraer la marca
-      3. Marcas conocidas: Moura, Varta, Bosch, ACDelco, Exide, Delkor, Banner, etc.
+      1. Busca columna "MARCA" o similar
+      2. Contenido: marcas como "LUSQTOFF", "MOURA", "VARTA"
+      3. Si no existe columna específica, analiza el nombre del producto para extraer la marca
       4. Si no se puede determinar, usa "Sin Marca"
       5. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
