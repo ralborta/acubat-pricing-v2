@@ -133,7 +133,6 @@ export function detectarColumnas(headers: string[]): MapeoColumnas {
   mapeo.pvp = buscarHeaderEnFilas(pvpPatterns, 'pvp') || ''
   
   // Buscar columna PVP Off Line (específico para LUSQTOFF)
-  const pvpOffLinePatterns = ['pvp off line', 'pvp_off_line', 'pvp off', 'off line', 'offline']
   mapeo.pvp_off_line = buscarHeaderEnFilas(pvpOffLinePatterns, 'pvp_off_line') || ''
   
   // Buscar columna PRECIO 1 (específico para LIQUI MOLY)
