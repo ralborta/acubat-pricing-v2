@@ -659,8 +659,60 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // 🎯 USAR DETECCIÓN SIMPLE CON IA
     console.log('🧠 Usando detección simple con IA...')
-    const columnMapping = mapeoColumnas
-    console.log('🔧 RESULTADO:', columnMapping)
+    let columnMapping = mapeoColumnas
+    console.log('🔧 RESULTADO INICIAL:', columnMapping)
+    
+    // 🔧 VALIDACIÓN AGRESIVA: Siempre verificar si el mapeo es correcto
+    console.log('🔍 VALIDACIÓN AGRESIVA: Verificando mapeo de la IA...')
+    
+    // Validar y corregir precio
+    if (columnMapping.precio && datos[0]) {
+      const valorPrecio = (datos[0] as any)?.[columnMapping.precio]
+      console.log(`🔍 VALIDACIÓN PRECIO: Columna '${columnMapping.precio}' contiene: '${valorPrecio}'`)
+      
+      // Si la columna de precio contiene un código, buscar la columna correcta
+      if (typeof valorPrecio === 'string' && valorPrecio.match(/^[A-Z]\d+$/)) {
+        console.log(`❌ ERROR: La columna de precio contiene un código! Buscando columna correcta...`)
+        const precioColumn = headers.find(h => h && (
+          h.toLowerCase().includes('pvp off line') ||
+          h.toLowerCase().includes('precio') || 
+          h.toLowerCase().includes('price') || 
+          h.toLowerCase().includes('pvp')
+        ))
+        if (precioColumn) {
+          columnMapping.precio = precioColumn
+          console.log(`✅ Corregido precio: "${valorPrecio}" → "${precioColumn}"`)
+        } else {
+          columnMapping.precio = ''
+          console.log(`❌ No se encontró columna de precio válida`)
+        }
+      }
+    }
+    
+    // Validar y corregir modelo
+    if (columnMapping.modelo && datos[0]) {
+      const valorModelo = (datos[0] as any)?.[columnMapping.modelo]
+      console.log(`🔍 VALIDACIÓN MODELO: Columna '${columnMapping.modelo}' contiene: '${valorModelo}'`)
+      
+      // Si la columna de modelo contiene un código, buscar la columna correcta
+      if (typeof valorModelo === 'string' && valorModelo.match(/^[A-Z]\d+$/)) {
+        console.log(`✅ La columna de modelo contiene un código correcto: ${valorModelo}`)
+      } else {
+        // Buscar columna de código
+        const codigoColumn = headers.find(h => h && (
+          h.toLowerCase().includes('codigo') || 
+          h.toLowerCase().includes('code') || 
+          h.toLowerCase().includes('sku') ||
+          h.toLowerCase().includes('referencia')
+        ))
+        if (codigoColumn) {
+          columnMapping.modelo = codigoColumn
+          console.log(`✅ Corregido modelo: "${valorModelo}" → "${codigoColumn}"`)
+        }
+      }
+    }
+    
+    console.log('🔧 RESULTADO DESPUÉS DE VALIDACIÓN:', columnMapping)
     
     // 🔍 DEBUG: Ver qué detectó la IA
     console.log('🧠 RESULTADO DE LA IA:')
