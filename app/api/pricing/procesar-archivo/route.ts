@@ -421,9 +421,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     console.log('📋 HOJAS DISPONIBLES:', workbook.SheetNames)
     
-    // 🎯 SELECCIÓN INTELIGENTE DE LA MEJOR HOJA
-    let mejorHoja = null
-    let mejorScore = 0
+    // 🎯 ANÁLISIS DE TODAS LAS HOJAS
     const diagnosticoHojas: Array<{ nombre: string; filas: number; headers: string[]; pvpOffLine?: string; precioLista?: string; precioUnitario?: string; descartada?: boolean; motivoDescarte?: string; score?: number; }> = []
     
     for (let i = 0; i < workbook.SheetNames.length; i++) {
@@ -530,17 +528,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const descartada = score < 2 || datosHoja.length < 2
       
       diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada, score })
-
-      if (score > mejorScore) {
-        mejorScore = score
-        mejorHoja = {
-          name: sheetName,
-          worksheet: worksheet,
-          datos: datosHoja,
-          headers: headersHoja,
-          score: score
-        }
-      }
     }
     
     // 🎯 PROCESAR TODAS LAS HOJAS VÁLIDAS
