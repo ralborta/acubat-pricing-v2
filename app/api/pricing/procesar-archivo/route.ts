@@ -471,12 +471,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Calcular score basado en columnas clave y cantidad de datos
       let score = 0
       const pvpOffLine = headersHoja.find(h => h && h.toLowerCase().includes('pvp off line'))
+      const precioLista = headersHoja.find(h => h && h.toLowerCase().includes('precio de lista'))
+      const precioUnitario = headersHoja.find(h => h && h.toLowerCase().includes('precio unitario'))
       const codigo = headersHoja.find(h => h && h.toLowerCase().includes('codigo'))
       const marca = headersHoja.find(h => h && h.toLowerCase().includes('marca'))
       const descripcion = headersHoja.find(h => h && h.toLowerCase().includes('descripcion'))
       const rubro = headersHoja.find(h => h && h.toLowerCase().includes('rubro'))
       
+      // Buscar cualquier columna de precio
+      const tienePrecio = pvpOffLine || precioLista || precioUnitario
+      
       if (pvpOffLine) score += 5  // PVP Off Line es crítico
+      else if (precioLista) score += 4  // Precio de Lista es muy importante
+      else if (precioUnitario) score += 3  // Precio Unitario es importante
+      
       if (codigo) score += 3      // Código es muy importante
       if (marca) score += 3       // Marca es muy importante
       if (descripcion) score += 2 // Descripción es importante
@@ -491,7 +499,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (datosHoja.length < 2) score = 0
       
       // Bonus por tener múltiples columnas clave
-      const columnasClave = [pvpOffLine, codigo, marca, descripcion, rubro].filter(Boolean).length
+      const columnasClave = [tienePrecio, codigo, marca, descripcion, rubro].filter(Boolean).length
       if (columnasClave >= 3) score += 2
       if (columnasClave >= 4) score += 3
       
@@ -499,6 +507,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`  📋 Headers: ${headersHoja.length}`)
       console.log(`  🎯 Columnas clave encontradas: ${columnasClave}/5`)
       if (pvpOffLine) console.log(`    ✅ PVP Off Line: "${pvpOffLine}"`)
+      else if (precioLista) console.log(`    ✅ Precio de Lista: "${precioLista}"`)
+      else if (precioUnitario) console.log(`    ✅ Precio Unitario: "${precioUnitario}"`)
+      else console.log(`    ❌ Precio: NO ENCONTRADO`)
       if (codigo) console.log(`    ✅ CODIGO: "${codigo}"`)
       if (marca) console.log(`    ✅ MARCA: "${marca}"`)
       if (descripcion) console.log(`    ✅ DESCRIPCION: "${descripcion}"`)
