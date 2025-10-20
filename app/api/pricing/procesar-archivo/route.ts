@@ -432,64 +432,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       console.log(`\n🔍 Analizando hoja "${sheetName}":`)
       
-      // Leer datos de la hoja
-      let datosHoja = XLSX.utils.sheet_to_json(worksheet)
-      
-      if (datosHoja.length === 0) {
+      // Leer datos de la hoja (detección dinámica de la fila de encabezados)
+      // Paso 1: leer como matriz para inspeccionar múltiples filas potenciales de headers
+      const matriz = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as unknown as Array<Array<string | number>>
+      if (!Array.isArray(matriz) || matriz.length === 0) {
         console.log(`  ❌ Hoja vacía`)
         continue
       }
-      
-      // Aplicar detección inteligente de headers
-      let headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
-      
-      const primeraFila = datosHoja[0] as Record<string, any>
-      const esTitulo = primeraFila && Object.values(primeraFila).some(valor => 
-        typeof valor === 'string' && 
-        (valor.includes('LISTA') || 
-         valor.includes('PRECIOS') || 
-         valor.includes('Vigencia') || 
-         valor.includes('HERRAMIENTAS') ||
-         valor.includes('PRODUCTOS') ||
-         valor.includes('MOURA') ||
-         valor.length > 50)
-      )
-      
-      const tieneEmptyColumns = headersHoja.filter(h => h.startsWith('__EMPTY')).length > 5
-      
-      // También verificar si la primera fila tiene muchos valores vacíos (indica título)
-      const valoresPrimeraFila = Object.values(primeraFila || {})
-      const valoresVacios = valoresPrimeraFila.filter(v => !v || v === '').length
-      const tieneMuchosVacios = valoresVacios > valoresPrimeraFila.length * 0.5
-      
-      // NUEVA LÓGICA: Siempre intentar con la segunda fila si no encontramos columnas de precio
-      let necesitaCorreccion = esTitulo || tieneEmptyColumns || tieneMuchosVacios
-      
-      // Verificar si la primera fila tiene columnas de precio
-      const tienePrecioEnPrimeraFila = headersHoja.some(h => 
-        h && h.toLowerCase().includes('precio') && !h.startsWith('__EMPTY')
-      )
-      
-      if (!tienePrecioEnPrimeraFila) {
-        console.log(`  🔍 No se encontraron columnas de precio en primera fila, intentando con segunda fila`)
-        necesitaCorreccion = true
-      }
-      
-      if (necesitaCorreccion) {
-        console.log(`  🔍 Aplicando corrección de headers (segunda fila)`)
-        datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: 1 })
-        headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
-        console.log(`  ✅ Headers corregidos:`, headersHoja)
-        
-        // Si después de la corrección seguimos teniendo muchos __EMPTY, intentar con la tercera fila
-        const emptyAfterCorrection = headersHoja.filter(h => h.startsWith('__EMPTY')).length
-        if (emptyAfterCorrection > 5) {
-          console.log(`  🔧 Muchos __EMPTY después de corrección (${emptyAfterCorrection}), intentando con tercera fila`)
-          datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: 2 })
-          headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
-          console.log(`  ✅ Headers corregidos (tercera fila):`, headersHoja)
+
+      // Paso 2: buscar una fila que contenga indicadores de encabezado reales
+      const indicadores = ['pvp off line', 'precio de lista', 'precio unitario', 'código', 'codigo', 'descripcion', 'descripción', 'rubro', 'marca']
+      let headerRowIndex = -1
+      for (let r = 0; r < Math.min(matriz.length, 40); r++) {
+        const fila = (matriz[r] || []).map(c => String(c || '').toLowerCase())
+        const noVacios = fila.filter(x => x.trim() !== '').length
+        const tieneIndicador = indicadores.some(ind => fila.some(cell => cell.includes(ind)))
+        if (tieneIndicador && noVacios >= 3) {
+          headerRowIndex = r
+          break
         }
       }
+
+      // Si no se encontró una fila fuerte, usar heurísticas previas (0, luego 1, luego 2)
+      if (headerRowIndex < 0) {
+        headerRowIndex = 0
+      }
+
+      // Paso 3: construir JSON usando la fila detectada como headers
+      let datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex })
+      if (datosHoja.length === 0) {
+        console.log(`  ❌ Hoja sin datos tras seleccionar headerRowIndex=${headerRowIndex}`)
+        continue
+      }
+      let headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
+      console.log(`  🧭 headerRowIndex=${headerRowIndex} → headers:`, headersHoja)
       
       // Calcular score basado en columnas clave y cantidad de datos
       let score = 0
