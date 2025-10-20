@@ -88,12 +88,13 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       - Devuelve SOLO nombres de columnas, NO valores de datos
       - Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
       
-      PRECIO (prioridad específica):
-      1. Busca columna "PVP Off Line" - esta es la columna de precio base principal
-      2. Si no existe "PVP Off Line", busca: "Contado", precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
-      3. Contenido: valores numéricos con formato $XXX,XX (pesos argentinos)
-      4. Ejemplos válidos: $124,99, $122,99, $131,99, $137,99
-      5. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
+    PRECIO (prioridad específica):
+    1. Busca columna "PVP Off Line" - esta es la columna de precio base principal
+    2. Si no existe "PVP Off Line", busca: "Contado", precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
+    3. Contenido: valores numéricos con símbolo $ y formato argentino (punto para miles, coma para decimales)
+    4. Ejemplos válidos: $ 2.690, $ 4.490, $ 1.256,33, $ 2.500,50
+    5. IMPORTANTE: Los valores se redondean (sin decimales) para el procesamiento
+    6. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       TIPO (prioridad):
       1. Busca columna "RUBRO" o similar
