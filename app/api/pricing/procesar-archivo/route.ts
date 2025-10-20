@@ -541,9 +541,59 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     console.log(`\n✅ HOJA SELECCIONADA: "${mejorHoja.name}" (Score: ${mejorHoja.score})`)
     
-    // Usar la mejor hoja encontrada
-    const datos = mejorHoja.datos
-    const headers = mejorHoja.headers
+    // 🎯 PROCESAR TODAS LAS HOJAS VÁLIDAS, NO SOLO LA MEJOR
+    const hojasValidas = diagnosticoHojas.filter(h => !h.descartada && h.filas > 0)
+    console.log(`📊 Procesando ${hojasValidas.length} hojas válidas:`, hojasValidas.map(h => `${h.nombre}(${h.filas})`))
+    
+    let todosLosProductos = []
+    let todosLosHeaders = []
+    
+    for (const hojaInfo of hojasValidas) {
+      const worksheet = workbook.Sheets[hojaInfo.nombre]
+      console.log(`\n🔍 Procesando hoja: ${hojaInfo.nombre}`)
+      
+      // Aplicar la misma detección dinámica de headers
+      const matriz = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as unknown as Array<Array<string | number>>
+      let headerRowIndex = -1
+      const indicadores = ['pvp off line', 'precio de lista', 'precio unitario', 'código', 'codigo', 'descripcion', 'descripción', 'rubro', 'marca']
+      
+      for (let r = 0; r < Math.min(matriz.length, 40); r++) {
+        const fila = (matriz[r] || []).map(c => String(c || '').toLowerCase())
+        const noVacios = fila.filter(x => x.trim() !== '').length
+        const tieneIndicador = indicadores.some(ind => fila.some(cell => cell.includes(ind)))
+        if (tieneIndicador && noVacios >= 3) {
+          headerRowIndex = r
+          break
+        }
+      }
+      
+      if (headerRowIndex < 0) headerRowIndex = 0
+      
+      const datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex })
+      const headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
+      
+      console.log(`  📋 Headers detectados:`, headersHoja)
+      
+      // Filtrar productos válidos de esta hoja
+      const datosFiltrados = datosHoja.filter((producto: any) => {
+        const valores = Object.values(producto).map(v => String(v || '').toLowerCase())
+        const esNota = valores.some(v => v.includes('nota') || v.includes('tel:') || v.includes('bornes') || v.includes('precios para la compra'))
+        const esTitulo = valores.some(v => v.includes('sistema de pricing') || v.includes('optimizado para máximo rendimiento'))
+        const esVacio = valores.every(v => v.trim() === '')
+        return !esNota && !esTitulo && !esVacio
+      })
+      
+      console.log(`  📊 Productos válidos en ${hojaInfo.nombre}: ${datosFiltrados.length} de ${datosHoja.length}`)
+      
+      todosLosProductos = todosLosProductos.concat(datosFiltrados)
+      todosLosHeaders = headersHoja // Usar headers de la última hoja procesada
+    }
+    
+    console.log(`\n🎯 TOTAL FINAL: ${todosLosProductos.length} productos de ${hojasValidas.length} hojas`)
+    
+    // Usar todos los productos de todas las hojas válidas
+    const datos = todosLosProductos
+    const headers = todosLosHeaders
 
     if (!datos || datos.length === 0) {
       return NextResponse.json({ error: 'El archivo no contiene datos' }, { status: 400 })
@@ -938,7 +988,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('🚀 INICIANDO PROCESAMIENTO DE PRODUCTOS...')
     console.log('📊 Total de productos a procesar:', datos.length)
     
-    const productosProcesados = await Promise.all(datos.map(async (producto: any, index: number) => {
+    // FILTRAR SOLO PRODUCTOS VÁLIDOS (excluir notas, teléfonos, títulos, etc.)
+    const datosFiltrados = datos.filter((producto: any, index: number) => {
+      const valores = Object.values(producto).map(v => String(v || '').toLowerCase())
+      const esNota = valores.some(v => v.includes('nota') || v.includes('tel:') || v.includes('bornes') || v.includes('precios para la compra'))
+      const esTitulo = valores.some(v => v.includes('sistema de pricing') || v.includes('optimizado para máximo rendimiento'))
+      const esVacio = valores.every(v => v.trim() === '')
+      
+      if (esNota || esTitulo || esVacio) {
+        console.log(`  ⚠️  Fila ${index + 1} descartada (${esNota ? 'nota' : esTitulo ? 'título' : 'vacía'}):`, valores.slice(0, 3))
+        return false
+      }
+      return true
+    })
+    
+    console.log(`📊 Productos filtrados: ${datosFiltrados.length} de ${datos.length} filas originales`)
+    
+    const productosProcesados = await Promise.all(datosFiltrados.map(async (producto: any, index: number) => {
       console.log(`\n🔍 === PRODUCTO ${index + 1} ===`)
       
       // 🔍 DEBUG: Ver qué datos llegan del Excel
