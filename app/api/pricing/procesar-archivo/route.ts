@@ -461,8 +461,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const valoresVacios = valoresPrimeraFila.filter(v => !v || v === '').length
       const tieneMuchosVacios = valoresVacios > valoresPrimeraFila.length * 0.5
       
-      if (esTitulo || tieneEmptyColumns || tieneMuchosVacios) {
-        console.log(`  🔍 Detectado título (esTitulo: ${esTitulo}, emptyColumns: ${tieneEmptyColumns}, muchosVacios: ${tieneMuchosVacios}), usando segunda fila como headers`)
+      // NUEVA LÓGICA: Siempre intentar con la segunda fila si no encontramos columnas de precio
+      let necesitaCorreccion = esTitulo || tieneEmptyColumns || tieneMuchosVacios
+      
+      // Verificar si la primera fila tiene columnas de precio
+      const tienePrecioEnPrimeraFila = headersHoja.some(h => 
+        h && h.toLowerCase().includes('precio') && !h.startsWith('__EMPTY')
+      )
+      
+      if (!tienePrecioEnPrimeraFila) {
+        console.log(`  🔍 No se encontraron columnas de precio en primera fila, intentando con segunda fila`)
+        necesitaCorreccion = true
+      }
+      
+      if (necesitaCorreccion) {
+        console.log(`  🔍 Aplicando corrección de headers (segunda fila)`)
         datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: 1 })
         headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
         console.log(`  ✅ Headers corregidos:`, headersHoja)
