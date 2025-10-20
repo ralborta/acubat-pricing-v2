@@ -415,37 +415,84 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('   - Factores Varta:', config.factoresVarta)
     console.log('   - Última actualización:', config.ultimaActualizacion)
 
-    // Leer archivo Excel
+    // Leer archivo Excel con soporte para múltiples hojas
     const buffer = await file.arrayBuffer()
     const workbook = XLSX.read(buffer, { type: 'buffer' })
-    const sheetName = workbook.SheetNames[0]
-    const worksheet = workbook.Sheets[sheetName]
     
-    // 🔍 DETECCIÓN INTELIGENTE DE HEADERS
-    // Primero intentar con la primera fila como headers (comportamiento normal)
-    let datos = XLSX.utils.sheet_to_json(worksheet)
-    let headers = Object.keys(datos[0] as Record<string, any>)
+    console.log('📋 HOJAS DISPONIBLES:', workbook.SheetNames)
     
-    // Verificar si la primera fila parece ser un título en lugar de headers
-    const primeraFila = datos[0] as Record<string, any>
-    const esTitulo = primeraFila && Object.values(primeraFila).some(valor => 
-      typeof valor === 'string' && 
-      (valor.includes('LISTA DE PRECIOS') || 
-       valor.includes('Vigencia') || 
-       valor.includes('HERRAMIENTAS') ||
-       valor.length > 50) // Títulos largos
-    )
+    // 🎯 SELECCIÓN INTELIGENTE DE LA MEJOR HOJA
+    let mejorHoja = null
+    let mejorScore = 0
     
-    // También verificar si hay muchos __EMPTY (indica estructura compleja)
-    const tieneEmptyColumns = headers.filter(h => h.startsWith('__EMPTY')).length > 5
-    
-    if (esTitulo || tieneEmptyColumns) {
-      console.log('🔍 Detectado título o estructura compleja, usando segunda fila como headers')
-      // Usar la segunda fila como headers
-      datos = XLSX.utils.sheet_to_json(worksheet, { range: 1 }) // Empezar desde fila 1 (índice 0-based)
-      headers = Object.keys(datos[0] as Record<string, any>)
-      console.log('✅ Headers corregidos:', headers)
+    for (let i = 0; i < workbook.SheetNames.length; i++) {
+      const sheetName = workbook.SheetNames[i]
+      const worksheet = workbook.Sheets[sheetName]
+      
+      console.log(`\n🔍 Analizando hoja "${sheetName}":`)
+      
+      // Leer datos de la hoja
+      let datosHoja = XLSX.utils.sheet_to_json(worksheet)
+      
+      if (datosHoja.length === 0) {
+        console.log(`  ❌ Hoja vacía`)
+        continue
+      }
+      
+      // Aplicar detección inteligente de headers
+      let headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
+      
+      const primeraFila = datosHoja[0] as Record<string, any>
+      const esTitulo = primeraFila && Object.values(primeraFila).some(valor => 
+        typeof valor === 'string' && 
+        (valor.includes('LISTA') || 
+         valor.includes('PRECIOS') || 
+         valor.includes('Vigencia') || 
+         valor.includes('HERRAMIENTAS') ||
+         valor.length > 50)
+      )
+      
+      const tieneEmptyColumns = headersHoja.filter(h => h.startsWith('__EMPTY')).length > 5
+      
+      if (esTitulo || tieneEmptyColumns) {
+        console.log(`  🔍 Detectado título, usando segunda fila como headers`)
+        datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: 1 })
+        headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
+      }
+      
+      // Calcular score basado en columnas clave y cantidad de datos
+      let score = 0
+      if (headersHoja.find(h => h && h.toLowerCase().includes('pvp off line'))) score += 3
+      if (headersHoja.find(h => h && h.toLowerCase().includes('codigo'))) score += 2
+      if (headersHoja.find(h => h && h.toLowerCase().includes('marca'))) score += 2
+      if (headersHoja.find(h => h && h.toLowerCase().includes('descripcion'))) score += 2
+      if (headersHoja.find(h => h && h.toLowerCase().includes('rubro'))) score += 1
+      score += Math.min(datosHoja.length, 10) // Bonus por cantidad de datos
+      
+      console.log(`  📊 Score: ${score} (${datosHoja.length} filas)`)
+      console.log(`  📋 Headers: ${headersHoja.length}`)
+      
+      if (score > mejorScore) {
+        mejorScore = score
+        mejorHoja = {
+          name: sheetName,
+          worksheet: worksheet,
+          datos: datosHoja,
+          headers: headersHoja,
+          score: score
+        }
+      }
     }
+    
+    if (!mejorHoja) {
+      return NextResponse.json({ error: 'No se encontró una hoja válida con datos de productos' }, { status: 400 })
+    }
+    
+    console.log(`\n✅ HOJA SELECCIONADA: "${mejorHoja.name}" (Score: ${mejorHoja.score})`)
+    
+    // Usar la mejor hoja encontrada
+    const datos = mejorHoja.datos
+    const headers = mejorHoja.headers
 
     if (!datos || datos.length === 0) {
       return NextResponse.json({ error: 'El archivo no contiene datos' }, { status: 400 })
