@@ -838,9 +838,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         console.log(`🎯 PROVEEDOR LUSQTOFF DETECTADO - Priorizando PVP Off Line`)
         // Para LUSQTOFF, buscar específicamente en PVP Off Line primero
         columnasPrecio = [
-          { key: 'pvp_off_line', value: columnMapping.pvp_off_line },
-          { key: 'contado', value: columnMapping.contado },
           { key: 'precio', value: columnMapping.precio },
+          { key: 'contado', value: columnMapping.contado },
           { key: 'pdv', value: columnMapping.pdv },
           { key: 'pvp', value: columnMapping.pvp }
         ].filter(col => col.value)
@@ -848,10 +847,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         console.log(`🎯 PROVEEDOR LIQUI MOLY DETECTADO - Priorizando Precio 1`)
         // Para LIQUI MOLY, buscar específicamente en Precio 1 primero
         columnasPrecio = [
-          { key: 'precio_1', value: columnMapping.precio_1 },
-          { key: 'precio_2', value: columnMapping.precio_2 },
-          { key: 'contado', value: columnMapping.contado },
           { key: 'precio', value: columnMapping.precio },
+          { key: 'contado', value: columnMapping.contado },
           { key: 'pdv', value: columnMapping.pdv },
           { key: 'pvp', value: columnMapping.pvp }
         ].filter(col => col.value)
