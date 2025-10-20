@@ -449,15 +449,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
          valor.includes('PRECIOS') || 
          valor.includes('Vigencia') || 
          valor.includes('HERRAMIENTAS') ||
+         valor.includes('PRODUCTOS') ||
+         valor.includes('MOURA') ||
          valor.length > 50)
       )
       
       const tieneEmptyColumns = headersHoja.filter(h => h.startsWith('__EMPTY')).length > 5
       
-      if (esTitulo || tieneEmptyColumns) {
-        console.log(`  🔍 Detectado título, usando segunda fila como headers`)
+      // También verificar si la primera fila tiene muchos valores vacíos (indica título)
+      const valoresPrimeraFila = Object.values(primeraFila || {})
+      const valoresVacios = valoresPrimeraFila.filter(v => !v || v === '').length
+      const tieneMuchosVacios = valoresVacios > valoresPrimeraFila.length * 0.5
+      
+      if (esTitulo || tieneEmptyColumns || tieneMuchosVacios) {
+        console.log(`  🔍 Detectado título (esTitulo: ${esTitulo}, emptyColumns: ${tieneEmptyColumns}, muchosVacios: ${tieneMuchosVacios}), usando segunda fila como headers`)
         datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: 1 })
         headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
+        console.log(`  ✅ Headers corregidos:`, headersHoja)
       }
       
       // Calcular score basado en columnas clave y cantidad de datos
