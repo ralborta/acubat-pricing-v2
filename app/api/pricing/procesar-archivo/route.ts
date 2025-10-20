@@ -1036,7 +1036,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         
         // Búsqueda simple con IA
         console.log(`🔍 BUSCANDO EQUIVALENCIA VARTA CON IA...`)
-        equivalenciaVarta = await buscarEquivalenciaVarta(modelo)
+        equivalenciaVarta = await buscarEquivalenciaVarta(modelo, precioBase)
         
         if (equivalenciaVarta) {
           console.log(`✅ EQUIVALENCIA VARTA ENCONTRADA:`)

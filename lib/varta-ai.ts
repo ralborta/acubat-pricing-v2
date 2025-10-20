@@ -11,28 +11,39 @@ export interface EquivalenciaVarta {
 
 /**
  * Busca equivalencia Varta usando IA
+ * @param modelo - El código/modelo del producto (ej: "L3000")
+ * @param precioReal - El precio real del producto en ARS
  */
-export async function buscarEquivalenciaVarta(modelo: string): Promise<EquivalenciaVarta> {
+export async function buscarEquivalenciaVarta(modelo: string, precioReal?: number): Promise<EquivalenciaVarta> {
   try {
     // Si no hay modelo, retornar no encontrada
     if (!modelo || modelo.trim() === '') {
       return { encontrada: false, razon: 'Modelo vacío' }
     }
 
-    // Para simplificar, por ahora retornamos una respuesta simulada
-    // TODO: Implementar llamada real a OpenAI
-    console.log(`🔍 Buscando equivalencia Varta para: ${modelo}`)
+    console.log(`🔍 Buscando equivalencia Varta para: ${modelo} (precio real: ${precioReal ? `$${precioReal}` : 'no disponible'})`)
+    
+    // Si no hay precio real, no podemos calcular equivalencia
+    if (!precioReal || precioReal <= 0) {
+      return { 
+        encontrada: false, 
+        razon: 'No hay precio real disponible para calcular equivalencia' 
+      }
+    }
     
     // Simulación simple basada en patrones comunes
     const modeloLimpio = modelo.trim().toUpperCase()
     
     // Patrones simples para detectar si es un modelo de batería
     if (modeloLimpio.includes('AC') || modeloLimpio.includes('V') || modeloLimpio.includes('BAT')) {
+      // Calcular precio Varta basado en el precio real (ejemplo: 15% más caro)
+      const precioVarta = Math.round(precioReal * 1.15)
+      
       return {
         encontrada: true,
         modelo_original: modelo,
         modelo_varta: `V${modeloLimpio.replace(/[^0-9]/g, '')}`,
-        precio_varta: Math.random() * 200 + 50, // Precio simulado
+        precio_varta: precioVarta, // Precio calculado basado en el real
         categoria: 'Automotriz',
         disponible: true,
         razon: 'Equivalencia encontrada por patrón'
@@ -55,7 +66,7 @@ export async function buscarEquivalenciaVarta(modelo: string): Promise<Equivalen
 /**
  * Verifica si un modelo tiene equivalencia Varta
  */
-export async function tieneEquivalenciaVarta(modelo: string): Promise<boolean> {
-  const equivalencia = await buscarEquivalenciaVarta(modelo)
+export async function tieneEquivalenciaVarta(modelo: string, precioReal?: number): Promise<boolean> {
+  const equivalencia = await buscarEquivalenciaVarta(modelo, precioReal)
   return equivalencia.encontrada
 }
