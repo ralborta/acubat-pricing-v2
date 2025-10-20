@@ -688,6 +688,55 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // 🎯 SISTEMA SIMPLIFICADO: Solo Tipo, Modelo y Precio
       console.log('🎯 SISTEMA SIMPLIFICADO: Solo necesitamos Tipo, Modelo y Precio')
 
+      // 🔧 VALIDACIÓN AGRESIVA: Aplicar también en detección manual
+      console.log('🔍 VALIDACIÓN AGRESIVA: Aplicando en detección manual...')
+      
+      // Validar y corregir precio - FORZAR "PVP Off Line" si existe
+      if (datos[0]) {
+        const pvpOffLineColumn = headers.find(h => h && h.toLowerCase().includes('pvp off line'))
+        if (pvpOffLineColumn) {
+          mapeo.precio = pvpOffLineColumn
+          console.log(`✅ Precio forzado a: "${pvpOffLineColumn}"`)
+        }
+      }
+      
+      // Validar y corregir modelo - FORZAR "CODIGO" si existe
+      if (datos[0]) {
+        const codigoColumn = headers.find(h => h && h.toLowerCase().includes('codigo'))
+        if (codigoColumn) {
+          mapeo.modelo = codigoColumn
+          console.log(`✅ Modelo forzado a: "${codigoColumn}"`)
+        }
+      }
+      
+      // Validar y corregir tipo - FORZAR "RUBRO" si existe
+      if (datos[0]) {
+        const rubroColumn = headers.find(h => h && h.toLowerCase().includes('rubro'))
+        if (rubroColumn) {
+          mapeo.tipo = rubroColumn
+          console.log(`✅ Tipo forzado a: "${rubroColumn}"`)
+        }
+      }
+      
+      // Validar y corregir marca - FORZAR "MARCA" si existe
+      if (datos[0]) {
+        const marcaColumn = headers.find(h => h && h.toLowerCase().includes('marca'))
+        if (marcaColumn) {
+          mapeo.marca = marcaColumn
+          mapeo.proveedor = marcaColumn
+          console.log(`✅ Marca forzada a: "${marcaColumn}"`)
+        }
+      }
+      
+      // Validar y corregir descripción - FORZAR "DESCRIPCION" si existe
+      if (datos[0]) {
+        const descripcionColumn = headers.find(h => h && h.toLowerCase().includes('descripcion'))
+        if (descripcionColumn) {
+          mapeo.descripcion = descripcionColumn
+          console.log(`✅ Descripción forzada a: "${descripcionColumn}"`)
+        }
+      }
+
       console.log('🔧 DETECCIÓN MANUAL UNIVERSAL COMPLETADA:')
       console.log('📋 Mapeo final:', mapeo)
       
