@@ -466,6 +466,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: 1 })
         headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
         console.log(`  ✅ Headers corregidos:`, headersHoja)
+        
+        // Si después de la corrección seguimos teniendo muchos __EMPTY, intentar con la tercera fila
+        const emptyAfterCorrection = headersHoja.filter(h => h.startsWith('__EMPTY')).length
+        if (emptyAfterCorrection > 5) {
+          console.log(`  🔧 Muchos __EMPTY después de corrección (${emptyAfterCorrection}), intentando con tercera fila`)
+          datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: 2 })
+          headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
+          console.log(`  ✅ Headers corregidos (tercera fila):`, headersHoja)
+        }
       }
       
       // Calcular score basado en columnas clave y cantidad de datos
