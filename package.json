@@ -48,6 +48,7 @@
     "multer": "^2.0.2",
     "next": "^14.2.31",
     "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
     "openai": "^5.20.0",
     "pdf-parse": "^1.1.1",
     "pdf2pic": "^3.2.0",

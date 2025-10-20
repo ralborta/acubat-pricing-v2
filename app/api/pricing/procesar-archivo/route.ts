@@ -621,6 +621,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Usar todos los productos de todas las hojas válidas
     const datos = todosLosProductos
     const headers = todosLosHeaders
+    
+    // 🔍 DEBUG CRÍTICO: Ver qué headers se están consolidando
+    console.log(`\n🔍 DEBUG CRÍTICO - HEADERS CONSOLIDADOS:`)
+    console.log(`📋 Headers finales:`, headers)
+    console.log(`📊 Total headers: ${headers.length}`)
+    console.log(`🔑 Headers únicos:`, [...new Set(headers)])
+    
+    // Verificar si los headers tienen las columnas esperadas
+    const tienePrecio = headers.some(h => h && h.toLowerCase().includes('precio'))
+    const tieneCodigo = headers.some(h => h && h.toLowerCase().includes('codigo'))
+    const tieneMarca = headers.some(h => h && h.toLowerCase().includes('marca'))
+    const tieneTipo = headers.some(h => h && h.toLowerCase().includes('tipo'))
+    
+    console.log(`🎯 ANÁLISIS DE HEADERS:`)
+    console.log(`  - Tiene precio: ${tienePrecio}`)
+    console.log(`  - Tiene código: ${tieneCodigo}`)
+    console.log(`  - Tiene marca: ${tieneMarca}`)
+    console.log(`  - Tiene tipo: ${tieneTipo}`)
+    
+    if (!tienePrecio || !tieneCodigo) {
+      console.log(`❌ PROBLEMA: Headers consolidados no tienen columnas clave`)
+      console.log(`🔍 Headers disponibles:`, headers)
+    }
 
     if (!datos || datos.length === 0) {
       return NextResponse.json({ error: 'El archivo no contiene datos' }, { status: 400 })
@@ -635,8 +658,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('🔑 Columnas disponibles:', Object.keys(datos[0] || {}))
     console.log('📝 Muestra de datos (primeras 3 filas):', datos.slice(0, 3))
 
-    // 🎯 DETECCIÓN SIMPLE DE COLUMNAS CON IA
+    // 🎯 DETECCIÓN SIMPLE DE COLUMNAS CON IA - USAR HEADERS CONSOLIDADOS
     console.log('🔍 DETECTANDO COLUMNAS CON IA SIMPLE...')
+    console.log('📋 Headers para IA:', headers)
     const mapeoColumnas = detectarColumnas(headers)
     const validacionMapeo = validarMapeo(mapeoColumnas)
     
