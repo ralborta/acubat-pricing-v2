@@ -543,15 +543,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
     
-    if (!mejorHoja) {
+    // 🎯 PROCESAR TODAS LAS HOJAS VÁLIDAS
+    const hojasValidas = diagnosticoHojas.filter(h => !h.descartada && h.filas > 0)
+    
+    if (hojasValidas.length === 0) {
       return NextResponse.json({ success: false, error: 'No se encontró una hoja válida con datos de productos', diagnosticoHojas }, { status: 400 })
     }
     
-    console.log(`\n✅ HOJA SELECCIONADA: "${mejorHoja.name}" (Score: ${mejorHoja.score})`)
-    
-    // 🎯 PROCESAR TODAS LAS HOJAS VÁLIDAS, NO SOLO LA MEJOR
-    const hojasValidas = diagnosticoHojas.filter(h => !h.descartada && h.filas > 0)
-    console.log(`📊 Procesando ${hojasValidas.length} hojas válidas:`, hojasValidas.map(h => `${h.nombre}(${h.filas})`))
+    console.log(`\n✅ HOJAS VÁLIDAS ENCONTRADAS: ${hojasValidas.length}`)
+    console.log(`📊 Procesando hojas:`, hojasValidas.map(h => `${h.nombre}(${h.filas})`))
     
     let todosLosProductos: any[] = []
     let todosLosHeaders: string[] = []
