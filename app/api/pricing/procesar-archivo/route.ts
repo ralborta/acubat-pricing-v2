@@ -509,6 +509,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (columnasClave >= 3) score += 2
       if (columnasClave >= 4) score += 3
       
+      // 🎯 FLEXIBILIDAD: Si tiene código y datos, es válida aunque no tenga precio
+      if (codigo && datosHoja.length >= 5) {
+        score = Math.max(score, 3) // Mínimo score para hojas con código y datos
+      }
+      
       console.log(`  📊 Score: ${score} (${datosHoja.length} filas)`)
       console.log(`  📋 Headers: ${headersHoja.length}`)
       console.log(`  🎯 Columnas clave encontradas: ${columnasClave}/5`)
@@ -521,7 +526,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (descripcion) console.log(`    ✅ DESCRIPCION: "${descripcion}"`)
       if (rubro) console.log(`    ✅ RUBRO: "${rubro}"`)
       
-      diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada: false, score })
+      // 🎯 LÓGICA FLEXIBLE: Descartar solo si no tiene datos o score muy bajo
+      const descartada = score < 2 || datosHoja.length < 2
+      
+      diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada, score })
 
       if (score > mejorScore) {
         mejorScore = score
