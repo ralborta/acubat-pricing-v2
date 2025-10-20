@@ -1057,6 +1057,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Procesar productos con sistema local confiable
     console.log('🚀 INICIANDO PROCESAMIENTO DE PRODUCTOS...')
     console.log('📊 Total de productos a procesar:', datos.length)
+    console.log('🔍 DEBUG FORZADO - CÓDIGO ACTUALIZADO FUNCIONANDO')
     
     // FILTRAR SOLO PRODUCTOS VÁLIDOS (excluir notas, teléfonos, títulos, etc.)
     console.log(`\n🔍 FILTRO GLOBAL - ANTES:`)
