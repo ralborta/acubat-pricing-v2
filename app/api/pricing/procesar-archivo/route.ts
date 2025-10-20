@@ -776,21 +776,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('📋 Mapeo de columnas:', columnMapping)
       
       // 🎯 SISTEMA SIMPLIFICADO: Tipo, Modelo, Precio y Proveedor
-      const tipo = columnMapping.tipo ? producto[headers.indexOf(columnMapping.tipo)] : 'BATERIA'
-      const modelo = columnMapping.modelo ? producto[headers.indexOf(columnMapping.modelo)] : 'N/A'
-      const descripcion = columnMapping.descripcion ? producto[headers.indexOf(columnMapping.descripcion)] : modelo
+      const tipo = columnMapping.tipo ? producto[columnMapping.tipo] : 'BATERIA'
+      const modelo = columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A'
+      const descripcion = columnMapping.descripcion ? producto[columnMapping.descripcion] : modelo
       
       // 🧠 PROVEEDOR: forzado por UI o detección mejorada
       let proveedor = proveedorForzado || 'Sin Marca'
       if (!proveedorForzado) {
         // 🎯 PRIORIDAD 1: Usar columna MARCA si está disponible (específico para LUSQTOFF)
-        if (columnMapping.marca && producto[headers.indexOf(columnMapping.marca)]) {
-          proveedor = producto[headers.indexOf(columnMapping.marca)]
+        if (columnMapping.marca && producto[columnMapping.marca]) {
+          proveedor = producto[columnMapping.marca]
           console.log(`🎯 Proveedor detectado desde columna MARCA: ${proveedor}`)
         }
         // 🎯 PRIORIDAD 2: Usar columna PROVEEDOR si está disponible
-        else if (columnMapping.proveedor && producto[headers.indexOf(columnMapping.proveedor)]) {
-          proveedor = producto[headers.indexOf(columnMapping.proveedor)]
+        else if (columnMapping.proveedor && producto[columnMapping.proveedor]) {
+          proveedor = producto[columnMapping.proveedor]
           console.log(`🎯 Proveedor detectado desde columna PROVEEDOR: ${proveedor}`)
         }
         // 🎯 PRIORIDAD 3: Analizar nombre del producto para extraer marca
@@ -815,8 +815,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       
       // 🎯 DATOS ADICIONALES PARA LUSQTOFF: Código y Marca (después de detectar proveedor)
-      const codigo = columnMapping.codigo ? producto[headers.indexOf(columnMapping.codigo)] : (columnMapping.modelo ? producto[headers.indexOf(columnMapping.modelo)] : 'N/A')
-      const marca = columnMapping.marca ? producto[headers.indexOf(columnMapping.marca)] : proveedor
+      const codigo = columnMapping.codigo ? producto[columnMapping.codigo] : (columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A')
+      const marca = columnMapping.marca ? producto[columnMapping.marca] : proveedor
       
       console.log(`✅ Datos extraídos (SISTEMA SIMPLIFICADO):`)
       console.log(`   - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
@@ -871,7 +871,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       for (const columna of columnasPrecio) {
         if (!columna.value) continue // Saltar si no hay valor
         
-        const valor = producto[headers.indexOf(columna.value)]
+        const valor = producto[columna.value]
         console.log(`🔍 Buscando en '${columna.key}' (${columna.value}): ${valor}`)
         console.log(`🔍 Tipo de valor: ${typeof valor}, Es string: ${typeof valor === 'string'}`)
         
@@ -922,9 +922,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (precioBase === 0) {
         console.log(`❌ NO SE ENCONTRÓ PRECIO para producto ${index + 1}`)
         console.log(`🔍 Columnas de precio disponibles:`)
-        console.log(`   - Precio: ${columnMapping.precio} (valor: ${columnMapping.precio ? producto[headers.indexOf(columnMapping.precio)] : 'N/A'})`)
-        console.log(`   - PDV: ${columnMapping.pdv} (valor: ${columnMapping.pdv ? producto[headers.indexOf(columnMapping.pdv)] : 'N/A'})`)
-        console.log(`   - PVP: ${columnMapping.pvp} (valor: ${columnMapping.pvp ? producto[headers.indexOf(columnMapping.pvp)] : 'N/A'})`)
+        console.log(`   - Precio: ${columnMapping.precio} (valor: ${columnMapping.precio ? producto[columnMapping.precio] : 'N/A'})`)
+        console.log(`   - PDV: ${columnMapping.pdv} (valor: ${columnMapping.pdv ? producto[columnMapping.pdv] : 'N/A'})`)
+        console.log(`   - PVP: ${columnMapping.pvp} (valor: ${columnMapping.pvp ? producto[columnMapping.pvp] : 'N/A'})`)
         
               // 🔍 BÚSQUEDA ALTERNATIVA: Solo si NO se encontró precio
       console.log(`🔍 BÚSQUEDA ALTERNATIVA DE PRECIO...`)
