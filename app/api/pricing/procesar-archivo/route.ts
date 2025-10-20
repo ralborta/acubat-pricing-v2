@@ -502,6 +502,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // Buscar cualquier columna de precio
       const tienePrecio = pvpOffLine || precioLista || precioUnitario
+
+      // DESCARTAR hojas que no tengan ninguna columna de precio real
+      if (!tienePrecio) {
+        console.log('  ⚠️  Hoja descartada por no tener columna de precio válida en headers')
+        continue
+      }
       
       if (pvpOffLine) score += 5  // PVP Off Line es crítico
       else if (precioLista) score += 4  // Precio de Lista es muy importante
@@ -864,18 +870,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 🔧 VALIDACIÓN AGRESIVA: Siempre verificar si el mapeo es correcto
     console.log('🔍 VALIDACIÓN AGRESIVA: Verificando mapeo de la IA...')
     
-    // Validar y corregir precio - FORZAR "PVP Off Line" si existe
+    // Validar y corregir precio - Fallback: PVP Off Line -> Precio de Lista -> Precio Unitario
     if (datos[0]) {
       const pvpOffLineColumn = headers.find(h => h && h.toLowerCase().includes('pvp off line'))
-      if (pvpOffLineColumn) {
-        const valorPrecio = (datos[0] as any)?.[pvpOffLineColumn]
-        console.log(`🔍 FORZANDO PRECIO: Columna '${pvpOffLineColumn}' contiene: '${valorPrecio}'`)
-        
-        // FORZAR SIEMPRE, sin importar el contenido
-        columnMapping.precio = pvpOffLineColumn
-        console.log(`✅ Precio forzado a: "${pvpOffLineColumn}"`)
+      const precioListaColumn = headers.find(h => h && h.toLowerCase().includes('precio de lista'))
+      const precioUnitarioColumn = headers.find(h => h && h.toLowerCase().includes('precio unitario'))
+      const candidatoPrecio = pvpOffLineColumn || precioListaColumn || precioUnitarioColumn
+      if (candidatoPrecio) {
+        columnMapping.precio = candidatoPrecio
+        console.log(`✅ Precio forzado a: "${candidatoPrecio}"`)
       } else {
-        console.log(`❌ No se encontró columna "PVP Off Line"`)
+        console.log(`❌ No se encontró ninguna columna de precio reconocida`)
       }
     }
     
