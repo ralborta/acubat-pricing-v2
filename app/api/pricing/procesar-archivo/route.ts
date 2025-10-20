@@ -1018,9 +1018,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('📋 Mapeo de columnas:', columnMapping)
       
       // 🎯 SISTEMA SIMPLIFICADO: Tipo, Modelo, Precio y Proveedor
+      console.log(`🔍 MAPEO DE COLUMNAS PARA PRODUCTO ${index + 1}:`, columnMapping)
+      console.log(`🔍 DATOS DEL PRODUCTO:`, producto)
+      
       const tipo = columnMapping.tipo ? producto[columnMapping.tipo] : 'BATERIA'
       const modelo = columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A'
       const descripcion = columnMapping.descripcion ? producto[columnMapping.descripcion] : modelo
+      
+      console.log(`🔍 VALORES EXTRAÍDOS:`)
+      console.log(`  - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
+      console.log(`  - Modelo: "${modelo}" (columna: ${columnMapping.modelo})`)
+      console.log(`  - Descripción: "${descripcion}" (columna: ${columnMapping.descripcion})`)
       
       // 🧠 PROVEEDOR: forzado por UI o detección mejorada
       let proveedor = proveedorForzado || 'Sin Marca'
