@@ -1040,6 +1040,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('📊 Total de productos a procesar:', datos.length)
     
     // FILTRAR SOLO PRODUCTOS VÁLIDOS (excluir notas, teléfonos, títulos, etc.)
+    console.log(`\n🔍 FILTRO GLOBAL - ANTES:`)
+    console.log(`📊 Total productos consolidados: ${datos.length}`)
+    console.log(`📋 Muestra de primeros 3 productos:`, datos.slice(0, 3).map((p: any, i: number) => ({
+      index: i,
+      keys: Object.keys(p).slice(0, 5),
+      values: Object.values(p).slice(0, 3)
+    })))
+    
     const datosFiltrados = datos.filter((producto: any, index: number) => {
       const valores = Object.values(producto).map(v => String(v || '').toLowerCase())
       const esNota = valores.some(v => v.includes('nota') || v.includes('tel:') || v.includes('bornes') || v.includes('precios para la compra'))
@@ -1053,7 +1061,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return true
     })
     
+    console.log(`\n🔍 FILTRO GLOBAL - DESPUÉS:`)
     console.log(`📊 Productos filtrados: ${datosFiltrados.length} de ${datos.length} filas originales`)
+    console.log(`📋 Muestra de productos filtrados:`, datosFiltrados.slice(0, 3).map((p: any, i: number) => ({
+      index: i,
+      keys: Object.keys(p).slice(0, 5),
+      values: Object.values(p).slice(0, 3)
+    })))
     
     const productosProcesados = await Promise.all(datosFiltrados.map(async (producto: any, index: number) => {
       console.log(`\n🔍 === PRODUCTO ${index + 1} ===`)
