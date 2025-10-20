@@ -750,6 +750,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (datos[0]) {
       const marcaColumn = headers.find(h => h && h.toLowerCase().includes('marca'))
       if (marcaColumn) {
+        columnMapping.marca = marcaColumn
         columnMapping.proveedor = marcaColumn
         console.log(`✅ Proveedor forzado a: "${marcaColumn}"`)
       }
