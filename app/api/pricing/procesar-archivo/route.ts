@@ -408,13 +408,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const workbook = XLSX.read(buffer, { type: 'buffer' })
     const sheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[sheetName]
-    const datos = XLSX.utils.sheet_to_json(worksheet)
+    
+    // 🔍 DETECCIÓN INTELIGENTE DE HEADERS
+    // Primero intentar con la primera fila como headers (comportamiento normal)
+    let datos = XLSX.utils.sheet_to_json(worksheet)
+    let headers = Object.keys(datos[0] as Record<string, any>)
+    
+    // Verificar si la primera fila parece ser un título en lugar de headers
+    const primeraFila = datos[0]
+    const esTitulo = Object.values(primeraFila).some(valor => 
+      typeof valor === 'string' && 
+      (valor.includes('LISTA DE PRECIOS') || 
+       valor.includes('Vigencia') || 
+       valor.includes('HERRAMIENTAS') ||
+       valor.length > 50) // Títulos largos
+    )
+    
+    // También verificar si hay muchos __EMPTY (indica estructura compleja)
+    const tieneEmptyColumns = headers.filter(h => h.startsWith('__EMPTY')).length > 5
+    
+    if (esTitulo || tieneEmptyColumns) {
+      console.log('🔍 Detectado título o estructura compleja, usando segunda fila como headers')
+      // Usar la segunda fila como headers
+      datos = XLSX.utils.sheet_to_json(worksheet, { range: 1 }) // Empezar desde fila 1 (índice 0-based)
+      headers = Object.keys(datos[0] as Record<string, any>)
+      console.log('✅ Headers corregidos:', headers)
+    }
 
     if (!datos || datos.length === 0) {
       return NextResponse.json({ error: 'El archivo no contiene datos' }, { status: 400 })
     }
 
-    const headers = Object.keys(datos[0] as Record<string, any>)
     console.log('🔍 Columnas detectadas:', headers)
 
     // 🔍 DEBUG: Ver qué datos llegan del Excel
