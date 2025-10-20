@@ -470,15 +470,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // Calcular score basado en columnas clave y cantidad de datos
       let score = 0
-      if (headersHoja.find(h => h && h.toLowerCase().includes('pvp off line'))) score += 3
-      if (headersHoja.find(h => h && h.toLowerCase().includes('codigo'))) score += 2
-      if (headersHoja.find(h => h && h.toLowerCase().includes('marca'))) score += 2
-      if (headersHoja.find(h => h && h.toLowerCase().includes('descripcion'))) score += 2
-      if (headersHoja.find(h => h && h.toLowerCase().includes('rubro'))) score += 1
-      score += Math.min(datosHoja.length, 10) // Bonus por cantidad de datos
+      const pvpOffLine = headersHoja.find(h => h && h.toLowerCase().includes('pvp off line'))
+      const codigo = headersHoja.find(h => h && h.toLowerCase().includes('codigo'))
+      const marca = headersHoja.find(h => h && h.toLowerCase().includes('marca'))
+      const descripcion = headersHoja.find(h => h && h.toLowerCase().includes('descripcion'))
+      const rubro = headersHoja.find(h => h && h.toLowerCase().includes('rubro'))
+      
+      if (pvpOffLine) score += 5  // PVP Off Line es crítico
+      if (codigo) score += 3      // Código es muy importante
+      if (marca) score += 3       // Marca es muy importante
+      if (descripcion) score += 2 // Descripción es importante
+      if (rubro) score += 1       // Rubro es útil
+      
+      // Bonus por cantidad de datos (más estricto)
+      if (datosHoja.length >= 10) score += 5
+      else if (datosHoja.length >= 5) score += 3
+      else if (datosHoja.length >= 2) score += 1
+      
+      // Penalizar hojas con muy pocos datos
+      if (datosHoja.length < 2) score = 0
+      
+      // Bonus por tener múltiples columnas clave
+      const columnasClave = [pvpOffLine, codigo, marca, descripcion, rubro].filter(Boolean).length
+      if (columnasClave >= 3) score += 2
+      if (columnasClave >= 4) score += 3
       
       console.log(`  📊 Score: ${score} (${datosHoja.length} filas)`)
       console.log(`  📋 Headers: ${headersHoja.length}`)
+      console.log(`  🎯 Columnas clave encontradas: ${columnasClave}/5`)
+      if (pvpOffLine) console.log(`    ✅ PVP Off Line: "${pvpOffLine}"`)
+      if (codigo) console.log(`    ✅ CODIGO: "${codigo}"`)
+      if (marca) console.log(`    ✅ MARCA: "${marca}"`)
+      if (descripcion) console.log(`    ✅ DESCRIPCION: "${descripcion}"`)
+      if (rubro) console.log(`    ✅ RUBRO: "${rubro}"`)
       
       if (score > mejorScore) {
         mejorScore = score
