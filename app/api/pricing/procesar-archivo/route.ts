@@ -552,6 +552,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     console.log(`\n✅ HOJAS VÁLIDAS ENCONTRADAS: ${hojasValidas.length}`)
     console.log(`📊 Procesando hojas:`, hojasValidas.map(h => `${h.nombre}(${h.filas})`))
+    console.log(`🔍 DEBUG: hojasValidas =`, hojasValidas.map(h => ({ nombre: h.nombre, filas: h.filas, descartada: h.descartada })))
     
     let todosLosProductos: any[] = []
     let todosLosHeaders: string[] = []
@@ -559,6 +560,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     for (const hojaInfo of hojasValidas) {
       const worksheet = workbook.Sheets[hojaInfo.nombre]
       console.log(`\n🔍 Procesando hoja: ${hojaInfo.nombre}`)
+      console.log(`🔍 DEBUG: hojaInfo =`, { nombre: hojaInfo.nombre, filas: hojaInfo.filas, descartada: hojaInfo.descartada })
       
       // Aplicar la misma detección dinámica de headers
       const matriz = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as unknown as Array<Array<string | number>>
@@ -598,6 +600,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     console.log(`\n🎯 TOTAL FINAL: ${todosLosProductos.length} productos de ${hojasValidas.length} hojas`)
+    console.log(`🔍 DEBUG: todosLosProductos.length = ${todosLosProductos.length}`)
+    console.log(`🔍 DEBUG: hojasValidas.length = ${hojasValidas.length}`)
     
     // Usar todos los productos de todas las hojas válidas
     const datos = todosLosProductos
