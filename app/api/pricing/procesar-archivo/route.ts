@@ -377,7 +377,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   
   try {
     const processingPromise = (async (): Promise<NextResponse> => {
-    const formData = await request.formData()
+    // 🔧 PARSING SEGURO DE FORMDATA
+    let formData: FormData
+    try {
+      formData = await request.formData()
+    } catch (error) {
+      console.error('❌ Error parsing FormData:', error)
+      return NextResponse.json({
+        success: false,
+        error: 'Error procesando archivo: FormData inválido',
+        detalles: error instanceof Error ? error.message : 'Error desconocido'
+      }, { status: 400 })
+    }
+    
     const file = formData.get('file') as File
     const configuracion = formData.get('configuracion') as string
     const proveedorForzado = (formData.get('proveedorSeleccionado') as string) || ''
