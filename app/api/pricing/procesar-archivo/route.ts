@@ -545,8 +545,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const hojasValidas = diagnosticoHojas.filter(h => !h.descartada && h.filas > 0)
     console.log(`📊 Procesando ${hojasValidas.length} hojas válidas:`, hojasValidas.map(h => `${h.nombre}(${h.filas})`))
     
-    let todosLosProductos = []
-    let todosLosHeaders = []
+    let todosLosProductos: any[] = []
+    let todosLosHeaders: string[] = []
     
     for (const hojaInfo of hojasValidas) {
       const worksheet = workbook.Sheets[hojaInfo.nombre]
