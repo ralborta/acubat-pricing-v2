@@ -424,6 +424,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 🎯 SELECCIÓN INTELIGENTE DE LA MEJOR HOJA
     let mejorHoja = null
     let mejorScore = 0
+    const diagnosticoHojas: Array<{ nombre: string; filas: number; headers: string[]; pvpOffLine?: string; precioLista?: string; precioUnitario?: string; descartada?: boolean; motivoDescarte?: string; score?: number; }> = []
     
     for (let i = 0; i < workbook.SheetNames.length; i++) {
       const sheetName = workbook.SheetNames[i]
@@ -506,6 +507,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // DESCARTAR hojas que no tengan ninguna columna de precio real
       if (!tienePrecio) {
         console.log('  ⚠️  Hoja descartada por no tener columna de precio válida en headers')
+        diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada: true, motivoDescarte: 'Sin columna de precio válida' })
         continue
       }
       
@@ -543,6 +545,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (descripcion) console.log(`    ✅ DESCRIPCION: "${descripcion}"`)
       if (rubro) console.log(`    ✅ RUBRO: "${rubro}"`)
       
+      diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada: false, score })
+
       if (score > mejorScore) {
         mejorScore = score
         mejorHoja = {
@@ -556,7 +560,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     if (!mejorHoja) {
-      return NextResponse.json({ error: 'No se encontró una hoja válida con datos de productos' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'No se encontró una hoja válida con datos de productos', diagnosticoHojas }, { status: 400 })
     }
     
     console.log(`\n✅ HOJA SELECCIONADA: "${mejorHoja.name}" (Score: ${mejorHoja.score})`)
