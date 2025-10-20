@@ -583,7 +583,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`  📊 Productos válidos en ${hojaInfo.nombre}: ${datosFiltrados.length} de ${datosHoja.length}`)
       
       // 🔍 TRACE: Mostrar muestra de datos antes de agregar
-      console.log(`  🔍 TRACE ${hojaInfo.nombre} - Muestra de datos filtrados:`, datosFiltrados.slice(0, 2).map(p => ({
+      console.log(`  🔍 TRACE ${hojaInfo.nombre} - Muestra de datos filtrados:`, datosFiltrados.slice(0, 2).map((p: any) => ({
         keys: Object.keys(p).slice(0, 5),
         sample: Object.values(p).slice(0, 3)
       })))
@@ -610,7 +610,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`\n📋 HOJA ${hojaInfo.nombre}:`)
       console.log(`  - Productos esperados: ${hojaInfo.filas}`)
       console.log(`  - Productos reales: ${productosHoja.length}`)
-      console.log(`  - Muestra (primeros 2):`, productosHoja.slice(0, 2).map(p => ({
+      console.log(`  - Muestra (primeros 2):`, productosHoja.slice(0, 2).map((p: any) => ({
         producto: p.producto || 'N/A',
         modelo: p.modelo || 'N/A', 
         precio: p.precio || 'N/A'
