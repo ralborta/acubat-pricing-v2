@@ -485,6 +485,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('🔍 ANÁLISIS UNIVERSAL DE COLUMNAS...')
       
       headers.forEach(header => {
+        if (!header || typeof header !== 'string') return
         const headerLower = header.toLowerCase().trim()
         const sampleData = datos?.[0]?.[header]
         
@@ -1098,7 +1099,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Modelo: "${modelo}"`)
       console.log(`   - Tipo de dato modelo: ${typeof modelo}`)
       console.log(`   - Longitud modelo: ${modelo ? modelo.length : 'N/A'}`)
-      console.log(`   - Modelo limpio: "${modelo ? modelo.trim() : 'N/A'}"`)
+      console.log(`   - Modelo limpio: "${modelo && typeof modelo === 'string' ? modelo.trim() : 'N/A'}"`)
       
       // 🗄️ BÚSQUEDA INTELIGENTE EN BASE DE DATOS VARTA
       let equivalenciaVarta = null
