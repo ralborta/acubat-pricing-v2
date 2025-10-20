@@ -585,7 +585,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       console.log(`  📊 Productos válidos en ${hojaInfo.nombre}: ${datosFiltrados.length} de ${datosHoja.length}`)
       
-      todosLosProductos = todosLosProductos.concat(datosFiltrados)
+      todosLosProductos = [...todosLosProductos, ...datosFiltrados]
       todosLosHeaders = headersHoja // Usar headers de la última hoja procesada
     }
     
