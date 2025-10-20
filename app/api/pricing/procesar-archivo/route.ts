@@ -88,7 +88,7 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       - Devuelve SOLO nombres de columnas, NO valores de datos
       - Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
       
-    PRECIO (prioridad específica):
+      PRECIO (prioridad específica):
     1. Busca columna "PVP Off Line" - esta es la columna de precio base principal
     2. Si no existe "PVP Off Line", busca: "Contado", precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
     3. Contenido: valores numéricos con símbolo $ y formato argentino (punto para miles, coma para decimales)
@@ -426,7 +426,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     for (let i = 0; i < workbook.SheetNames.length; i++) {
       const sheetName = workbook.SheetNames[i]
-      const worksheet = workbook.Sheets[sheetName]
+    const worksheet = workbook.Sheets[sheetName]
       
       console.log(`\n🔍 Analizando hoja "${sheetName}":`)
       
@@ -572,15 +572,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`  📋 Headers detectados:`, headersHoja)
       
       // Filtrar productos válidos de esta hoja
-      const datosFiltrados = datosHoja.filter((producto: any) => {
+      console.log(`\n🔍 FILTRO POR HOJA ${hojaInfo.nombre} - ANTES:`)
+      console.log(`  📊 Total productos en hoja: ${datosHoja.length}`)
+      console.log(`  📋 Muestra de primeros 3 productos:`, datosHoja.slice(0, 3).map((p: any, i: number) => ({
+        index: i,
+        keys: Object.keys(p).slice(0, 5),
+        values: Object.values(p).slice(0, 3)
+      })))
+      
+      const datosFiltrados = datosHoja.filter((producto: any, index: number) => {
         const valores = Object.values(producto).map(v => String(v || '').toLowerCase())
         const esNota = valores.some(v => v.includes('nota') || v.includes('tel:') || v.includes('bornes') || v.includes('precios para la compra'))
         const esTitulo = valores.some(v => v.includes('sistema de pricing') || v.includes('optimizado para máximo rendimiento'))
         const esVacio = valores.every(v => v.trim() === '')
+        
+        if (esNota || esTitulo || esVacio) {
+          console.log(`    ⚠️  Fila ${index + 1} descartada (${esNota ? 'nota' : esTitulo ? 'título' : 'vacía'}):`, valores.slice(0, 3))
+        }
+        
         return !esNota && !esTitulo && !esVacio
       })
       
+      console.log(`\n🔍 FILTRO POR HOJA ${hojaInfo.nombre} - DESPUÉS:`)
       console.log(`  📊 Productos válidos en ${hojaInfo.nombre}: ${datosFiltrados.length} de ${datosHoja.length}`)
+      console.log(`  📋 Muestra de productos filtrados:`, datosFiltrados.slice(0, 3).map((p: any, i: number) => ({
+        index: i,
+        keys: Object.keys(p).slice(0, 5),
+        values: Object.values(p).slice(0, 3)
+      })))
       
       // 🔍 TRACE: Mostrar muestra de datos antes de agregar
       console.log(`  🔍 TRACE ${hojaInfo.nombre} - Muestra de datos filtrados:`, datosFiltrados.slice(0, 2).map((p: any) => ({
