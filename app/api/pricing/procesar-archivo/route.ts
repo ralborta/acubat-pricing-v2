@@ -582,13 +582,41 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       console.log(`  📊 Productos válidos en ${hojaInfo.nombre}: ${datosFiltrados.length} de ${datosHoja.length}`)
       
+      // 🔍 TRACE: Mostrar muestra de datos antes de agregar
+      console.log(`  🔍 TRACE ${hojaInfo.nombre} - Muestra de datos filtrados:`, datosFiltrados.slice(0, 2).map(p => ({
+        keys: Object.keys(p).slice(0, 5),
+        sample: Object.values(p).slice(0, 3)
+      })))
+      
       todosLosProductos = [...todosLosProductos, ...datosFiltrados]
       todosLosHeaders = headersHoja // Usar headers de la última hoja procesada
+      
+      console.log(`  🔍 TRACE ${hojaInfo.nombre} - Total acumulado: ${todosLosProductos.length} productos`)
     }
     
     console.log(`\n🎯 TOTAL FINAL: ${todosLosProductos.length} productos de ${hojasValidas.length} hojas`)
     console.log(`🔍 DEBUG: todosLosProductos.length = ${todosLosProductos.length}`)
     console.log(`🔍 DEBUG: hojasValidas.length = ${hojasValidas.length}`)
+    
+    // 🔍 TRACE DETALLADO DESPUÉS DE LA IA
+    console.log(`\n🔍 TRACE DETALLADO - DATOS CONSOLIDADOS:`)
+    console.log(`📊 Total productos consolidados: ${todosLosProductos.length}`)
+    console.log(`📋 Headers consolidados:`, todosLosHeaders.slice(0, 10))
+    
+    // Mostrar muestra de productos de cada hoja
+    let contadorProductos = 0
+    for (const hojaInfo of hojasValidas) {
+      const productosHoja = todosLosProductos.slice(contadorProductos, contadorProductos + hojaInfo.filas)
+      console.log(`\n📋 HOJA ${hojaInfo.nombre}:`)
+      console.log(`  - Productos esperados: ${hojaInfo.filas}`)
+      console.log(`  - Productos reales: ${productosHoja.length}`)
+      console.log(`  - Muestra (primeros 2):`, productosHoja.slice(0, 2).map(p => ({
+        producto: p.producto || 'N/A',
+        modelo: p.modelo || 'N/A', 
+        precio: p.precio || 'N/A'
+      })))
+      contadorProductos += hojaInfo.filas
+    }
     
     // Usar todos los productos de todas las hojas válidas
     const datos = todosLosProductos
