@@ -709,13 +709,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const valorPrecio = (datos[0] as any)?.[pvpOffLineColumn]
         console.log(`🔍 FORZANDO PRECIO: Columna '${pvpOffLineColumn}' contiene: '${valorPrecio}'`)
         
-        // Verificar que contiene un precio válido (no un código)
-        if (typeof valorPrecio === 'string' && valorPrecio.includes('$')) {
-          columnMapping.precio = pvpOffLineColumn
-          console.log(`✅ Precio forzado a: "${pvpOffLineColumn}"`)
-        } else {
-          console.log(`❌ La columna PVP Off Line no contiene precio válido`)
-        }
+        // FORZAR SIEMPRE, sin importar el contenido
+        columnMapping.precio = pvpOffLineColumn
+        console.log(`✅ Precio forzado a: "${pvpOffLineColumn}"`)
       } else {
         console.log(`❌ No se encontró columna "PVP Off Line"`)
       }
@@ -728,13 +724,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const valorModelo = (datos[0] as any)?.[codigoColumn]
         console.log(`🔍 FORZANDO MODELO: Columna '${codigoColumn}' contiene: '${valorModelo}'`)
         
-        // Verificar que contiene un código válido
-        if (typeof valorModelo === 'string' && valorModelo.match(/^[A-Z]\d+$/)) {
-          columnMapping.modelo = codigoColumn
-          console.log(`✅ Modelo forzado a: "${codigoColumn}"`)
-        } else {
-          console.log(`❌ La columna CODIGO no contiene código válido`)
-        }
+        // FORZAR SIEMPRE, sin importar el contenido
+        columnMapping.modelo = codigoColumn
+        console.log(`✅ Modelo forzado a: "${codigoColumn}"`)
       } else {
         console.log(`❌ No se encontró columna "CODIGO"`)
       }
