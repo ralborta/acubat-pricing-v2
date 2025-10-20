@@ -415,8 +415,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let headers = Object.keys(datos[0] as Record<string, any>)
     
     // Verificar si la primera fila parece ser un título en lugar de headers
-    const primeraFila = datos[0]
-    const esTitulo = Object.values(primeraFila).some(valor => 
+    const primeraFila = datos[0] as Record<string, any>
+    const esTitulo = primeraFila && Object.values(primeraFila).some(valor => 
       typeof valor === 'string' && 
       (valor.includes('LISTA DE PRECIOS') || 
        valor.includes('Vigencia') || 
