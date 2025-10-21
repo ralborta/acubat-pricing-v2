@@ -23,6 +23,11 @@ interface EstadisticasGenerales {
   proveedores_unicos: number
   sesiones_mes: number
   productos_rentables: number
+  distribucion_margenes?: {
+    optimo: number
+    advertencia: number
+    critico: number
+  }
 }
 
 export default function Dashboard() {

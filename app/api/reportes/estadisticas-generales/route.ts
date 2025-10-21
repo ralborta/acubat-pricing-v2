@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     // Calcular rentabilidad promedio
     let rentabilidadTotal = 0
     let sesionesConRentabilidad = 0
+    const distribucion = { optimo: 0, advertencia: 0, critico: 0 }
     
     for (const sesion of sesiones) {
       try {
@@ -37,6 +38,11 @@ export async function GET(request: NextRequest) {
         if (estadisticas.rentabilidad_promedio_minorista > 0) {
           rentabilidadTotal += estadisticas.rentabilidad_promedio_minorista
           sesionesConRentabilidad++
+        }
+        if (estadisticas.distribucion_margenes) {
+          distribucion.optimo += estadisticas.distribucion_margenes.optimo || 0
+          distribucion.advertencia += estadisticas.distribucion_margenes.advertencia || 0
+          distribucion.critico += estadisticas.distribucion_margenes.critico || 0
         }
       } catch (error) {
         console.warn(`Error obteniendo estadísticas de sesión ${sesion.id}:`, error)
@@ -76,7 +82,8 @@ export async function GET(request: NextRequest) {
       rentabilidad_promedio: rentabilidadPromedio,
       proveedores_unicos: proveedoresSet.size,
       sesiones_mes: sesionesMes,
-      productos_rentables: productosRentables
+      productos_rentables: productosRentables,
+      distribucion_margenes: distribucion
     }
 
     console.log('✅ Estadísticas calculadas:', estadisticas)
