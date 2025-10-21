@@ -90,9 +90,9 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       
       PRECIO (prioridad específica):
     1. Busca columna "Precio s/iva" - esta es la columna de precio base principal
-    2. Si no existe "Precio s/iva", busca: "PVP Off Line", "Contado", precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
+    2. Si no existe "Precio s/iva", busca: "PVP Off Line", "Contado", "precio", "price", "costo", "valor", "precio lista", "pvp", "sugerido proveedor", "lista", "AR$", "ARS", "$" (sin USD)
     3. Contenido: valores numéricos con símbolo $ y formato argentino (punto para miles, coma para decimales)
-    4. Ejemplos válidos: $ 2.690, $ 4.490, $ 1.256,33, $ 2.500,50
+    4. Ejemplos válidos: $ 2.690, $ 4.490, $ 1.256,33, $ 2.500,50, 39720, 24973
     5. IMPORTANTE: Los valores se redondean (sin decimales) para el procesamiento
     6. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
@@ -103,10 +103,11 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       4. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       MODELO (prioridad):
-      1. Busca columna "CODIGO" o similar
-      2. Contenido: códigos como "L3000", "L3001", "L3002"
-      3. Si no existe, usa el primer identificador disponible
-      4. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
+      1. Busca columna "SKU" o "sku" - esta es la columna de SKU principal
+      2. Si no existe "SKU", busca: "CODIGO", "codigo", "code", "referencia", "identificador"
+      3. Contenido: códigos como "7000", "7002", "L3000", "L3001"
+      4. Si no existe, usa el primer identificador disponible
+      5. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
       
       DESCRIPCION:
       1. Busca columna "DESCRIPCION" o similar
@@ -123,7 +124,7 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       EJEMPLO DE RESPUESTA CORRECTA:
       {
         "tipo": "RUBRO",
-        "modelo": "SKU", 
+        "modelo": "sku", 
         "precio_ars": "Precio s/iva",
         "descripcion": "DESCRIPCION",
         "proveedor": "MARCA"
@@ -1056,14 +1057,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('🧠 RESULTADO DE LA IA:')
     console.log('📋 Mapeo de columnas:', columnMapping)
     
-    // 🚨 FORZAR DETECCIÓN MANUAL: No depender de la IA
-    console.log('🔧 FORZANDO DETECCIÓN MANUAL (SIN IA)...')
-    const columnMappingManual = detectColumnsManualmente(headers, datos)
-    console.log('🔧 DETECCIÓN MANUAL (PRINCIPAL):')
-    console.log('📋 Mapeo manual:', columnMappingManual)
-    
-    // Usar solo detección manual
-    Object.assign(columnMapping, columnMappingManual)
+    // 🚨 VALIDACIÓN: Usar IA como principal, manual como fallback
+    if (!columnMapping || Object.values(columnMapping).some(v => !v)) {
+      console.log('⚠️ La IA no detectó todas las columnas, usando detección manual como fallback...')
+      const columnMappingManual = detectColumnsManualmente(headers, datos)
+      console.log('🔧 DETECCIÓN MANUAL (FALLBACK):')
+      console.log('📋 Mapeo manual:', columnMappingManual)
+      
+      // Combinar IA + manual
+      Object.assign(columnMapping, columnMappingManual)
+    } else {
+      console.log('✅ La IA detectó todas las columnas correctamente')
+    }
     
     // 🔍 DEBUG: Mapeo final
     console.log('✅ MAPEO FINAL DE COLUMNAS:')
