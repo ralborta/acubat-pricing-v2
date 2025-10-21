@@ -71,238 +71,131 @@ async function obtenerConfiguracion() {
 
 // 🔄 SISTEMA HÍBRIDO: IA para columnas + Base de datos local para equivalencias
 
-// 🧠 DETECCIÓN INTELIGENTE DE COLUMNAS CON IA (PROMPT MEJORADO)
+// 🧠 DETECCIÓN INTELIGENTE DE COLUMNAS CON IA (ARQUITECTURA MEJORADA)
+const baseModel = "gpt-4o-mini";
+const proModel = "gpt-4o";
+
+async function callLLM(model: string, contexto: string) {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model,
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+      max_tokens: 800,
+      messages: [
+        { role: "system", content: "Responde SOLO con JSON válido según el schema." },
+        { role: "user", content: contexto }
+      ],
+    })
+  });
+  
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return JSON.parse(data.choices[0].message.content);
+}
+
 async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<any> {
   try {
+    // 🎯 CREAR LISTAS BLANCAS POR CAMPO
+    const headersNorm = headers.map(h => h.trim());
+    const ALLOWED = {
+      tipo: headersNorm.filter(h => /rubro|tipo|categ|familia|segmento/i.test(h)),
+      modelo: headersNorm.filter(h => /sku|cod(igo)?|code|ref(erencia)?|identificador|art[ií]culo/i.test(h)),
+      sku: headersNorm.filter(h => /sku|cod(igo)?|code|ref(erencia)?|identificador|art[ií]culo/i.test(h)),
+      precio: headersNorm.filter(h =>
+        /precio|contado|pvp|lista|sugerido|valor|importe|ars|\$/i.test(h)
+      ).filter(h => !/usd|u\$s|us\$|d[oó]lar/i.test(h)),
+      descripcion: headersNorm.filter(h => /descrip|detalle|nombre|producto/i.test(h)),
+      proveedor: headersNorm.filter(h => /marca|fabricante|proveedor/i.test(h)),
+    };
+    
+    console.log('🎯 LISTAS BLANCAS CREADAS:', ALLOWED);
+    
     const contexto = `
-      Eres especialista senior en pricing de baterías automotrices en Argentina.
-      Usa únicamente las COLUMNAS y la MUESTRA provistas en este turno (ignora cualquier conocimiento previo).
-      Debes mapear exactamente qué columna corresponde a:
-      tipo (familia/categoría: p.ej. "Batería", "Ca Ag Blindada", "J.I.S.")
-      modelo (código identificador: p.ej. "M18FD", "M20GD", "M22ED")
-      precio_ars (precio en pesos argentinos - columna "Contado" tiene prioridad)
-      descripcion (descripción comercial del producto)
-      proveedor (nombre del proveedor/fabricante: p.ej. "Moura", "Varta", "Bosch", "ACDelco")
-      
-      REGLAS OBLIGATORIAS:
-      - Devuelve SOLO nombres de columnas, NO valores de datos
-      - Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
-      
-      PRECIO (prioridad específica):
-    1. Busca columna "Precio s/iva" - esta es la columna de precio base principal
-    2. Si no existe "Precio s/iva", busca: "PVP Off Line", "Contado", "precio", "price", "costo", "valor", "precio lista", "pvp", "sugerido proveedor", "lista", "AR$", "ARS", "$" (sin USD)
-    3. Contenido: valores numéricos con símbolo $ y formato argentino (punto para miles, coma para decimales)
-    4. Ejemplos válidos: $ 2.690, $ 4.490, $ 1.256,33, $ 2.500,50, 39720, 24973
-    5. IMPORTANTE: Los valores se redondean (sin decimales) para el procesamiento
-    6. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
-      
-      TIPO (prioridad):
-      1. Busca columna "RUBRO" o similar
-      2. Contenido: descripciones como "HTAS. MANUALES", "COMBINADAS"
-      3. Si no existe, usa "RUBRO" como valor por defecto
-      4. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
-      
-      MODELO (prioridad):
-      1. Busca columna "SKU" o "sku" - esta es la columna de SKU principal
-      2. Si no existe "SKU", busca: "CODIGO", "codigo", "code", "referencia", "identificador"
-      3. Contenido: códigos como "7000", "7002", "L3000", "L3001"
-      4. Si no existe, usa el primer identificador disponible
-      5. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
-      
-      DESCRIPCION:
-      1. Busca columna "DESCRIPCION" o similar
-      2. Contenido: descripciones detalladas del producto
-      3. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
-      
-      PROVEEDOR (NUEVO):
-      1. Busca columna "MARCA" o similar
-      2. Contenido: marcas como "LUSQTOFF", "MOURA", "VARTA"
-      3. Si no existe columna específica, analiza el nombre del producto para extraer la marca
-      4. Si no se puede determinar, usa "Sin Marca"
-      5. DEVUELVE EL NOMBRE DE LA COLUMNA, NO EL VALOR
-      
-      EJEMPLO DE RESPUESTA CORRECTA:
-      {
-        "tipo": "RUBRO",
-        "modelo": "sku", 
-        "precio_ars": "Precio s/iva",
-        "descripcion": "DESCRIPCION",
-        "proveedor": "MARCA"
-      }
-      
-      ⚠️ CRÍTICO: NUNCA devuelvas valores como "L3000", "$ 2.690", "LUSQTOFF". 
-      ⚠️ SIEMPRE devuelve NOMBRES DE COLUMNAS como "CODIGO", "PVP Off Line", "MARCA".
-      
-      Salida estricta: responde solo con JSON que cumpla el schema provisto (sin texto extra, sin markdown, sin backticks).
-      
-      COLUMNAS: ${headers.join(', ')}
-      MUESTRA (hasta 10 filas reales):
-      ${JSON.stringify(datos.slice(0, 10), null, 2)}
-      
-      Responde SOLO con este JSON simple:
-      {
-        "tipo": "nombre_columna",
-        "modelo": "nombre_columna", 
-        "precio": "nombre_columna",
-        "contado": "nombre_columna",
-        "descripcion": "nombre_columna",
-        "proveedor": "nombre_columna_o_analisis"
-      }
+Eres especialista senior en pricing de baterías/herramientas en Argentina.
+Usa EXCLUSIVAMENTE las COLUMNAS provistas en este turno (ignora cualquier conocimiento previo).
+
+Objetivo: devolver un JSON que mapea SOLAMENTE NOMBRES DE COLUMNAS existentes, nada de valores de celdas.
+
+Campos requeridos:
+- tipo: nombre de la columna que representa familia/tipo (p.ej., Rubro, Tipo, Categoría).
+- modelo_header: nombre de la columna candidata a "modelo".
+- sku_header: nombre de la columna candidata a "sku".
+- precio: nombre de la columna de precio en ARS. Prioridad: "Precio s/iva" > "Contado" > otras afines (precio, pvp, costo...). Nunca USD.
+- descripcion: nombre de la columna de descripción.
+- proveedor: nombre de la columna de marca/proveedor, si existe; si NO existe en headers, devolver "" (vacío).
+- ident_source: "modelo" o "sku" (elige cuál usar como identificador principal).
+- ident_header: el nombre de columna correspondiente a ident_source.
+- status: "ok" | "warn" | "error".
+- mens: mensaje breve (máx. 120 caracteres) explicando si faltó algo o se aplicó una alternativa.
+
+Reglas obligatorias:
+- Devuelve SOLO nombres de columnas que estén en la lista de COLUMNAS.
+- NUNCA devuelvas valores como "L3000", "$ 2.690" o "LUSQTOFF".
+- Moneda ARS: excluye columnas que indiquen USD/U$S/US$/"dólar". No conviertas.
+- Si no hay columna clara para "tipo"/"descripcion"/"proveedor", devuelve "" y reporta "warn" con mens adecuado.
+- El identificador (ident) debe ser sí o sí uno de los dos: modelo o sku.
+- Si no puedes determinar ni modelo ni sku (no hay headers válidos), devuelve status="error" y mens="NO_IDENTIFIER".
+
+Listas blancas (solo podes elegir dentro de estas por campo):
+- ALLOWED.tipo = ${JSON.stringify(ALLOWED.tipo)}
+- ALLOWED.modelo = ${JSON.stringify(ALLOWED.modelo)}
+- ALLOWED.sku = ${JSON.stringify(ALLOWED.sku)}
+- ALLOWED.precio = ${JSON.stringify(ALLOWED.precio)}
+- ALLOWED.descripcion = ${JSON.stringify(ALLOWED.descripcion)}
+- ALLOWED.proveedor = ${JSON.stringify(ALLOWED.proveedor)}
+
+COLUMNAS: ${headers.join(', ')}
+
+MUESTRA (hasta 10 filas reales):
+${JSON.stringify(datos.slice(0, 10), null, 2)}
+
+Salida estricta (JSON plano, sin backticks, sin texto extra):
+{
+  "tipo": "nombre_columna|''",
+  "modelo_header": "nombre_columna|''",
+  "sku_header": "nombre_columna|''",
+  "precio": "nombre_columna|''",
+  "descripcion": "nombre_columna|''",
+  "proveedor": "nombre_columna|''",
+  "ident_source": "modelo|sku|''",
+  "ident_header": "nombre_columna|''",
+  "status": "ok|warn|error",
+  "mens": "string"
+}
     `
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'Eres un experto en análisis de archivos Excel. Analiza las columnas y responde SOLO con JSON válido.'
-          },
-          {
-            role: 'user',
-            content: contexto
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 1000
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const respuestaGPT = data.choices[0].message.content
+    // 🎯 USAR GPT-4o PARA MÁXIMA PRECISIÓN
+    console.log('🚀 LLAMANDO A GPT-4o PARA MÁXIMA PRECISIÓN...')
+    const mapeo = await callLLM(proModel, contexto)
     
-    try {
-      let mapeo = JSON.parse(respuestaGPT)
-      console.log('🧠 GPT analizó el archivo:', mapeo)
-      
-      // 🔧 VALIDACIÓN Y CORRECCIÓN: Si la IA devolvió valores en lugar de nombres de columnas
-      console.log('🔍 Validando respuesta de la IA...')
-      
-      // Si la IA devolvió un array, tomar el primer elemento
-      if (Array.isArray(mapeo)) {
-        console.log('⚠️ La IA devolvió un array, tomando el primer elemento')
-        mapeo = mapeo[0]
-      }
-      
-      // Validar y corregir cada campo
-      const mapeoCorregido: any = {}
-      
-      // Corregir tipo
-      if (mapeo.tipo && typeof mapeo.tipo === 'string') {
-        if (mapeo.tipo.includes('Batería') || mapeo.tipo.includes('batería')) {
-          // Buscar columna de tipo en headers
-          const tipoColumn = headers.find(h => h && (
-            h.toLowerCase().includes('rubro') || 
-            h.toLowerCase().includes('tipo') || 
-            h.toLowerCase().includes('categoria') ||
-            h.toLowerCase().includes('familia')
-          ))
-          mapeoCorregido.tipo = tipoColumn || 'RUBRO'
-          console.log(`✅ Corregido tipo: "${mapeo.tipo}" → "${mapeoCorregido.tipo}"`)
-        } else {
-          mapeoCorregido.tipo = mapeo.tipo
-        }
-      }
-      
-      // Corregir modelo
-      if (mapeo.modelo && typeof mapeo.modelo === 'string') {
-        if (mapeo.modelo.match(/^[A-Z]\d+$/)) {
-          // Es un código, buscar columna de código
-          const codigoColumn = headers.find(h => h && (
-            h.toLowerCase().includes('codigo') || 
-            h.toLowerCase().includes('code') || 
-            h.toLowerCase().includes('sku') ||
-            h.toLowerCase().includes('referencia')
-          ))
-          mapeoCorregido.modelo = codigoColumn || 'CODIGO'
-          console.log(`✅ Corregido modelo: "${mapeo.modelo}" → "${mapeoCorregido.modelo}"`)
-        } else {
-          mapeoCorregido.modelo = mapeo.modelo
-        }
-      }
-      
-      // Corregir precio_ars
-      if (mapeo.precio_ars && typeof mapeo.precio_ars === 'string') {
-        if (mapeo.precio_ars.includes('$')) {
-          // Es un valor de precio, buscar columna de precio
-          const precioColumn = headers.find(h => h && (
-            h.toLowerCase().includes('pvp off line') ||
-            h.toLowerCase().includes('precio') || 
-            h.toLowerCase().includes('price') || 
-            h.toLowerCase().includes('pvp')
-          ))
-          mapeoCorregido.precio_ars = precioColumn || 'PVP Off Line'
-          console.log(`✅ Corregido precio_ars: "${mapeo.precio_ars}" → "${mapeoCorregido.precio_ars}"`)
-        } else {
-          mapeoCorregido.precio_ars = mapeo.precio_ars
-        }
-      }
-      
-      // Corregir descripcion
-      if (mapeo.descripcion && typeof mapeo.descripcion === 'string') {
-        if (mapeo.descripcion.includes('(') && mapeo.descripcion.includes(')')) {
-          // Es una descripción de producto, buscar columna de descripción
-          const descColumn = headers.find(h => h && (
-            h.toLowerCase().includes('descripcion') || 
-            h.toLowerCase().includes('description') || 
-            h.toLowerCase().includes('producto') ||
-            h.toLowerCase().includes('nombre')
-          ))
-          mapeoCorregido.descripcion = descColumn || 'DESCRIPCION'
-          console.log(`✅ Corregido descripcion: "${mapeo.descripcion}" → "${mapeoCorregido.descripcion}"`)
-        } else {
-          mapeoCorregido.descripcion = mapeo.descripcion
-        }
-      }
-      
-      // Corregir proveedor
-      if (mapeo.proveedor && typeof mapeo.proveedor === 'string') {
-        if (mapeo.proveedor.match(/^[A-Z]+$/)) {
-          // Es una marca, buscar columna de marca
-          const marcaColumn = headers.find(h => h && (
-            h.toLowerCase().includes('marca') || 
-            h.toLowerCase().includes('brand') || 
-            h.toLowerCase().includes('fabricante') ||
-            h.toLowerCase().includes('proveedor')
-          ))
-          mapeoCorregido.proveedor = marcaColumn || 'MARCA'
-          console.log(`✅ Corregido proveedor: "${mapeo.proveedor}" → "${mapeoCorregido.proveedor}"`)
-        } else {
-          mapeoCorregido.proveedor = mapeo.proveedor
-        }
-      }
-      
-      console.log('🎯 Mapeo corregido:', mapeoCorregido)
-      mapeo = mapeoCorregido
-      
-      // 🎯 ADAPTAR LA NUEVA ESTRUCTURA A LA EXISTENTE
-      const resultadoAdaptado = {
-        tipo: mapeo.tipo || '',
-        modelo: mapeo.modelo || mapeo.identificador || '',
-        precio: mapeo.precio_ars || '',
-        descripcion: mapeo.descripcion || '',
-        confianza: mapeo.confianza || 0,
-        evidencia: mapeo.evidencia || {},
-        notas: mapeo.notas || []
-      }
-      
-      console.log('🧠 RESPUESTA ORIGINAL DE GPT:', mapeo)
-      console.log('🔧 RESULTADO ADAPTADO:', resultadoAdaptado)
-      
-      return resultadoAdaptado
-    } catch (parseError) {
-      console.error('❌ Error parseando respuesta de GPT:', parseError)
-      throw new Error('GPT no pudo analizar el archivo correctamente')
+    console.log('🧠 GPT-4o analizó el archivo:', mapeo)
+    console.log('📊 Status:', mapeo.status)
+    console.log('💬 Mensaje:', mapeo.mens)
+    
+    // 🎯 ADAPTAR LA NUEVA ESTRUCTURA A LA EXISTENTE
+    const resultadoAdaptado = {
+      tipo: mapeo.tipo || '',
+      modelo: mapeo.ident_header || mapeo.modelo_header || mapeo.sku_header || '',
+      precio: mapeo.precio || '',
+      descripcion: mapeo.descripcion || '',
+      confianza: mapeo.status === 'ok' ? 95 : mapeo.status === 'warn' ? 80 : 50,
+      evidencia: { ident_source: mapeo.ident_source, status: mapeo.status },
+      notas: [mapeo.mens]
     }
+    
+    console.log('🧠 RESPUESTA ORIGINAL DE GPT-4o:', mapeo)
+    console.log('🔧 RESULTADO ADAPTADO:', resultadoAdaptado)
+    
+    return resultadoAdaptado
 
   } catch (error) {
     console.error('❌ Error con OpenAI API:', error)
