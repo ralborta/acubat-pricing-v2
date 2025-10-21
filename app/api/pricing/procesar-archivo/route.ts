@@ -1655,6 +1655,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Mayorista Final: ${mayoristaFinal}`)
 
       const resultadoProducto = {
+        producto: proveedor || '',
         id: index + 1,                // índice procesado (interno)
         producto_id: id_val,          // <-- ID OBLIGATORIO DEL ARCHIVO
         tipo: tipo ?? '',
