@@ -101,15 +101,44 @@ function scoreIdColumn(colName: string, sampleValues: any[]): number {
   return score;
 }
 
+function normalizeHeaderName(name?: string): string {
+  return (name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getCellFlexible(row: any, header: string) {
+  if (!row || !header) return undefined;
+  if (Object.prototype.hasOwnProperty.call(row, header)) return row[header];
+  const target = normalizeHeaderName(header);
+  for (const k of Object.keys(row)) {
+    if (normalizeHeaderName(k) === target) return row[k];
+  }
+  return undefined;
+}
+
 function pickIdColumn(headers: string[], rows: any[]): string | '' {
-  // construimos un muestreo por columna
+  // construimos un muestreo por columna con acceso flexible (normalizado)
   const candidates = headers.map(h => {
-    const sample = rows.slice(0, 1000).map(r => r[h]);
+    const sample = rows.slice(0, 1000).map(r => getCellFlexible(r, h));
     return { h, s: scoreIdColumn(h, sample) };
   }).sort((a,b) => b.s - a.s);
 
   const best = candidates[0];
   if (!best || best.s < 4) return ''; // umbral mínimo
+
+  // devolver la clave original existente en los datos que corresponde al header elegido
+  const chosenNorm = normalizeHeaderName(best.h);
+  for (const r of rows) {
+    for (const k of Object.keys(r)) {
+      if (normalizeHeaderName(k) === chosenNorm) {
+        return k;
+      }
+    }
+  }
   return best.h;
 }
 
@@ -460,8 +489,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (descripcion) console.log(`    ✅ DESCRIPCION: "${descripcion}"`)
       if (rubro) console.log(`    ✅ RUBRO: "${rubro}"`)
       
-      // 🎯 LÓGICA FLEXIBLE: Descartar solo si no tiene datos o score muy bajo
-      const descartada = score < 2 || datosHoja.length < 2
+      // 🎯 LÓGICA FLEXIBLE: No descartar por score; procesar toda hoja no vacía
+      const descartada = datosHoja.length < 1
       
       diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada, score })
     }
@@ -546,7 +575,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       todosLosProductos = [...todosLosProductos, ...datosFiltrados]
       // Función para limpiar headers
       const limpiarHeader = (s: string) => {
-        if (!s || s.startsWith('__EMPTY')) return null
+        if (!s) return null
+        // Mantener headers '__EMPTY_*' porque algunas hojas usan esos nombres
         return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim()
       }
       
@@ -1065,7 +1095,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       values: Object.values(p).slice(0, 3)
     })))
     
-    const productosProcesados = (await Promise.all(datosFiltrados.map(async (producto: any, index: number) => {
+    const productosProcesadosRaw = (await Promise.all(datosFiltrados.map(async (producto: any, index: number) => {
       console.log(`\n🔍 === PRODUCTO ${index + 1} ===`)
       
       // 🔍 DEBUG: Ver qué datos llegan del Excel
@@ -1084,20 +1114,56 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const skuCol = (columnMapping as any).sku || (columnMapping as any).sku_header || '';
       const descCol = (columnMapping as any).descripcion || '';
 
-      const id_val = idCol ? String(producto[idCol] ?? '').trim() : '';
+      // Resolver ID con fallback por fila si el header global no aplica
+      const preferIdKeys = [
+        (columnMapping as any).id_header,
+        (columnMapping as any).ident_header,
+        (columnMapping as any).modelo,
+        (columnMapping as any).modelo_header,
+        (columnMapping as any).sku,
+        (columnMapping as any).sku_header
+      ].filter(Boolean) as string[]
+
+      const dynamicIdKeys = Array.from(new Set([
+        ...preferIdKeys,
+        ...Object.keys(producto).filter(k => /cod(igo)?|sku|ref|referencia|modelo|art(í|i)culo|item|ean|upc|nro|id/i.test(k))
+      ]))
+
+      let id_val = idCol ? String(getCellFlexible(producto, idCol) ?? '').trim() : '';
       if (!id_val) {
-        // fila sin ID -> la descartamos
-        console.log(`❌ PRODUCTO ${index + 1} DESCARTADO: Sin ID en columna '${idCol}'`)
-        return null;
+        for (const key of dynamicIdKeys) {
+          const raw = producto[key]
+          if (raw === undefined || raw === null || raw === '') continue
+          const cand = String(raw).trim()
+          // Aceptar patrones de código típicos: alfanumérico, pocos espacios
+          if (/^[A-Za-z0-9][A-Za-z0-9\-._/]{1,30}$/.test(cand)) {
+            id_val = cand
+            break
+          }
+        }
+      }
+      if (!id_val) {
+        // última oportunidad: primer string corto sin espacios múltiples
+        const anyKey = Object.keys(producto).find(k => {
+          const v = String(getCellFlexible(producto, k) ?? '').trim()
+          return v && v.length <= 30 && !/\s{2,}/.test(v)
+        })
+        if (anyKey) id_val = String(getCellFlexible(producto, anyKey)).trim()
+      }
+      if (!id_val) {
+        console.log(`❌ PRODUCTO ${index + 1} DESCARTADO: Sin ID tras fallbacks (id_header='${idCol}')`)
+        return null
       }
 
       // Modelo preferente: si hay columna 'modelo', úsala; si no, si el ID proviene de 'modelo', podés setear modelo = id
-      let modelo_val = modeloCol ? String(producto[modeloCol] ?? '').trim() : '';
+      let modelo_val = modeloCol ? String(getCellFlexible(producto, modeloCol) ?? '').trim() : '';
       if (!modelo_val && idCol === modeloCol) modelo_val = id_val;
+      if (!modelo_val && dynamicIdKeys.some(k => /modelo/i.test(String(k)))) modelo_val = id_val;
 
       // SKU preferente
-      let sku_val = skuCol ? String(producto[skuCol] ?? '').trim() : '';
+      let sku_val = skuCol ? String(getCellFlexible(producto, skuCol) ?? '').trim() : '';
       if (!sku_val && idCol === skuCol) sku_val = id_val;
+      if (!sku_val && dynamicIdKeys.some(k => /sku/i.test(String(k)))) sku_val = id_val;
 
       // Descripción nunca reemplaza modelo ni ID (no la usamos para inventar)
       const descripcion_val = descCol ? String(producto[descCol] ?? '').trim() : '';
@@ -1561,7 +1627,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('📋 Resultado:', resultadoProducto)
       
       return resultadoProducto
-    }))).filter(Boolean);
+    })));
+    const productosProcesados = productosProcesadosRaw.filter((p): p is any => Boolean(p));
 
     if (productosProcesados.length === 0) {
       return NextResponse.json({
@@ -1571,7 +1638,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Control de calidad: al menos 95% con ID
-    const ratioId = productosProcesados.filter(p => p && p.producto_id).length / productosProcesados.length;
+    const ratioId = productosProcesados.filter(p => p.producto_id).length / productosProcesados.length;
     if (ratioId < 0.95) {
       console.warn('⚠️ Bajo ratio de ID con datos: ', ratioId);
     }
