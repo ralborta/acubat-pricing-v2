@@ -181,8 +181,9 @@ export class HistorialPricing {
       // Distribución real por márgenes (por peor canal)
       let optimo = 0, advertencia = 0, critico = 0
       productos.forEach(p => {
-        const r1 = p.minorista_rentabilidad || 0
-        const r2 = p.mayorista_rentabilidad || 0
+        const r1 = Number(p.minorista_rentabilidad || 0)
+        const r2 = Number(p.mayorista_rentabilidad || 0)
+        if (!r1 && !r2) return // sin datos de rentabilidad -> no clasifica
         const r = Math.min(r1, r2)
         if (r >= 20) optimo++
         else if (r >= 10) advertencia++
