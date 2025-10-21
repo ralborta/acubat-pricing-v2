@@ -4,6 +4,13 @@ import { HistorialPricing } from "@/lib/supabase-historial"
 export async function GET(request: NextRequest) {
   try {
     console.log('📈 Generando reporte de rentabilidad...')
+    const params = request.nextUrl.searchParams
+    const proveedorFiltro = params.get('proveedor') || ''
+    const fechaDesde = params.get('fecha_desde') || ''
+    const fechaHasta = params.get('fecha_hasta') || ''
+    const soloRentables = params.get('solo_rentables') === '1'
+    const rentMin = parseFloat(params.get('rent_min') || '0') || 0
+    const valorMin = parseFloat(params.get('valor_min') || '0') || 0
     
     // Obtener sesiones limitadas para evitar archivos muy grandes
     const sesiones = await HistorialPricing.obtenerSesiones(50)
@@ -56,25 +63,36 @@ export async function GET(request: NextRequest) {
     
     console.log(`📊 Total productos procesados: ${todosProductos.length}`)
 
+    // Aplicar filtros server-side
+    const productosFiltrados = todosProductos.filter((p: any) => {
+      if (proveedorFiltro && proveedorFiltro !== 'todos' && (p.proveedor || 'Sin Marca') !== proveedorFiltro) return false
+      if (fechaDesde && new Date(p.fecha_procesamiento) < new Date(fechaDesde)) return false
+      if (fechaHasta && new Date(p.fecha_procesamiento) > new Date(fechaHasta)) return false
+      if (soloRentables && !((p.minorista_rentabilidad || 0) > 0 && (p.mayorista_rentabilidad || 0) > 0)) return false
+      if (rentMin > 0 && (p.minorista_rentabilidad || 0) < rentMin) return false
+      if (valorMin > 0 && (p.minorista_precio_final || 0) < valorMin) return false
+      return true
+    })
+
     // Calcular estadísticas
-    const totalProductos = todosProductos.length
-    const productosRentables = todosProductos.filter(p => 
+    const totalProductos = productosFiltrados.length
+    const productosRentables = productosFiltrados.filter(p => 
       p.minorista_rentabilidad > 0 && p.mayorista_rentabilidad > 0
     ).length
     const productosNoRentables = totalProductos - productosRentables
 
     // Calcular rentabilidad promedio
-    const rentabilidadPromedioMinorista = todosProductos.length > 0
-      ? todosProductos.reduce((sum, p) => sum + (p.minorista_rentabilidad || 0), 0) / todosProductos.length
+    const rentabilidadPromedioMinorista = productosFiltrados.length > 0
+      ? productosFiltrados.reduce((sum, p) => sum + (p.minorista_rentabilidad || 0), 0) / productosFiltrados.length
       : 0
 
-    const rentabilidadPromedioMayorista = todosProductos.length > 0
-      ? todosProductos.reduce((sum, p) => sum + (p.mayorista_rentabilidad || 0), 0) / todosProductos.length
+    const rentabilidadPromedioMayorista = productosFiltrados.length > 0
+      ? productosFiltrados.reduce((sum, p) => sum + (p.mayorista_rentabilidad || 0), 0) / productosFiltrados.length
       : 0
 
     // Estadísticas por proveedor
     const porProveedor: any = {}
-    todosProductos.forEach(producto => {
+    productosFiltrados.forEach(producto => {
       const proveedor = producto.proveedor || 'Sin Marca'
       if (!porProveedor[proveedor]) {
         porProveedor[proveedor] = {
@@ -102,13 +120,13 @@ export async function GET(request: NextRequest) {
     })
 
     // Top productos más rentables (minorista)
-    const topRentables = [...todosProductos]
+    const topRentables = [...productosFiltrados]
       .filter(p => p.minorista_rentabilidad > 0)
       .sort((a, b) => b.minorista_rentabilidad - a.minorista_rentabilidad)
       .slice(0, 20)
 
     // Productos menos rentables
-    const menosRentables = [...todosProductos]
+    const menosRentables = [...productosFiltrados]
       .filter(p => p.minorista_rentabilidad <= 0 || p.mayorista_rentabilidad <= 0)
       .sort((a, b) => a.minorista_rentabilidad - b.minorista_rentabilidad)
       .slice(0, 20)
@@ -133,7 +151,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      productos: todosProductos,
+      productos: productosFiltrados,
       estadisticas: estadisticas
     })
     

@@ -56,10 +56,19 @@ export default function ReporteRentabilidadPage() {
     cargarDatosRentabilidad()
   }, [])
 
+  // Reconsultar cuando cambien filtros
+  useEffect(() => {
+    cargarDatosRentabilidad()
+  }, [filtros.proveedor, filtros.rentabilidad_minima, filtros.solo_rentables])
+
   const cargarDatosRentabilidad = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/reportes/rentabilidad')
+      const params = new URLSearchParams()
+      if (filtros.proveedor && filtros.proveedor !== 'todos') params.set('proveedor', filtros.proveedor)
+      if (filtros.rentabilidad_minima > 0) params.set('rent_min', String(filtros.rentabilidad_minima))
+      if (filtros.solo_rentables) params.set('solo_rentables', '1')
+      const response = await fetch(`/api/reportes/rentabilidad?${params.toString()}`)
       const data = await response.json()
       
       if (data.success) {
