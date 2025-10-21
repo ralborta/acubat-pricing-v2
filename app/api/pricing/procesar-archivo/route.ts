@@ -142,6 +142,11 @@ function pickIdColumn(headers: string[], rows: any[]): string | '' {
   return best.h;
 }
 
+function isCodigoHeaderName(name: string): boolean {
+  const n = normalizeHeaderName(name);
+  return /(sku|c(ó|o)d(igo)?|ref|referencia|art(í|i)culo|modelo|ean|upc|nro|id)/i.test(n);
+}
+
 async function callLLM(model: string, contexto: string) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -1240,7 +1245,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       for (const columna of columnasPrecio) {
         if (!columna.value) continue // Saltar si no hay valor
         
-        const valor = producto[columna.value]
+        const valor = getCellFlexible(producto, columna.value)
         console.log(`🔍 Buscando en '${columna.key}' (${columna.value}): ${valor}`)
         console.log(`🔍 Tipo de valor: ${typeof valor}, Es string: ${typeof valor === 'string'}`)
         console.log(`🔍 Longitud del valor: ${String(valor).length}, Tiene punto: ${String(valor).includes('.')}`)
@@ -1316,7 +1321,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         
               // 🔍 BÚSQUEDA ALTERNATIVA: Solo si NO se encontró precio
       console.log(`🔍 BÚSQUEDA ALTERNATIVA DE PRECIO...`)
-      for (const [key, value] of Object.entries(producto)) {
+      for (const [key, rawValue] of Object.entries(producto)) {
+        const value = getCellFlexible(producto, key)
+        if (isCodigoHeaderName(String(key))) continue // evitar columnas de código como precio
         if (value !== undefined && value !== null && value !== '') {
           // 🧹 LIMPIAR VALOR: Quitar símbolos y caracteres no numéricos
           let valorLimpio = String(value)
@@ -1364,9 +1371,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             'Valor', 'Precio Base', 'Precio Final', 'Precio Venta', 'Precio Público'
           ]
           
-          for (const columna of columnasPrecio) {
+      for (const columna of columnasPrecio) {
             if (producto[columna]) {
-              const valor = parseFloat(producto[columna])
+              const valor = parseFloat(String(getCellFlexible(producto, columna)))
               if (valor > 0) {
                 precioBase = valor
                 console.log(`✅ Precio encontrado en '${columna}': ${precioBase}`)
@@ -1379,7 +1386,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // 🔍 BÚSQUEDA POR CONTENIDO: Solo si NO se encontró precio
         if (precioBase === 0) {
           console.log(`🔍 BÚSQUEDA POR CONTENIDO DE COLUMNAS...`)
-          for (const [key, value] of Object.entries(producto)) {
+          for (const [key, raw] of Object.entries(producto)) {
+            const value = String(getCellFlexible(producto, key) ?? '')
+            if (isCodigoHeaderName(String(key))) continue
             if (typeof value === 'string' && value.includes(',')) {
               // Intentar parsear números con comas (formato argentino)
               const valorLimpio = value.replace(/\./g, '').replace(',', '.')
