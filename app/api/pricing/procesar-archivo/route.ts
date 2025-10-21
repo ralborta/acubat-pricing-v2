@@ -1342,23 +1342,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`\n🗄️ BÚSQUEDA DE EQUIVALENCIA VARTA DEL PRODUCTO ${index + 1}:`)
       console.log(`🔍 BÚSQUEDA SIMPLIFICADA:`)
       console.log(`   - Tipo: "${tipo}"`)
-      console.log(`   - Modelo: "${modelo}"`)
-      console.log(`   - Tipo de dato modelo: ${typeof modelo}`)
-      console.log(`   - Longitud modelo: ${modelo ? modelo.length : 'N/A'}`)
-      console.log(`   - Modelo limpio: "${modelo && typeof modelo === 'string' ? modelo.trim() : 'N/A'}"`)
+      console.log(`   - Modelo: "${modelo_val}"`)
+      console.log(`   - Tipo de dato modelo: ${typeof modelo_val}`)
+      console.log(`   - Longitud modelo: ${modelo_val ? modelo_val.length : 'N/A'}`)
+      console.log(`   - Modelo limpio: "${modelo_val && typeof modelo_val === 'string' ? modelo_val.trim() : 'N/A'}"`)
       
       // 🗄️ BÚSQUEDA INTELIGENTE EN BASE DE DATOS VARTA
       let equivalenciaVarta = null
       
-      if (modelo && modelo !== 'N/A' && modelo !== '') {
+      if (modelo_val && modelo_val !== 'N/A' && modelo_val !== '') {
         console.log(`🔍 BUSCANDO EQUIVALENCIA VARTA:`)
         console.log(`   - Marca: Varta`)
         console.log(`   - Tipo: ${tipo}`)
-        console.log(`   - Modelo: ${modelo}`)
+        console.log(`   - Modelo: ${modelo_val}`)
         
         // Búsqueda simple con IA
         console.log(`🔍 BUSCANDO EQUIVALENCIA VARTA CON IA...`)
-        equivalenciaVarta = await buscarEquivalenciaVarta(modelo, precioBase)
+        equivalenciaVarta = await buscarEquivalenciaVarta(modelo_val, precioBase)
         
         if (equivalenciaVarta) {
           console.log(`✅ EQUIVALENCIA VARTA ENCONTRADA:`)
@@ -1367,10 +1367,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.log(`   - Precio Varta: ${equivalenciaVarta.precio_varta}`)
           console.log(`   - Categoría: ${equivalenciaVarta.categoria}`)
         } else {
-          console.log(`❌ NO SE ENCONTRÓ EQUIVALENCIA VARTA para: ${modelo}`)
+          console.log(`❌ NO SE ENCONTRÓ EQUIVALENCIA VARTA para: ${modelo_val}`)
         }
       } else {
-        console.log(`⚠️ Modelo no válido para búsqueda Varta: "${modelo}"`)
+        console.log(`⚠️ Modelo no válido para búsqueda Varta: "${modelo_val}"`)
       }
       
       console.log(`✅ Equivalencia Varta:`, equivalenciaVarta)
@@ -1385,7 +1385,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         console.log(`   - Disponible: ${equivalenciaVarta.disponible}`)
       } else {
         console.log(`❌ EQUIVALENCIA VARTA NO ENCONTRADA`)
-        console.log(`   - Revisar si el modelo "${modelo}" existe en la base de datos`)
+        console.log(`   - Revisar si el modelo "${modelo_val}" existe en la base de datos`)
         console.log(`   - Verificar que la función buscarEquivalenciaVarta esté funcionando`)
       }
 
