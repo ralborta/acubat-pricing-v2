@@ -774,6 +774,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.log(`✅ Modelo detectado específicamente: "${header}"`)
         }
         
+        // 🎯 DETECCIÓN ESPECÍFICA PARA "sku"
+        if (header === 'sku' || header === 'SKU') {
+          mapeo.modelo = header
+          console.log(`✅ SKU detectado específicamente: "${header}"`)
+          // 🚨 SOBRESCRIBIR cualquier detección anterior
+        }
+        
         // 🎯 DETECCIÓN ESPECÍFICA PARA ARCHIVOS CON __EMPTY
         if (!mapeo.modelo && header === '__EMPTY') {
           mapeo.modelo = header
@@ -808,6 +815,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (header === '__EMPTY_14') {
           mapeo.precio = header
           console.log(`✅ Precio detectado específicamente: "${header}" (columna con precios reales)`)
+          // 🚨 SOBRESCRIBIR cualquier detección anterior
+        }
+        
+        // 🎯 DETECCIÓN ESPECÍFICA PARA "Precio s/iva"
+        if (header === 'Precio s/iva' || header === 'precio s/iva') {
+          mapeo.precio = header
+          console.log(`✅ Precio s/iva detectado específicamente: "${header}"`)
           // 🚨 SOBRESCRIBIR cualquier detección anterior
         }
         
@@ -1042,18 +1056,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('🧠 RESULTADO DE LA IA:')
     console.log('📋 Mapeo de columnas:', columnMapping)
     
-    // 🚨 VALIDACIÓN: Usar IA como principal, manual como fallback
-    if (!columnMapping || Object.values(columnMapping).some(v => !v)) {
-      console.log('⚠️ La IA no detectó todas las columnas, usando detección manual como fallback...')
-      const columnMappingManual = detectColumnsManualmente(headers, datos)
-      console.log('🔧 DETECCIÓN MANUAL (FALLBACK):')
-      console.log('📋 Mapeo manual:', columnMappingManual)
-      
-      // Combinar IA + manual
-      Object.assign(columnMapping, columnMappingManual)
-    } else {
-      console.log('✅ La IA detectó todas las columnas correctamente')
-    }
+    // 🚨 FORZAR DETECCIÓN MANUAL: No depender de la IA
+    console.log('🔧 FORZANDO DETECCIÓN MANUAL (SIN IA)...')
+    const columnMappingManual = detectColumnsManualmente(headers, datos)
+    console.log('🔧 DETECCIÓN MANUAL (PRINCIPAL):')
+    console.log('📋 Mapeo manual:', columnMappingManual)
+    
+    // Usar solo detección manual
+    Object.assign(columnMapping, columnMappingManual)
     
     // 🔍 DEBUG: Mapeo final
     console.log('✅ MAPEO FINAL DE COLUMNAS:')
