@@ -546,7 +546,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       todosLosProductos = [...todosLosProductos, ...datosFiltrados]
       // Función para limpiar headers
       const limpiarHeader = (s: string) => {
-        if (!s || s.startsWith('__EMPTY')) return null
+        if (!s) return null
+        // Mantener headers '__EMPTY_*' porque algunas hojas usan esos nombres
         return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim()
       }
       
