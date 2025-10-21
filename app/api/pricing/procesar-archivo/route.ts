@@ -1066,7 +1066,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       values: Object.values(p).slice(0, 3)
     })))
     
-    const productosProcesados = (await Promise.all(datosFiltrados.map(async (producto: any, index: number) => {
+    const productosProcesadosRaw = (await Promise.all(datosFiltrados.map(async (producto: any, index: number) => {
       console.log(`\n🔍 === PRODUCTO ${index + 1} ===`)
       
       // 🔍 DEBUG: Ver qué datos llegan del Excel
@@ -1562,7 +1562,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('📋 Resultado:', resultadoProducto)
       
       return resultadoProducto
-    }))).filter(Boolean);
+    })));
+    const productosProcesados = productosProcesadosRaw.filter((p): p is any => Boolean(p));
 
     if (productosProcesados.length === 0) {
       return NextResponse.json({
@@ -1572,7 +1573,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Control de calidad: al menos 95% con ID
-    const ratioId = productosProcesados.filter(p => p && p.producto_id).length / productosProcesados.length;
+    const ratioId = productosProcesados.filter(p => p.producto_id).length / productosProcesados.length;
     if (ratioId < 0.95) {
       console.warn('⚠️ Bajo ratio de ID con datos: ', ratioId);
     }
