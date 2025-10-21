@@ -1217,6 +1217,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const valor = producto[columna.value]
         console.log(`🔍 Buscando en '${columna.key}' (${columna.value}): ${valor}`)
         console.log(`🔍 Tipo de valor: ${typeof valor}, Es string: ${typeof valor === 'string'}`)
+        console.log(`🔍 Longitud del valor: ${String(valor).length}, Tiene punto: ${String(valor).includes('.')}`)
         
         // 🚨 VALIDACIÓN ADICIONAL: Verificar que no sea un código o SKU
         if (typeof valor === 'string') {
@@ -1226,18 +1227,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             continue
           }
           
-          // Detectar SKU numéricos puros (7000, 7002, etc.) - NO tienen punto para miles
-          // SKU típicos son 3-4 dígitos, precios son 5+ dígitos
-          if (valor.match(/^\d{3,4}$/) && !valor.includes('.')) {
-            console.log(`❌ IGNORANDO valor '${valor}' porque parece ser un SKU numérico (3-4 dígitos sin punto)`)
+          // Detectar SKU numéricos puros (70, 702, etc.) - NO tienen punto para miles
+          // SKU típicos son 1-2 dígitos, precios son 3+ dígitos
+          if (valor.match(/^\d{1,2}$/) && !valor.includes('.')) {
+            console.log(`❌ IGNORANDO valor '${valor}' porque parece ser un SKU numérico (1-2 dígitos sin punto)`)
             continue
           }
         }
         
         // También validar números puros sin punto (probablemente SKU)
-        // Pero ser más específico: SKU típicos son 3-4 dígitos, precios son 5+ dígitos
-        if (typeof valor === 'number' && valor >= 100 && valor <= 9999 && !String(valor).includes('.')) {
-          console.log(`❌ IGNORANDO valor numérico '${valor}' porque parece ser un SKU (3-4 dígitos sin punto)`)
+        // Pero ser más específico: SKU típicos son 1-99, precios son 100+
+        if (typeof valor === 'number' && valor >= 1 && valor <= 99 && !String(valor).includes('.')) {
+          console.log(`❌ IGNORANDO valor numérico '${valor}' porque parece ser un SKU (1-99 sin punto)`)
           continue
         }
         
