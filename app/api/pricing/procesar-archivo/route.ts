@@ -1225,15 +1225,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           }
           
           // Detectar SKU numéricos puros (7000, 7002, etc.) - NO tienen punto para miles
-          if (valor.match(/^\d{3,6}$/) && !valor.includes('.')) {
-            console.log(`❌ IGNORANDO valor '${valor}' porque parece ser un SKU numérico (sin punto para miles)`)
+          // SKU típicos son 3-4 dígitos, precios son 5+ dígitos
+          if (valor.match(/^\d{3,4}$/) && !valor.includes('.')) {
+            console.log(`❌ IGNORANDO valor '${valor}' porque parece ser un SKU numérico (3-4 dígitos sin punto)`)
             continue
           }
         }
         
         // También validar números puros sin punto (probablemente SKU)
-        if (typeof valor === 'number' && valor >= 100 && valor <= 999999 && !String(valor).includes('.')) {
-          console.log(`❌ IGNORANDO valor numérico '${valor}' porque parece ser un SKU (sin punto para miles)`)
+        // Pero ser más específico: SKU típicos son 3-4 dígitos, precios son 5+ dígitos
+        if (typeof valor === 'number' && valor >= 100 && valor <= 9999 && !String(valor).includes('.')) {
+          console.log(`❌ IGNORANDO valor numérico '${valor}' porque parece ser un SKU (3-4 dígitos sin punto)`)
           continue
         }
         
@@ -1249,11 +1251,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // Intentar parsear como número
           let precio = parseFloat(valorLimpio)
           
-          // 🎯 DETECCIÓN DE FORMATO ARGENTINO: Si el número tiene 3 dígitos después del punto
+          // 🎯 DETECCIÓN DE FORMATO ARGENTINO: Punto para miles (1-3 dígitos después del punto)
           if (!isNaN(precio)) {
-            // Verificar si tiene punto y exactamente 3 dígitos después (formato argentino: 136.490)
-            if (valorLimpio.includes('.') && valorLimpio.split('.')[1] && valorLimpio.split('.')[1].length === 3) {
-              // Es formato argentino: 136.490 -> 136490
+            // Verificar si tiene punto y 1-3 dígitos después (formato argentino: 136.490, 39.720, 2.500)
+            if (valorLimpio.includes('.') && valorLimpio.split('.')[1] && 
+                valorLimpio.split('.')[1].length >= 1 && valorLimpio.split('.')[1].length <= 3) {
+              // Es formato argentino: 39.720 -> 39720, 2.500 -> 2500
               const valorArgentino = valorLimpio.replace('.', '')
               precio = parseFloat(valorArgentino)
               console.log(`🔍 Formato argentino detectado: ${valorLimpio} -> ${valorArgentino} -> ${precio}`)
