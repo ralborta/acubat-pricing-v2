@@ -178,6 +178,17 @@ export class HistorialPricing {
       const productosRentables = productos.filter(p => (p.minorista_rentabilidad || 0) > 0 && (p.mayorista_rentabilidad || 0) > 0).length
       const conEquivalenciaVarta = productos.filter(p => p.equivalencia_varta?.encontrada).length
 
+      // Distribución real por márgenes (por peor canal)
+      let optimo = 0, advertencia = 0, critico = 0
+      productos.forEach(p => {
+        const r1 = p.minorista_rentabilidad || 0
+        const r2 = p.mayorista_rentabilidad || 0
+        const r = Math.min(r1, r2)
+        if (r >= 20) optimo++
+        else if (r >= 10) advertencia++
+        else critico++
+      })
+
       // Estadísticas por proveedor
       const porProveedor: any = {}
       productos.forEach(p => {
@@ -207,7 +218,8 @@ export class HistorialPricing {
         rentabilidad_promedio_mayorista: rentabilidadPromedioMayorista,
         productos_rentables: productosRentables,
         con_equivalencia_varta: conEquivalenciaVarta,
-        por_proveedor: porProveedor
+        por_proveedor: porProveedor,
+        distribucion_margenes: { optimo, advertencia, critico }
       }
 
     } catch (error) {

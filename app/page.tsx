@@ -276,9 +276,9 @@ export default function Dashboard() {
             >
               <DoughnutChart 
                 data={estadisticas ? [
-                  Math.floor((estadisticas.productos_rentables / estadisticas.total_productos) * 100),
-                  Math.floor(((estadisticas.total_productos - estadisticas.productos_rentables) * 0.6 / estadisticas.total_productos) * 100),
-                  Math.floor(((estadisticas.total_productos - estadisticas.productos_rentables) * 0.4 / estadisticas.total_productos) * 100)
+                  Math.floor(((estadisticas.distribucion_margenes?.optimo || 0) / (estadisticas.total_productos || 1)) * 100),
+                  Math.floor(((estadisticas.distribucion_margenes?.advertencia || 0) / (estadisticas.total_productos || 1)) * 100),
+                  Math.floor(((estadisticas.distribucion_margenes?.critico || 0) / (estadisticas.total_productos || 1)) * 100)
                 ] : undefined}
                 hasData={!!estadisticas}
               />
