@@ -1126,10 +1126,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       console.log(`✅ Datos extraídos (SISTEMA SIMPLIFICADO):`)
       console.log(`   - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
-      console.log(`   - Modelo: "${modelo}" (columna: ${columnMapping.modelo})`)
-      console.log(`   - Descripción: "${descripcion}" (columna: ${columnMapping.descripcion})`)
-      console.log(`   - Código: "${codigo}" (columna: ${columnMapping.codigo})`)
-      console.log(`   - Marca: "${marca}" (columna: ${columnMapping.marca})`)
+      console.log(`   - ID: "${id_val}" (columna: ${idCol})`)
+      console.log(`   - SKU: "${sku_val}" (columna: ${skuCol})`)
+      console.log(`   - Modelo: "${modelo_val}" (columna: ${modeloCol})`)
+      console.log(`   - Descripción: "${descripcion_val}" (columna: ${descCol})`)
       console.log(`   - Proveedor: "${proveedor}" (detectado por IA)`)
       
       // Buscar precio (prioridad: Contado > precio > pdv > pvp)
