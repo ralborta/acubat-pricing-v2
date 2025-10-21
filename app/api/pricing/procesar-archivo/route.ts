@@ -465,27 +465,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       let headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
       console.log(`  🧭 headerRowIndex=${headerRowIndex} → headers:`, headersHoja)
       
+      // Función para normalizar headers (quitar acentos, espacios, etc.)
+      const H = (h?: string) => (h || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim()
+      
       // Calcular score basado en columnas clave y cantidad de datos
       let score = 0
-      const pvpOffLine = headersHoja.find(h => h && h.toLowerCase().includes('pvp off line'))
-      const precioLista = headersHoja.find(h => h && h.toLowerCase().includes('precio de lista'))
-      const precioUnitario = headersHoja.find(h => h && h.toLowerCase().includes('precio unitario'))
-      const codigo = headersHoja.find(h => h && h.toLowerCase().includes('codigo'))
-      const marca = headersHoja.find(h => h && h.toLowerCase().includes('marca'))
-      const descripcion = headersHoja.find(h => h && h.toLowerCase().includes('descripcion'))
-      const rubro = headersHoja.find(h => h && h.toLowerCase().includes('rubro'))
+      const pvpOffLine = headersHoja.find(h => H(h).includes('pvp') && H(h).includes('off'))
+      const contado = headersHoja.find(h => H(h).includes('contado'))
+      const precioLista = headersHoja.find(h => H(h).includes('precio') && H(h).includes('lista'))
+      const precioUnitario = headersHoja.find(h => H(h).includes('precio') && H(h).includes('unit'))
+      const codigo = headersHoja.find(h => H(h).includes('codigo') || H(h).includes('código'))
+      const marca = headersHoja.find(h => H(h).includes('marca'))
+      const descripcion = headersHoja.find(h => H(h).includes('descripcion') || H(h).includes('descripción'))
+      const rubro = headersHoja.find(h => H(h).includes('rubro'))
       
-      // Buscar cualquier columna de precio
-      const tienePrecio = pvpOffLine || precioLista || precioUnitario
+      // Buscar cualquier columna de precio (incluyendo "Contado")
+      const tienePrecio = pvpOffLine || contado || precioLista || precioUnitario
 
-      // DESCARTAR hojas que no tengan ninguna columna de precio real
-      if (!tienePrecio) {
-        console.log('  ⚠️  Hoja descartada por no tener columna de precio válida en headers')
-        diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada: true, motivoDescarte: 'Sin columna de precio válida' })
-        continue
-      }
+      // NO DESCARTAR TEMPRANO - evaluar con score flexible
       
       if (pvpOffLine) score += 5  // PVP Off Line es crítico
+      else if (contado) score += 4  // Contado es muy importante
       else if (precioLista) score += 4  // Precio de Lista es muy importante
       else if (precioUnitario) score += 3  // Precio Unitario es importante
       
@@ -516,6 +516,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`  📋 Headers: ${headersHoja.length}`)
       console.log(`  🎯 Columnas clave encontradas: ${columnasClave}/5`)
       if (pvpOffLine) console.log(`    ✅ PVP Off Line: "${pvpOffLine}"`)
+      else if (contado) console.log(`    ✅ Contado: "${contado}"`)
       else if (precioLista) console.log(`    ✅ Precio de Lista: "${precioLista}"`)
       else if (precioUnitario) console.log(`    ✅ Precio Unitario: "${precioUnitario}"`)
       else console.log(`    ❌ Precio: NO ENCONTRADO`)
@@ -608,7 +609,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       })))
       
       todosLosProductos = [...todosLosProductos, ...datosFiltrados]
-      todosLosHeaders = headersHoja // Usar headers de la última hoja procesada
+      // Función para limpiar headers
+      const limpiarHeader = (s: string) => {
+        if (!s || s.startsWith('__EMPTY')) return null
+        return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim()
+      }
+      
+      // Consolidar headers de todas las hojas (normalizados y limpios)
+      const headersLimpios = headersHoja.map(limpiarHeader).filter(h => h !== null) as string[]
+      todosLosHeaders = [...new Set([...todosLosHeaders, ...headersLimpios])]
       
       console.log(`  🔍 TRACE ${hojaInfo.nombre} - Total acumulado: ${todosLosProductos.length} productos`)
     }
