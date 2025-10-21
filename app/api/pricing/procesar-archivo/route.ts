@@ -460,8 +460,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (descripcion) console.log(`    ✅ DESCRIPCION: "${descripcion}"`)
       if (rubro) console.log(`    ✅ RUBRO: "${rubro}"`)
       
-      // 🎯 LÓGICA FLEXIBLE: Descartar solo si no tiene datos o score muy bajo
-      const descartada = score < 2 || datosHoja.length < 2
+      // 🎯 LÓGICA FLEXIBLE: No descartar por score; procesar toda hoja no vacía
+      const descartada = datosHoja.length < 1
       
       diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada, score })
     }
