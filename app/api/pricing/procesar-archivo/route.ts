@@ -89,8 +89,8 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       - Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
       
       PRECIO (prioridad específica):
-    1. Busca columna "PVP Off Line" - esta es la columna de precio base principal
-    2. Si no existe "PVP Off Line", busca: "Contado", precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
+    1. Busca columna "Precio s/iva" - esta es la columna de precio base principal
+    2. Si no existe "Precio s/iva", busca: "PVP Off Line", "Contado", precio, precio lista, pvp, sugerido proveedor, lista, AR$, ARS, $ (sin USD)
     3. Contenido: valores numéricos con símbolo $ y formato argentino (punto para miles, coma para decimales)
     4. Ejemplos válidos: $ 2.690, $ 4.490, $ 1.256,33, $ 2.500,50
     5. IMPORTANTE: Los valores se redondean (sin decimales) para el procesamiento
@@ -123,8 +123,8 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
       EJEMPLO DE RESPUESTA CORRECTA:
       {
         "tipo": "RUBRO",
-        "modelo": "CODIGO", 
-        "precio_ars": "PVP Off Line",
+        "modelo": "SKU", 
+        "precio_ars": "Precio s/iva",
         "descripcion": "DESCRIPCION",
         "proveedor": "MARCA"
       }
@@ -1116,12 +1116,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`🔍 DATOS DEL PRODUCTO:`, producto)
       
       const tipo = columnMapping.tipo ? producto[columnMapping.tipo] : 'BATERIA'
-      const modelo = columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A'
-      const descripcion = columnMapping.descripcion ? producto[columnMapping.descripcion] : modelo
+      const sku = columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A'  // SKU va a producto
+      const modelo = columnMapping.descripcion ? producto[columnMapping.descripcion] : 'N/A'  // Descripción va a modelo
+      const descripcion = columnMapping.descripcion ? producto[columnMapping.descripcion] : sku
       
       console.log(`🔍 VALORES EXTRAÍDOS:`)
       console.log(`  - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
-      console.log(`  - Modelo: "${modelo}" (columna: ${columnMapping.modelo})`)
+      console.log(`  - SKU: "${sku}" (columna: ${columnMapping.modelo})`)
+      console.log(`  - Modelo: "${modelo}" (columna: ${columnMapping.descripcion})`)
       console.log(`  - Descripción: "${descripcion}" (columna: ${columnMapping.descripcion})`)
       
       // 🧠 PROVEEDOR: forzado por UI o detección mejorada
@@ -1558,9 +1560,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const resultadoProducto = {
         id: index + 1,
-        producto: descripcion || modelo || tipo || 'N/A',
+        producto: sku || 'N/A',  // SKU va a producto
         tipo: tipo,
-        modelo: modelo,
+        modelo: modelo,  // Descripción va a modelo
         proveedor: proveedor,  // ✅ Proveedor detectado por IA
         precio_base_original: precioBase,  // ✅ Precio base original (del archivo)
         precio_base_minorista: precioBaseConDescuento,  // ✅ Precio base para Minorista (con descuento)
