@@ -1216,9 +1216,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         console.log(`🔍 Buscando en '${columna.key}' (${columna.value}): ${valor}`)
         console.log(`🔍 Tipo de valor: ${typeof valor}, Es string: ${typeof valor === 'string'}`)
         
-        // 🚨 VALIDACIÓN ADICIONAL: Verificar que no sea un código
-        if (typeof valor === 'string' && valor.match(/^[A-Z]\d+$/)) {
-          console.log(`❌ IGNORANDO valor '${valor}' porque parece ser un código (formato: letra + números)`)
+        // 🚨 VALIDACIÓN ADICIONAL: Verificar que no sea un código o SKU
+        if (typeof valor === 'string') {
+          // Detectar códigos con formato letra + números (L3000, A123, etc.)
+          if (valor.match(/^[A-Z]\d+$/)) {
+            console.log(`❌ IGNORANDO valor '${valor}' porque parece ser un código (formato: letra + números)`)
+            continue
+          }
+          
+          // Detectar SKU numéricos puros (7000, 7002, etc.) - NO tienen punto para miles
+          if (valor.match(/^\d{3,6}$/) && !valor.includes('.')) {
+            console.log(`❌ IGNORANDO valor '${valor}' porque parece ser un SKU numérico (sin punto para miles)`)
+            continue
+          }
+        }
+        
+        // También validar números puros sin punto (probablemente SKU)
+        if (typeof valor === 'number' && valor >= 100 && valor <= 999999 && !String(valor).includes('.')) {
+          console.log(`❌ IGNORANDO valor numérico '${valor}' porque parece ser un SKU (sin punto para miles)`)
           continue
         }
         
