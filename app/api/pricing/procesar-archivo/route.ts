@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const maxDuration = 45
 import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
 import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
@@ -379,11 +380,11 @@ function validarMoneda(precio: any): { esPeso: boolean, confianza: number, razon
 export async function POST(request: NextRequest): Promise<NextResponse> {
   console.log('🚀 INICIANDO PROCESAMIENTO DE ARCHIVO...')
   
-  // Timeout de 30 segundos para evitar cuelgues
+  // Timeout de 45 segundos para evitar cuelgues
   const timeoutPromise = new Promise<NextResponse>((resolve) => {
     setTimeout(() => resolve(NextResponse.json({ 
-      error: 'Timeout: Procesamiento excedió 30 segundos' 
-    }, { status: 408 })), 30000)
+      error: 'Timeout: Procesamiento excedió 45 segundos' 
+    }, { status: 408 })), 45000)
   })
   
   try {
