@@ -1107,9 +1107,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       console.log(`🔍 VALORES EXTRAÍDOS:`)
       console.log(`  - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
-      console.log(`  - SKU: "${sku}" (columna: ${columnMapping.modelo})`)
-      console.log(`  - Modelo: "${modelo}" (columna: ${columnMapping.descripcion})`)
-      console.log(`  - Descripción: "${descripcion}" (columna: ${columnMapping.descripcion})`)
+      console.log(`  - ID: "${id_val}" (columna: ${idCol})`)
+      console.log(`  - SKU: "${sku_val}" (columna: ${skuCol})`)
+      console.log(`  - Modelo: "${modelo_val}" (columna: ${modeloCol})`)
+      console.log(`  - Descripción: "${descripcion_val}" (columna: ${descCol})`)
       
       // Marca (solo desde columna, jamás del texto si no hay columna). Si viene forzada por form, esa gana.
       let proveedor = proveedorForzado || '';
