@@ -75,26 +75,64 @@ async function obtenerConfiguracion() {
 const baseModel = "gpt-4o-mini";
 const proModel = "gpt-4o";
 
+// 🎯 HEURÍSTICAS LOCALES PARA DETECCIÓN DE ID
+function scoreIdColumn(colName: string, sampleValues: any[]): number {
+  const name = (colName || '').toLowerCase();
+  // boost por nombre
+  let score = /(sku|c(ó|o)d(igo)?|ref|referencia|part( )?(number|no)|modelo|art(í|i)culo|item|ean|upc|nro|id)/i.test(name) ? 3 : 0;
+
+  const vals = sampleValues.map(v => String(v ?? '').trim()).filter(v => v.length > 0);
+  if (vals.length === 0) return 0;
+
+  // unicidad
+  const uniq = new Set(vals).size / vals.length; // 0..1
+  if (uniq > 0.9) score += 4;
+  else if (uniq > 0.7) score += 2;
+
+  // patrón de "código": poco espacio, alfanumérico, guiones, puntos
+  const codeLike = vals.slice(0, 200).filter(v => /^[A-Za-z0-9][A-Za-z0-9\-._/]{1,30}$/.test(v)).length / Math.min(vals.length, 200);
+  if (codeLike > 0.7) score += 3;
+  else if (codeLike > 0.4) score += 1;
+
+  // penalizar si hay demasiados espacios o descripciones largas
+  const longTextRatio = vals.slice(0, 200).filter(v => v.split(/\s+/).length >= 4).length / Math.min(vals.length, 200);
+  if (longTextRatio > 0.5) score -= 3;
+
+  return score;
+}
+
+function pickIdColumn(headers: string[], rows: any[]): string | '' {
+  // construimos un muestreo por columna
+  const candidates = headers.map(h => {
+    const sample = rows.slice(0, 1000).map(r => r[h]);
+    return { h, s: scoreIdColumn(h, sample) };
+  }).sort((a,b) => b.s - a.s);
+
+  const best = candidates[0];
+  if (!best || best.s < 4) return ''; // umbral mínimo
+  return best.h;
+}
+
 async function callLLM(model: string, contexto: string) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
-    headers: {
+      headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
+      },
+      body: JSON.stringify({
       model,
       response_format: { type: "json_object" },
       temperature: 0.1,
       max_tokens: 800,
-      messages: [
+        messages: [
         { role: "system", content: "Responde SOLO con JSON válido según el schema." },
         { role: "user", content: contexto }
       ],
     })
   });
-  
-  if (!response.ok) {
+
+    if (!response.ok) {
     throw new Error(`OpenAI API error: ${response.status}`);
   }
   
@@ -120,53 +158,53 @@ async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<an
     console.log('🎯 LISTAS BLANCAS CREADAS:', ALLOWED);
     
     const contexto = `
-Eres especialista senior en pricing de baterías/herramientas en Argentina.
-Usa EXCLUSIVAMENTE las COLUMNAS provistas en este turno (ignora cualquier conocimiento previo).
+Eres un mapeador de columnas. Debes elegir SOLO nombres de columnas existentes.
+Prohibido inventar valores o mezclar celdas.
 
-Objetivo: devolver un JSON que mapea SOLAMENTE NOMBRES DE COLUMNAS existentes, nada de valores de celdas.
+Objetivo: devolver un JSON con nombres de columnas para estos campos:
+- tipo: familia/categoría (Rubro/Tipo/Categoría…)
+- marca_header: columna de marca/proveedor/fabricante
+- modelo_header: columna de modelo/código interno si así lo usan
+- sku_header: columna de SKU/código/referencia (si existe)
+- id_header: COLUMNA PRINCIPAL DE IDENTIDAD (DEBE provenir del archivo)
+- precio: precio en ARS (nunca USD)
+- descripcion: descripción/nombre de producto (si existe)
+- ident_source: "sku" o "modelo" o "id" (elige la fuente que mejor represente identidad única)
+- ident_header: nombre exacto de la columna que se usará como ID final (debe igualar id_header)
+- status: ok|warn|error
+- mens: explicación breve
 
-Campos requeridos:
-- tipo: nombre de la columna que representa familia/tipo (p.ej., Rubro, Tipo, Categoría).
-- modelo_header: nombre de la columna candidata a "modelo".
-- sku_header: nombre de la columna candidata a "sku".
-- precio: nombre de la columna de precio en ARS. Prioridad: "Precio s/iva" > "Contado" > otras afines (precio, pvp, costo...). Nunca USD.
-- descripcion: nombre de la columna de descripción.
-- proveedor: nombre de la columna de marca/proveedor, si existe; si NO existe en headers, devolver "" (vacío).
-- ident_source: "modelo" o "sku" (elige cuál usar como identificador principal).
-- ident_header: el nombre de columna correspondiente a ident_source.
-- status: "ok" | "warn" | "error".
-- mens: mensaje breve (máx. 120 caracteres) explicando si faltó algo o se aplicó una alternativa.
+Reglas duras:
+- "id_header" es OBLIGATORIO. Si no hay ninguna columna elegible para ID, devuelve status="error" y mens="NO_ID_COLUMN".
+- El ID debe ser una columna con alta unicidad (muchos valores distintos) y con patrón de código (alfa-numérico y pocos espacios).
+- Prioridad para ID: columnas con keywords [sku, código, cod, ref, referencia, part number, modelo, artículo, item, ean, upc, id].
+- Nunca respondas con valores de celdas. SOLO nombres de columnas existentes.
+- Si "marca_header" no existe literalmente, devolver "" (vacío), no inventes.
 
-Reglas obligatorias:
-- Devuelve SOLO nombres de columnas que estén en la lista de COLUMNAS.
-- NUNCA devuelvas valores como "L3000", "$ 2.690" o "LUSQTOFF".
-- Moneda ARS: excluye columnas que indiquen USD/U$S/US$/"dólar". No conviertas.
-- Si no hay columna clara para "tipo"/"descripcion"/"proveedor", devuelve "" y reporta "warn" con mens adecuado.
-- El identificador (ident) debe ser sí o sí uno de los dos: modelo o sku.
-- Si no puedes determinar ni modelo ni sku (no hay headers válidos), devuelve status="error" y mens="NO_IDENTIFIER".
-
-Listas blancas (solo podes elegir dentro de estas por campo):
-- ALLOWED.tipo = ${JSON.stringify(ALLOWED.tipo)}
+Listas blancas (solo puedes elegir dentro de estas por campo):
+- ALLOWED.id = ${JSON.stringify(headersNorm.filter(h => /(sku|c(ó|o)d(igo)?|ref|referencia|part( )?(number|no)|modelo|art(í|i)culo|item|ean|upc|nro|id)/i.test(h)))}
+- ALLOWED.marca = ${JSON.stringify(ALLOWED.proveedor)}
 - ALLOWED.modelo = ${JSON.stringify(ALLOWED.modelo)}
 - ALLOWED.sku = ${JSON.stringify(ALLOWED.sku)}
+- ALLOWED.tipo = ${JSON.stringify(ALLOWED.tipo)}
 - ALLOWED.precio = ${JSON.stringify(ALLOWED.precio)}
 - ALLOWED.descripcion = ${JSON.stringify(ALLOWED.descripcion)}
-- ALLOWED.proveedor = ${JSON.stringify(ALLOWED.proveedor)}
 
 COLUMNAS: ${headers.join(', ')}
 
-MUESTRA (hasta 10 filas reales):
+MUESTRA (hasta 10 filas):
 ${JSON.stringify(datos.slice(0, 10), null, 2)}
 
-Salida estricta (JSON plano, sin backticks, sin texto extra):
+Salida estricta:
 {
   "tipo": "nombre_columna|''",
+  "marca_header": "nombre_columna|''",
   "modelo_header": "nombre_columna|''",
   "sku_header": "nombre_columna|''",
+  "id_header": "nombre_columna|''",
   "precio": "nombre_columna|''",
   "descripcion": "nombre_columna|''",
-  "proveedor": "nombre_columna|''",
-  "ident_source": "modelo|sku|''",
+  "ident_source": "id|sku|modelo|''",
   "ident_header": "nombre_columna|''",
   "status": "ok|warn|error",
   "mens": "string"
@@ -180,22 +218,25 @@ Salida estricta (JSON plano, sin backticks, sin texto extra):
     console.log('🧠 GPT-4o analizó el archivo:', mapeo)
     console.log('📊 Status:', mapeo.status)
     console.log('💬 Mensaje:', mapeo.mens)
-    
-    // 🎯 ADAPTAR LA NUEVA ESTRUCTURA A LA EXISTENTE
-    const resultadoAdaptado = {
-      tipo: mapeo.tipo || '',
-      modelo: mapeo.ident_header || mapeo.modelo_header || mapeo.sku_header || '',
+      
+      // 🎯 ADAPTAR LA NUEVA ESTRUCTURA A LA EXISTENTE
+      const resultadoAdaptado = {
+        tipo: mapeo.tipo || '',
+      marca_header: mapeo.marca_header || '',
+      modelo_header: mapeo.modelo_header || '',
+      sku_header: mapeo.sku_header || '',
+      id_header: mapeo.id_header || mapeo.ident_header || '',
       precio: mapeo.precio || '',
-      descripcion: mapeo.descripcion || '',
+        descripcion: mapeo.descripcion || '',
+      ident_source: mapeo.ident_source || (mapeo.id_header ? 'id' : ''),
       confianza: mapeo.status === 'ok' ? 95 : mapeo.status === 'warn' ? 80 : 50,
-      evidencia: { ident_source: mapeo.ident_source, status: mapeo.status },
-      notas: [mapeo.mens]
+      evidencia: { status: mapeo.status, mens: mapeo.mens },
     }
     
     console.log('🧠 RESPUESTA ORIGINAL DE GPT-4o:', mapeo)
-    console.log('🔧 RESULTADO ADAPTADO:', resultadoAdaptado)
-    
-    return resultadoAdaptado
+      console.log('🔧 RESULTADO ADAPTADO:', resultadoAdaptado)
+      
+      return resultadoAdaptado
 
   } catch (error) {
     console.error('❌ Error con OpenAI API:', error)
@@ -588,6 +629,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     console.log('📊 MAPEO DETECTADO:', mapeoColumnas)
     console.log('✅ VALIDACIÓN:', validacionMapeo)
+
+    // 🎯 GARANTIZAR ID_HEADER OBLIGATORIO
+    let idHeader = (mapeoColumnas as any).id_header || (mapeoColumnas as any).ident_header || '';
+    if (!idHeader) {
+      idHeader = pickIdColumn(headers, datos);
+      console.log('🧭 pickIdColumn eligió:', idHeader);
+    }
+    if (!idHeader) {
+      return NextResponse.json({
+        success: false,
+        error: 'NO_ID_COLUMN: no se encontró una columna de ID válida (sku/código/referencia/modelo/…)',
+        headers,
+        muestra: datos.slice(0,5)
+      }, { status: 400 });
+    }
+    (mapeoColumnas as any).id_header = idHeader;
+    (mapeoColumnas as any).modelo = (mapeoColumnas as any).modelo || (mapeoColumnas as any).modelo_header || '';
+    (mapeoColumnas as any).sku = (mapeoColumnas as any).sku || (mapeoColumnas as any).sku_header || '';
 
     // 🔧 DETECCIÓN MANUAL UNIVERSAL (funciona con CUALQUIER archivo)
     const detectColumnsManualmente = (headers: string[], datos: any[]) => {
@@ -1006,7 +1065,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       values: Object.values(p).slice(0, 3)
     })))
     
-    const productosProcesados = await Promise.all(datosFiltrados.map(async (producto: any, index: number) => {
+    const productosProcesados = (await Promise.all(datosFiltrados.map(async (producto: any, index: number) => {
       console.log(`\n🔍 === PRODUCTO ${index + 1} ===`)
       
       // 🔍 DEBUG: Ver qué datos llegan del Excel
@@ -1019,14 +1078,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`\n🔍 EXTRACCIÓN DE DATOS DEL PRODUCTO ${index + 1}:`)
       console.log('📋 Mapeo de columnas:', columnMapping)
       
-      // 🎯 SISTEMA SIMPLIFICADO: Tipo, Modelo, Precio y Proveedor
-      console.log(`🔍 MAPEO DE COLUMNAS PARA PRODUCTO ${index + 1}:`, columnMapping)
-      console.log(`🔍 DATOS DEL PRODUCTO:`, producto)
-      
+      // --- EXTRACCIÓN ESTRICTA --- //
+      const idCol = (columnMapping as any).id_header;
+      const modeloCol = (columnMapping as any).modelo || (columnMapping as any).modelo_header || '';
+      const skuCol = (columnMapping as any).sku || (columnMapping as any).sku_header || '';
+      const descCol = (columnMapping as any).descripcion || '';
+
+      const id_val = idCol ? String(producto[idCol] ?? '').trim() : '';
+      if (!id_val) {
+        // fila sin ID -> la descartamos
+        console.log(`❌ PRODUCTO ${index + 1} DESCARTADO: Sin ID en columna '${idCol}'`)
+        return null;
+      }
+
+      // Modelo preferente: si hay columna 'modelo', úsala; si no, si el ID proviene de 'modelo', podés setear modelo = id
+      let modelo_val = modeloCol ? String(producto[modeloCol] ?? '').trim() : '';
+      if (!modelo_val && idCol === modeloCol) modelo_val = id_val;
+
+      // SKU preferente
+      let sku_val = skuCol ? String(producto[skuCol] ?? '').trim() : '';
+      if (!sku_val && idCol === skuCol) sku_val = id_val;
+
+      // Descripción nunca reemplaza modelo ni ID (no la usamos para inventar)
+      const descripcion_val = descCol ? String(producto[descCol] ?? '').trim() : '';
+
+      // Tipo
       const tipo = columnMapping.tipo ? producto[columnMapping.tipo] : 'BATERIA'
-      const sku = columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A'  // SKU va a producto
-      const modelo = columnMapping.descripcion ? producto[columnMapping.descripcion] : 'N/A'  // Descripción va a modelo
-      const descripcion = columnMapping.descripcion ? producto[columnMapping.descripcion] : sku
       
       console.log(`🔍 VALORES EXTRAÍDOS:`)
       console.log(`  - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
@@ -1034,39 +1111,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`  - Modelo: "${modelo}" (columna: ${columnMapping.descripcion})`)
       console.log(`  - Descripción: "${descripcion}" (columna: ${columnMapping.descripcion})`)
       
-      // 🧠 PROVEEDOR: forzado por UI o detección mejorada
-      let proveedor = proveedorForzado || 'Sin Marca'
-      if (!proveedorForzado) {
-        // 🎯 PRIORIDAD 1: Usar columna MARCA si está disponible (específico para LUSQTOFF)
-        if (columnMapping.marca && producto[columnMapping.marca]) {
-          proveedor = producto[columnMapping.marca]
-          console.log(`🎯 Proveedor detectado desde columna MARCA: ${proveedor}`)
-        }
-        // 🎯 PRIORIDAD 2: Usar columna PROVEEDOR si está disponible
-        else if (columnMapping.proveedor && producto[columnMapping.proveedor]) {
-          proveedor = producto[columnMapping.proveedor]
-          console.log(`🎯 Proveedor detectado desde columna PROVEEDOR: ${proveedor}`)
-        }
-        // 🎯 PRIORIDAD 3: Analizar nombre del producto para extraer marca
-        else {
-          const nombreProducto = descripcion || modelo || ''
-          const marcasConocidas = ['Moura', 'Varta', 'Bosch', 'ACDelco', 'Exide', 'Delkor', 'Banner', 'GS', 'Panasonic', 'Yuasa', 'LUSQTOFF', 'LÜSQTOFF', 'LIQUI MOLY', 'LIQUI-MOLY']
-          for (const marca of marcasConocidas) {
-            if (nombreProducto.toLowerCase().includes(marca.toLowerCase())) {
-              proveedor = marca
-              console.log(`🎯 Proveedor detectado desde nombre del producto: ${proveedor}`)
-              break
-            }
-          }
-          if (proveedor === 'Sin Marca') {
-            const primeraPalabra = nombreProducto.split(' ')[0]
-            if (primeraPalabra && primeraPalabra.length > 2) {
-              proveedor = primeraPalabra
-              console.log(`🎯 Proveedor detectado desde primera palabra: ${proveedor}`)
-            }
-          }
-        }
+      // Marca (solo desde columna, jamás del texto si no hay columna). Si viene forzada por form, esa gana.
+      let proveedor = proveedorForzado || '';
+      if (!proveedor) {
+        const marcaHeader = (columnMapping as any).marca || (columnMapping as any).marca_header || (columnMapping as any).proveedor || '';
+        proveedor = marcaHeader ? String(producto[marcaHeader] ?? '').trim() : '';
       }
+      if (!proveedor) proveedor = 'Sin Marca'; // etiqueta neutra, pero NO se usa para ID
       
       // 🎯 DATOS ADICIONALES PARA LUSQTOFF: Código y Marca (después de detectar proveedor)
       const codigo = columnMapping.codigo ? producto[columnMapping.codigo] : (columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A')
@@ -1468,10 +1519,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Mayorista Final: ${mayoristaFinal}`)
 
       const resultadoProducto = {
-        id: index + 1,
-        producto: sku || 'N/A',  // SKU va a producto
-        tipo: tipo,
-        modelo: modelo,  // Descripción va a modelo
+        id: index + 1,                // índice procesado (interno)
+        producto_id: id_val,          // <-- ID OBLIGATORIO DEL ARCHIVO
+        tipo: tipo ?? '',
+        marca: proveedor ?? '',
+        sku: sku_val || '',           // puede quedar vacío si no hay
+        modelo: modelo_val || '',     // puede quedar vacío si no hay
+        descripcion: descripcion_val || '',
         proveedor: proveedor,  // ✅ Proveedor detectado por IA
         precio_base_original: precioBase,  // ✅ Precio base original (del archivo)
         precio_base_minorista: precioBaseConDescuento,  // ✅ Precio base para Minorista (con descuento)
@@ -1506,7 +1560,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('📋 Resultado:', resultadoProducto)
       
       return resultadoProducto
-    }))
+    }))).filter(Boolean);
+
+    if (productosProcesados.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'TODOS_SIN_ID: ninguna fila trae ID en la columna seleccionada',
+      }, { status: 400 });
+    }
+
+    // Control de calidad: al menos 95% con ID
+    const ratioId = productosProcesados.filter(p => p && p.producto_id).length / productosProcesados.length;
+    if (ratioId < 0.95) {
+      console.warn('⚠️ Bajo ratio de ID con datos: ', ratioId);
+    }
 
     // Estadísticas
     const totalProductos = productosProcesados.length
@@ -1577,8 +1644,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       sesion_id: sesionGuardada?.sesion_id || null,
       ia_analisis: {
         columnas_detectadas: columnMapping,
-        modelo_ia: 'GPT-4o-mini (solo para columnas)',
+        modelo_ia: 'GPT-4o (mapeo de columnas)',
         timestamp_analisis: new Date().toISOString()
+      },
+      stats: {
+        filas_input: datos.length,
+        filas_con_id: productosProcesados.length,
+        ratio_id: Number((productosProcesados.length / datos.length).toFixed(3)),
+        id_header: (mapeoColumnas as any).id_header,
+        marca_header: (mapeoColumnas as any).marca_header || '',
+        modelo_header: (mapeoColumnas as any).modelo || (mapeoColumnas as any).modelo_header || '',
+        sku_header: (mapeoColumnas as any).sku || (mapeoColumnas as any).sku_header || '',
       },
       estadisticas: {
         total_productos: totalProductos,
