@@ -174,6 +174,48 @@ async function callLLM(model: string, contexto: string) {
   return JSON.parse(data.choices[0].message.content);
 }
 
+// 🔎 DETECCIÓN DE MARCA CON IA POR HOJA/ARCHIVO
+async function detectarMarcaConIA(
+  nombreArchivo: string,
+  nombreHoja: string,
+  headers: string[],
+  datosMuestra: any[]
+): Promise<{ marca: string; confianza: number; fuente: string }> {
+  // Heurística rápida por nombre de archivo/hoja
+  const textoRapido = `${nombreArchivo} ${nombreHoja}`.toLowerCase();
+  const marcasConocidas = [
+    'lusqtoff','lq','liqui moly','liqui','moly','moura','varta','motul','shell','elf','bosch','makita','dewalt','stanley','ngk','pirelli','metzeler','yuasa','agv','protork','riffel'
+  ];
+  const matchRapido = marcasConocidas.find(m => textoRapido.includes(m));
+  if (matchRapido) {
+    return { marca: matchRapido, confianza: 75, fuente: 'nombre_archivo_hoja' };
+  }
+
+  try {
+    const contexto = `Eres un extractor de marcas. Devuelve SOLO JSON válido.
+Campos requeridos:
+{ "marca": string, "confianza": number, "fuente": string }
+
+Instrucciones:
+- Analiza headers y primeras filas para inferir la MARCA comercial predominante en esta hoja (si hay muchas marcas, devuelve la más predominante o la que mejor representa la hoja).
+- Puedes usar pistas del nombre del archivo y de la hoja.
+- Si no encuentras una marca clara, devuelve marca="" y confianza=0.
+
+Archivo: ${nombreArchivo}
+Hoja: ${nombreHoja}
+HEADERS: ${JSON.stringify(headers)}
+MUESTRA(<=10 filas): ${JSON.stringify(datosMuestra.slice(0, 10))}`;
+
+    const resp = await callLLM(baseModel, contexto);
+    const marca = String(resp.marca || '').trim();
+    const confianza = Number(resp.confianza || 0);
+    const fuente = String(resp.fuente || 'ia');
+    return { marca, confianza, fuente };
+  } catch {
+    return { marca: '', confianza: 0, fuente: 'fallback' };
+  }
+}
+
 async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<any> {
   try {
     // 🎯 CREAR LISTAS BLANCAS POR CAMPO
@@ -512,6 +554,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log(`🔍 DEBUG: hojasValidas =`, hojasValidas.map(h => ({ nombre: h.nombre, filas: h.filas, descartada: h.descartada })))
     
     let todosLosProductos: any[] = []
+    const marcaPorHoja: Record<string, { marca: string; confianza: number }> = {}
     let todosLosHeaders: string[] = []
     
     for (const hojaInfo of hojasValidas) {
@@ -576,8 +619,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         keys: Object.keys(p).slice(0, 5),
         sample: Object.values(p).slice(0, 3)
       })))
-      
-      todosLosProductos = [...todosLosProductos, ...datosFiltrados]
+
+      // ✨ Marcar la hoja de origen y acumular
+      const conMetaHoja = datosFiltrados.map((p: any) => ({ ...p, __sheet: hojaInfo.nombre }))
+      todosLosProductos = [...todosLosProductos, ...conMetaHoja]
+
+      // 🧠 Detectar marca predominante de esta hoja (una sola vez)
+      try {
+        const det = await detectarMarcaConIA(file.name, hojaInfo.nombre, headersHoja, datosFiltrados)
+        if (det.marca) {
+          marcaPorHoja[hojaInfo.nombre] = { marca: det.marca.toUpperCase(), confianza: det.confianza }
+          console.log(`  🧠 Marca detectada para hoja '${hojaInfo.nombre}':`, marcaPorHoja[hojaInfo.nombre])
+        }
+      } catch (e) {
+        console.log('  ⚠️ Detección de marca falló para hoja', hojaInfo.nombre, e)
+      }
       // Función para limpiar headers
       const limpiarHeader = (s: string) => {
         if (!s) return null
@@ -1187,7 +1243,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       let proveedor = proveedorForzado || '';
       if (!proveedor) {
         const marcaHeader = (columnMapping as any).marca || (columnMapping as any).marca_header || (columnMapping as any).proveedor || '';
-        proveedor = marcaHeader ? String(producto[marcaHeader] ?? '').trim() : '';
+        proveedor = marcaHeader ? String(getCellFlexible(producto, marcaHeader) ?? '').trim() : '';
+      }
+      // Fallback IA por hoja
+      if (!proveedor && (producto as any).__sheet && marcaPorHoja[(producto as any).__sheet]) {
+        proveedor = marcaPorHoja[(producto as any).__sheet].marca
       }
       if (!proveedor) proveedor = 'Sin Marca'; // etiqueta neutra, pero NO se usa para ID
       
