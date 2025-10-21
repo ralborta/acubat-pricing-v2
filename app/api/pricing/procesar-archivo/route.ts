@@ -1579,9 +1579,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Estadísticas
     const totalProductos = productosProcesados.length
     const productosRentables = productosProcesados.filter(p => 
-      parseFloat(p.minorista.rentabilidad) > 0 && parseFloat(p.mayorista.rentabilidad) > 0
+      p && parseFloat(p.minorista.rentabilidad) > 0 && parseFloat(p.mayorista.rentabilidad) > 0
     ).length
-    const conEquivalenciaVarta = productosProcesados.filter(p => p.equivalencia_varta.encontrada).length
+    const conEquivalenciaVarta = productosProcesados.filter(p => p && p.equivalencia_varta.encontrada).length
 
     // 💾 GUARDAR DATOS EN SUPABASE
     console.log('💾 GUARDANDO DATOS EN SUPABASE...')
