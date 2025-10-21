@@ -17,7 +17,8 @@ import {
   ArrowDown,
   Minus,
   Percent,
-  Target
+  Target,
+  ArrowLeft
 } from 'lucide-react'
 
 interface ProductoFinanciero {
@@ -174,13 +175,18 @@ export default function ReporteFinancieroPage() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              💰 Reporte Financiero
-            </h1>
-            <p className="text-gray-600">
-              Análisis económico e impacto financiero del sistema de pricing
-            </p>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => window.history.length > 1 ? window.history.back() : (window.location.href = '/reportes')}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Volver
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                💰 Reporte Financiero
+              </h1>
+              <p className="text-gray-600">
+                Análisis económico e impacto financiero del sistema de pricing
+              </p>
+            </div>
           </div>
           
           <div className="flex gap-2">

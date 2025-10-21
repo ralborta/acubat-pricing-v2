@@ -16,7 +16,8 @@ import {
   Filter,
   ArrowUp,
   ArrowDown,
-  Minus
+  Minus,
+  ArrowLeft
 } from 'lucide-react'
 
 interface SesionComparativa {
@@ -166,13 +167,18 @@ export default function ReporteComparativoPage() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              🔍 Comparativo de Sesiones
-            </h1>
-            <p className="text-gray-600">
-              Comparar sesiones entre fechas y analizar cambios en el tiempo
-            </p>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => window.history.length > 1 ? window.history.back() : (window.location.href = '/reportes')}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Volver
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                🔍 Comparativo de Sesiones
+              </h1>
+              <p className="text-gray-600">
+                Comparar sesiones entre fechas y analizar cambios en el tiempo
+              </p>
+            </div>
           </div>
           
           <div className="flex gap-2">

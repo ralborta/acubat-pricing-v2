@@ -15,7 +15,8 @@ import {
   Filter,
   Star,
   Award,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeft
 } from 'lucide-react'
 
 interface ProductoProveedor {
@@ -196,13 +197,18 @@ export default function ReporteProveedorPage() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              📦 Análisis por Proveedor
-            </h1>
-            <p className="text-gray-600">
-              Estadísticas detalladas por marca y proveedor
-            </p>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => window.history.length > 1 ? window.history.back() : (window.location.href = '/reportes')}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Volver
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                📦 Análisis por Proveedor
+              </h1>
+              <p className="text-gray-600">
+                Estadísticas detalladas por marca y proveedor
+              </p>
+            </div>
           </div>
           
           <div className="flex gap-2">
