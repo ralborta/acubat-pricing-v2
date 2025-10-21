@@ -1085,20 +1085,56 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const skuCol = (columnMapping as any).sku || (columnMapping as any).sku_header || '';
       const descCol = (columnMapping as any).descripcion || '';
 
-      const id_val = idCol ? String(producto[idCol] ?? '').trim() : '';
+      // Resolver ID con fallback por fila si el header global no aplica
+      const preferIdKeys = [
+        (columnMapping as any).id_header,
+        (columnMapping as any).ident_header,
+        (columnMapping as any).modelo,
+        (columnMapping as any).modelo_header,
+        (columnMapping as any).sku,
+        (columnMapping as any).sku_header
+      ].filter(Boolean) as string[]
+
+      const dynamicIdKeys = Array.from(new Set([
+        ...preferIdKeys,
+        ...Object.keys(producto).filter(k => /cod(igo)?|sku|ref|referencia|modelo|art(í|i)culo|item|ean|upc|nro|id/i.test(k))
+      ]))
+
+      let id_val = idCol ? String(producto[idCol] ?? '').trim() : '';
       if (!id_val) {
-        // fila sin ID -> la descartamos
-        console.log(`❌ PRODUCTO ${index + 1} DESCARTADO: Sin ID en columna '${idCol}'`)
-        return null;
+        for (const key of dynamicIdKeys) {
+          const raw = producto[key]
+          if (raw === undefined || raw === null || raw === '') continue
+          const cand = String(raw).trim()
+          // Aceptar patrones de código típicos: alfanumérico, pocos espacios
+          if (/^[A-Za-z0-9][A-Za-z0-9\-._/]{1,30}$/.test(cand)) {
+            id_val = cand
+            break
+          }
+        }
+      }
+      if (!id_val) {
+        // última oportunidad: primer string corto sin espacios múltiples
+        const anyKey = Object.keys(producto).find(k => {
+          const v = String(producto[k] ?? '').trim()
+          return v && v.length <= 30 && !/\s{2,}/.test(v)
+        })
+        if (anyKey) id_val = String(producto[anyKey]).trim()
+      }
+      if (!id_val) {
+        console.log(`❌ PRODUCTO ${index + 1} DESCARTADO: Sin ID tras fallbacks (id_header='${idCol}')`)
+        return null
       }
 
       // Modelo preferente: si hay columna 'modelo', úsala; si no, si el ID proviene de 'modelo', podés setear modelo = id
       let modelo_val = modeloCol ? String(producto[modeloCol] ?? '').trim() : '';
       if (!modelo_val && idCol === modeloCol) modelo_val = id_val;
+      if (!modelo_val && dynamicIdKeys.some(k => /modelo/i.test(String(k)))) modelo_val = id_val;
 
       // SKU preferente
       let sku_val = skuCol ? String(producto[skuCol] ?? '').trim() : '';
       if (!sku_val && idCol === skuCol) sku_val = id_val;
+      if (!sku_val && dynamicIdKeys.some(k => /sku/i.test(String(k)))) sku_val = id_val;
 
       // Descripción nunca reemplaza modelo ni ID (no la usamos para inventar)
       const descripcion_val = descCol ? String(producto[descCol] ?? '').trim() : '';
