@@ -121,6 +121,43 @@ function getCellFlexible(row: any, header: string) {
   return undefined;
 }
 
+// 🔎 Helpers para filtrar filas de encabezado no deseadas (conservador)
+function hasPriceLikeNumber(row: any): boolean {
+  const vals = Object.values(row || {})
+  for (const v of vals) {
+    if (v === undefined || v === null || v === '') continue
+    const s = String(v)
+    const cleaned = s.replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
+    const n1 = parseFloat(cleaned)
+    const n2 = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'))
+    const n = isNaN(n1) ? n2 : (isNaN(n2) ? n1 : Math.max(n1, n2))
+    if (!isNaN(n) && n >= 1000) return true
+  }
+  return false
+}
+
+function isHeaderRowLikely(row: any, indexWithinSheet: number): boolean {
+  if (indexWithinSheet >= 10) return false
+  const text = Object.values(row || {}).map(v => String(v || '')).join(' ').toLowerCase()
+  const tokens = ['precio','unitario','contado','caja','pago','dias','iva','aditivos','nafta','funcion','aplicacion']
+  const hits = tokens.filter(t => text.includes(t)).length
+  if (hits < 3) return false
+  if (hasPriceLikeNumber(row)) return false
+  // chequeo de mayúsculas (encabezado denso)
+  const words = text.split(/\s+/).filter(w => w.length >= 3)
+  const upperRatio = words.length ? words.filter(w => w === w.toUpperCase()).length / words.length : 0
+  return upperRatio >= 0.6 || hits >= 5
+}
+
+function isHeaderRowLikelyGlobal(row: any): boolean {
+  const text = Object.values(row || {}).map(v => String(v || '')).join(' ').toLowerCase()
+  const tokens = ['precio','unitario','contado','caja','pago','dias','iva','aditivos','nafta','funcion','aplicacion']
+  const hits = tokens.filter(t => text.includes(t)).length
+  if (hits < 4) return false
+  if (hasPriceLikeNumber(row)) return false
+  return true
+}
+
 // 🔎 Heurística específica para LIQUI MOLY cuando la detección normal de precio falla
 function pickLiquiMolyPrecioColumn(headers: string[], sampleRows: any[]): string {
   const normHeaders = headers.map(h => ({ h, n: normalizeHeaderName(h) }))
@@ -645,12 +682,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const esNota = valores.some(v => v.includes('nota') || v.includes('tel:') || v.includes('bornes') || v.includes('precios para la compra'))
         const esTitulo = valores.some(v => v.includes('sistema de pricing') || v.includes('optimizado para máximo rendimiento'))
         const esVacio = valores.every(v => v.trim() === '')
+        const esEncabezado = isHeaderRowLikely(producto, index)
         
-        if (esNota || esTitulo || esVacio) {
-          console.log(`    ⚠️  Fila ${index + 1} descartada (${esNota ? 'nota' : esTitulo ? 'título' : 'vacía'}):`, valores.slice(0, 3))
+        if (esNota || esTitulo || esVacio || esEncabezado) {
+          console.log(`    ⚠️  Fila ${index + 1} descartada (${esNota ? 'nota' : esTitulo ? 'título' : esEncabezado ? 'encabezado' : 'vacía'}):`, valores.slice(0, 3))
         }
         
-        return !esNota && !esTitulo && !esVacio
+        return !esNota && !esTitulo && !esVacio && !esEncabezado
       })
       
       console.log(`\n🔍 FILTRO POR HOJA ${hojaInfo.nombre} - DESPUÉS:`)
@@ -1187,9 +1225,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const esNota = valores.some(v => v.includes('nota') || v.includes('tel:') || v.includes('bornes') || v.includes('precios para la compra'))
       const esTitulo = valores.some(v => v.includes('sistema de pricing') || v.includes('optimizado para máximo rendimiento'))
       const esVacio = valores.every(v => v.trim() === '')
+      const esEncabezado = isHeaderRowLikelyGlobal(producto)
       
-      if (esNota || esTitulo || esVacio) {
-        console.log(`  ⚠️  Fila ${index + 1} descartada (${esNota ? 'nota' : esTitulo ? 'título' : 'vacía'}):`, valores.slice(0, 3))
+      if (esNota || esTitulo || esVacio || esEncabezado) {
+        console.log(`  ⚠️  Fila ${index + 1} descartada (${esNota ? 'nota' : esTitulo ? 'título' : esEncabezado ? 'encabezado' : 'vacía'}):`, valores.slice(0, 3))
         return false
       }
       return true
