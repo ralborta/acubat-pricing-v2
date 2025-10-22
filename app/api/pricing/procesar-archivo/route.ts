@@ -138,19 +138,28 @@ function hasPriceLikeNumber(row: any): boolean {
 
 function isHeaderRowLikely(row: any, indexWithinSheet: number): boolean {
   if (indexWithinSheet >= 10) return false
-  const text = Object.values(row || {}).map(v => String(v || '')).join(' ').toLowerCase()
+  const origText = Object.values(row || {}).map(v => String(v || '')).join(' ')
+  const text = origText
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
   const tokens = ['precio','unitario','contado','caja','pago','dias','iva','aditivos','nafta','funcion','aplicacion']
   const hits = tokens.filter(t => text.includes(t)).length
   if (hits < 3) return false
   if (hasPriceLikeNumber(row)) return false
-  // chequeo de mayúsculas (encabezado denso)
-  const words = text.split(/\s+/).filter(w => w.length >= 3)
+  // chequeo de mayúsculas (encabezado denso) usando texto original
+  const words = origText.split(/\s+/).filter(w => w.length >= 3)
   const upperRatio = words.length ? words.filter(w => w === w.toUpperCase()).length / words.length : 0
   return upperRatio >= 0.6 || hits >= 5
 }
 
 function isHeaderRowLikelyGlobal(row: any): boolean {
-  const text = Object.values(row || {}).map(v => String(v || '')).join(' ').toLowerCase()
+  const text = Object.values(row || {})
+    .map(v => String(v || ''))
+    .join(' ')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
   const tokens = ['precio','unitario','contado','caja','pago','dias','iva','aditivos','nafta','funcion','aplicacion']
   const hits = tokens.filter(t => text.includes(t)).length
   if (hits < 4) return false
