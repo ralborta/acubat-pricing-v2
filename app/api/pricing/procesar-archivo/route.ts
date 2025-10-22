@@ -1576,6 +1576,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       
       console.log(`💰 PRECIO BASE FINAL: ${precioBase}`)
+      // Descartar filas sin precio (evitar encabezados/títulos parsing)
+      if (!precioBase || precioBase <= 0) {
+        console.log(`⚠️ Producto ${index + 1} descartado: precioBase=0 (posible encabezado/título)`)
+        return null
+      }
       
       // 💰 VALIDACIÓN SIMPLE DE MONEDA (sin IA)
       console.log(`\n💰 VALIDACIÓN DE MONEDA DEL PRODUCTO ${index + 1}:`)
