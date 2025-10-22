@@ -377,13 +377,17 @@ export default function CargaPage() {
       if (data.success) {
         setResultado(data)
         // Filtro visual: ocultar filas con ambos precios base 0
+        const headerTokens = ['precio','unitario','contado','caja','pago','dias','iva']
         const visibles = (data.productos || []).filter((p: any) => {
           const baseMin = Number(p?.precio_base_minorista || 0)
           const baseMay = Number(p?.precio_base_mayorista || 0)
           const finalMin = Number(p?.minorista?.precio_final || 0)
           const finalMay = Number(p?.mayorista?.precio_final || 0)
-          // Mostrar solo si existe algún precio útil (> 0) en base o finales
-          return (baseMin > 0) || (baseMay > 0) || (finalMin > 0) || (finalMay > 0)
+          const texto = `${p?.producto || ''} ${p?.modelo || ''}`.toLowerCase()
+          const esHeaderTexto = headerTokens.filter(t => texto.includes(t)).length >= 2
+          // Ocultar si no hay ningún precio útil y además parece ser texto de encabezado
+          const hayPrecio = (baseMin > 0) || (baseMay > 0) || (finalMin > 0) || (finalMay > 0)
+          return hayPrecio || !esHeaderTexto
         })
         setProductosAMostrar(visibles)
         setProgreso(100) // Completar al 100%
