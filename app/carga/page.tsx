@@ -378,9 +378,12 @@ export default function CargaPage() {
         setResultado(data)
         // Filtro visual: ocultar filas con ambos precios base 0
         const visibles = (data.productos || []).filter((p: any) => {
-          const pbm = Number(p?.precio_base_minorista || 0)
-          const pbmy = Number(p?.precio_base_mayorista || 0)
-          return (pbm > 0) || (pbmy > 0)
+          const baseMin = Number(p?.precio_base_minorista || 0)
+          const baseMay = Number(p?.precio_base_mayorista || 0)
+          const finalMin = Number(p?.minorista?.precio_final || 0)
+          const finalMay = Number(p?.mayorista?.precio_final || 0)
+          // Mostrar solo si existe algún precio útil (> 0) en base o finales
+          return (baseMin > 0) || (baseMay > 0) || (finalMin > 0) || (finalMay > 0)
         })
         setProductosAMostrar(visibles)
         setProgreso(100) // Completar al 100%
