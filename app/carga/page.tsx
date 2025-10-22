@@ -376,7 +376,13 @@ export default function CargaPage() {
       
       if (data.success) {
         setResultado(data)
-        setProductosAMostrar(data.productos || [])
+        // Filtro visual: ocultar filas con ambos precios base 0
+        const visibles = (data.productos || []).filter((p: any) => {
+          const pbm = Number(p?.precio_base_minorista || 0)
+          const pbmy = Number(p?.precio_base_mayorista || 0)
+          return (pbm > 0) || (pbmy > 0)
+        })
+        setProductosAMostrar(visibles)
         setProgreso(100) // Completar al 100%
       } else {
         setError(data.error || 'Error desconocido')
