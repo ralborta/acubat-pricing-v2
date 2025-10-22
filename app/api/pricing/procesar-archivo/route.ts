@@ -121,6 +121,52 @@ function getCellFlexible(row: any, header: string) {
   return undefined;
 }
 
+// 🔎 Heurística específica para LIQUI MOLY cuando la detección normal de precio falla
+function pickLiquiMolyPrecioColumn(headers: string[], sampleRows: any[]): string {
+  const normHeaders = headers.map(h => ({ h, n: normalizeHeaderName(h) }))
+  // Candidatos por nombre
+  const candidatosNombre = normHeaders.filter(({ n }) => /precio/.test(n))
+  // Preferencias de nombre
+  const preferidos = [
+    (h: string) => /cont(ad|ado)?/.test(h),              // contado
+    (h: string) => /(pago\s?a\s?30|30\s?dias)/.test(h) // pago a 30
+  ]
+  // Función: score por contenido
+  function scoreCol(col: string): number {
+    let priceCount = 0
+    let smallIntCount = 0
+    const values = sampleRows.slice(0, 80).map(r => getCellFlexible(r, col))
+    for (const v of values) {
+      if (v === undefined || v === null || v === '') continue
+      const s = String(v)
+      const cleaned = s.replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
+      const n1 = parseFloat(cleaned)
+      const n2 = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'))
+      const n = isNaN(n1) ? n2 : (isNaN(n2) ? n1 : Math.max(n1, n2))
+      if (!isNaN(n)) {
+        if (n >= 1000 && n < 100000000) priceCount++
+        // probable columna CAJA (unidades por caja): enteros pequeños sin decimales
+        if (Number.isInteger(n) && n > 0 && n <= 60) smallIntCount++
+      }
+    }
+    // favorecer muchas cifras de precio y penalizar cajas
+    return priceCount * 10 - smallIntCount * 2
+  }
+  // Ordenar por preferencia de nombre y score de contenido
+  const ordenados = [...candidatosNombre]
+    .map(x => ({ ...x, pref: preferidos.reduce((acc, fn, idx) => acc || (fn(x.n) ? (10 - idx) : 0), 0), sc: scoreCol(x.h) }))
+    .sort((a, b) => (b.pref - a.pref) || (b.sc - a.sc))
+
+  // Si no hay por nombre, evaluar todas por contenido y tomar la mejor
+  if (ordenados.length === 0) {
+    const byContent = headers
+      .map(h => ({ h, s: scoreCol(h) }))
+      .sort((a, b) => b.s - a.s)
+    return byContent[0]?.h || ''
+  }
+  return ordenados[0]?.h || ''
+}
+
 function pickIdColumn(headers: string[], rows: any[]): string | '' {
   // construimos un muestreo por columna con acceso flexible (normalizado)
   const candidates = headers.map(h => {
@@ -1374,6 +1420,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       
       if (precioBase === 0) {
+        // 🧩 Heurística específica LIQUI MOLY: intentar elegir columna de precio cuando el header es anómalo
+        if (proveedor && /liqui\s?moly/i.test(String(proveedor))) {
+          const candidato = pickLiquiMolyPrecioColumn(Object.keys(producto), [producto])
+          if (candidato) {
+            const v = getCellFlexible(producto, candidato)
+            if (v !== undefined && v !== null && v !== '') {
+              let s = String(v).replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
+              let n = parseFloat(s)
+              if (isNaN(n)) n = parseFloat(s.replace(/\./g, '').replace(',', '.'))
+              if (!isNaN(n) && n > 0) {
+                precioBase = n
+                console.log(`✅ LIQUI MOLY: precio tomado de columna '${candidato}' → ${precioBase}`)
+              }
+            }
+          }
+        }
+
         console.log(`❌ NO SE ENCONTRÓ PRECIO para producto ${index + 1}`)
         console.log(`🔍 Columnas de precio disponibles:`)
         console.log(`   - Precio: ${columnMapping.precio} (valor: ${columnMapping.precio ? producto[columnMapping.precio] : 'N/A'})`)
