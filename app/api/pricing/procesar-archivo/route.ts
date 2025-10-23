@@ -1470,7 +1470,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (precioBase === 0) {
         // 🧩 Heurística específica LIQUI MOLY: intentar elegir columna de precio cuando el header es anómalo
         if (proveedor && /liqui\s?moly/i.test(String(proveedor))) {
-          const candidato = pickLiquiMolyPrecioColumn(Object.keys(producto), [producto])
+          const keys = Object.keys(producto)
+          // Preferir la columna 7 (índice 6) como precio base en este patrón
+          const preferido7 = keys[6] || ''
+          const candidatoHeur = pickLiquiMolyPrecioColumn(keys, [producto])
+          const candidato = preferido7 || candidatoHeur
           if (candidato) {
             const v = getCellFlexible(producto, candidato)
             if (v !== undefined && v !== null && v !== '') {
@@ -1479,7 +1483,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               if (isNaN(n)) n = parseFloat(s.replace(/\./g, '').replace(',', '.'))
               if (!isNaN(n) && n > 0) {
                 precioBase = n
-                console.log(`✅ LIQUI MOLY: precio tomado de columna '${candidato}' → ${precioBase}`)
+                console.log(`✅ LIQUI MOLY: precio tomado de columna '${candidato}' (preferencia 7) → ${precioBase}`)
               }
             }
           }
