@@ -561,6 +561,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // Paso 3: construir JSON usando la fila detectada como headers
+      // 🔧 Caso particular LIQUI MOLY (cabecera multifila): si detectamos el patrón, fijar headerRowIndex
+      try {
+        const firstCell = String((matriz?.[0]?.[0]) || '').toLowerCase()
+        const idxAplic = matriz.slice(0, 10).findIndex((row: any) => {
+          const c = String((row?.[0]) || '').toLowerCase()
+          return c.includes('aditivos') && (c.includes('func') || c.includes('funcion')) && (c.includes('aplic') || c.includes('aplicacion'))
+        })
+        if (/liqui/.test(firstCell) && firstCell.includes('precio') && idxAplic >= 0) {
+          headerRowIndex = idxAplic
+          console.log(`  🔧 LIQUI MOLY (cabecera multifila) → headerRowIndex=${headerRowIndex}`)
+        }
+      } catch {}
       let datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex })
       if (datosHoja.length === 0) {
         console.log(`  ❌ Hoja sin datos tras seleccionar headerRowIndex=${headerRowIndex}`)
@@ -692,12 +704,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const esTitulo = valores.some(v => v.includes('sistema de pricing') || v.includes('optimizado para máximo rendimiento'))
         const esVacio = valores.every(v => v.trim() === '')
         const esEncabezado = isHeaderRowLikely(producto, index)
+        // Descartar explícitamente las filas grises superiores del patrón LIQUI MOLY
+        const esFilaGrisLiqui = index < 3 && Object.values(producto).some(v => String(v).toLowerCase().includes('precio'))
         
-        if (esNota || esTitulo || esVacio || esEncabezado) {
-          console.log(`    ⚠️  Fila ${index + 1} descartada (${esNota ? 'nota' : esTitulo ? 'título' : esEncabezado ? 'encabezado' : 'vacía'}):`, valores.slice(0, 3))
+        if (esNota || esTitulo || esVacio || esEncabezado || esFilaGrisLiqui) {
+          console.log(`    ⚠️  Fila ${index + 1} descartada (${esNota ? 'nota' : esTitulo ? 'título' : esFilaGrisLiqui ? 'encabezado-liqui' : esEncabezado ? 'encabezado' : 'vacía'}):`, valores.slice(0, 3))
         }
         
-        return !esNota && !esTitulo && !esVacio && !esEncabezado
+        return !esNota && !esTitulo && !esVacio && !esEncabezado && !esFilaGrisLiqui
       })
       
       console.log(`\n🔍 FILTRO POR HOJA ${hojaInfo.nombre} - DESPUÉS:`)
