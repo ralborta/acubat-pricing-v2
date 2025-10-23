@@ -1593,6 +1593,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
       
+      // ✅ Corrección específica LIQUI MOLY: si el precio detectado parece ser el código (ej. 2124) o es demasiado chico
+      if (proveedor && /liqui\s?moly/i.test(String(proveedor))) {
+        const pareceCodigo = id_val && !isNaN(Number(id_val)) && Number(id_val) === Number(precioBase)
+        if (precioBase < 1000 || pareceCodigo) {
+          const keysLM = Object.keys(producto)
+          const col7 = keysLM[6]
+          const v7 = col7 ? getCellFlexible(producto, col7) : undefined
+          if (v7 !== undefined && v7 !== null && v7 !== '') {
+            let s7 = String(v7).replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
+            let n7 = parseFloat(s7)
+            if (isNaN(n7)) n7 = parseFloat(s7.replace(/\./g, '').replace(',', '.'))
+            if (!isNaN(n7) && n7 > 0) {
+              console.log(`🔧 LIQUI MOLY: precio '${precioBase}' corregido desde col7 '${col7}' → ${n7}`)
+              precioBase = n7
+            }
+          }
+        }
+      }
+
       console.log(`💰 PRECIO BASE FINAL: ${precioBase}`)
       // Descartar filas sin precio (evitar encabezados/títulos parsing)
       if (!precioBase || precioBase <= 0) {
