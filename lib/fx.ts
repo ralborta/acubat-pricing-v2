@@ -20,10 +20,6 @@ const FX_URL = process.env.FX_URL
 const FX_TIMEOUT_MS = Number(process.env.FX_TIMEOUT_MS || 5000)
 const FX_CACHE_TTL_MS = Number(process.env.FX_CACHE_TTL_MS || 10 * 60 * 1000) // 10 min
 
-if (!FX_URL) {
-  throw new Error('FX_URL environment variable is not set')
-}
-
 let fxCache: CacheEntry | null = null
 let lastFxMeta: FxMeta | null = null
 
@@ -41,11 +37,16 @@ export async function getBlueRate(): Promise<FxInfo | null> {
     return fxCache.fx
   }
 
+  if (!FX_URL) {
+    lastFxMeta = { url: '', ok: false, error: 'FX_URL not configured', ts: new Date().toISOString() }
+    return null
+  }
+
   async function fetchOnce(): Promise<FxInfo | null> {
     const controller = new AbortController()
     const to = setTimeout(() => controller.abort(), FX_TIMEOUT_MS)
     try {
-      const res = await fetch(FX_URL, { signal: controller.signal })
+      const res = await fetch(FX_URL!, { signal: controller.signal })
       clearTimeout(to)
       if (!res.ok) {
         lastFxMeta = { url: FX_URL, ok: false, status: res.status, ts: new Date().toISOString() }
@@ -63,7 +64,7 @@ export async function getBlueRate(): Promise<FxInfo | null> {
       return fx
     } catch (e) {
       clearTimeout(to)
-      lastFxMeta = { url: FX_URL, ok: false, error: (e as any)?.message || 'unknown', ts: new Date().toISOString() }
+      lastFxMeta = { url: FX_URL!, ok: false, error: (e as any)?.message || 'unknown', ts: new Date().toISOString() }
       return null
     }
   }
