@@ -5,6 +5,7 @@ import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
 import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
 import { HistorialPricing } from "@/lib/supabase-historial"
 import { getBlueRate } from '@/lib/fx'
+import { detectWorkbookIsUSD } from '@/lib/detect-usd'
 
 // 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN CON FALLBACK ROBUSTO
 async function obtenerConfiguracion() {
@@ -565,23 +566,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('📋 HOJAS DISPONIBLES:', workbook.SheetNames)
     
     // 💵 DETECCIÓN GLOBAL DE USD (antes de procesar productos)
-    let archivoEsUSD = preciosEnUSD // Checkbox tiene prioridad
-    if (!archivoEsUSD) {
-      // Buscar "USD" en las primeras 20 filas de todas las hojas
-      for (const sheetName of workbook.SheetNames) {
-        const ws = workbook.Sheets[sheetName]
-        const matriz = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', range: 0 }) as unknown as Array<Array<string | number>>
-        const primeras20 = matriz.slice(0, 20).flat().map(c => String(c || ''))
-        const tieneUSD = primeras20.some(c => /USD|DOLAR|DÓLAR|U\$S|\$US/i.test(c))
-        if (tieneUSD) {
-          archivoEsUSD = true
-          console.log(`💵 USD detectado en hoja "${sheetName}" - archivo será tratado como USD`)
-          break
-        }
-      }
+    // Checkbox tiene prioridad > detección RAW de celdas
+    let archivoEsUSD = !!preciosEnUSD
+    const detectMeta = {
+      checkbox: !!preciosEnUSD,
+      auto_detect: false,
+      filename_hint: false
     }
     
-    console.log(`💵 ARCHIVO DETECTADO COMO: ${archivoEsUSD ? 'USD' : 'ARS'}`)
+    if (!archivoEsUSD) {
+      // Detección automática usando celdas RAW (cell.w, cell.z)
+      archivoEsUSD = detectWorkbookIsUSD(workbook, 20)
+      detectMeta.auto_detect = archivoEsUSD
+    }
+    
+    // Pista adicional: nombre de archivo
+    if (!archivoEsUSD && /USD|DOLAR|DÓLAR|U\$S|\$US/i.test(file.name)) {
+      archivoEsUSD = true
+      detectMeta.filename_hint = true
+      console.log(`💵 USD detectado en nombre de archivo: "${file.name}"`)
+    }
+    
+    console.log(`💵 ARCHIVO DETECTADO COMO: ${archivoEsUSD ? 'USD' : 'ARS'}`, detectMeta)
     
     // 🎯 ANÁLISIS DE TODAS LAS HOJAS
     const diagnosticoHojas: Array<{ nombre: string; filas: number; headers: string[]; pvpOffLine?: string; precioLista?: string; precioUnitario?: string; descartada?: boolean; motivoDescarte?: string; score?: number; }> = []
@@ -1695,18 +1701,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         seAplicoConversion: false
       }
       
-      if (esUSD && fxInfo && fxInfo.sell) {
-        console.log(`💵 Precio detectado en USD: ${precioBase}`)
-        precioBase = precioBase * fxInfo.sell
-        monedaOriginal = 'USD'
-        appliedFxRate = fxInfo.sell
-        appliedFxDate = fxInfo.date
-        debugFx.precioConvertido = precioBase
-        debugFx.seAplicoConversion = true
-        console.log(`💵 Convertido a ARS usando TC ${fxInfo.sell}: ${precioBase}`)
-      } else {
-        console.log(`💵 NO se aplicó conversión. esUSD=${esUSD}, fxInfo=${!!fxInfo}, fxInfo.sell=${fxInfo?.sell}`)
-      }
+if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) {
+  const rate = Number(fxInfo.sell)
+  console.log(`💵 Precio detectado en USD: ${precioBase}`)
+  precioBase = Number(precioBase) * rate
+  monedaOriginal = 'USD'
+  appliedFxRate = rate
+  appliedFxDate = fxInfo.date
+  debugFx.precioConvertido = precioBase
+  debugFx.seAplicoConversion = true
+  console.log(`💵 Convertido a ARS usando TC ${rate}: ${precioBase}`)
+} else {
+  console.log(`💵 NO se aplicó conversión. esUSD=${esUSD}, fxInfo=${!!fxInfo}, sell=${fxInfo?.sell}`)
+}
       
       // Descartar filas sin precio (evitar encabezados/títulos parsing)
       if (!precioBase || precioBase <= 0) {
