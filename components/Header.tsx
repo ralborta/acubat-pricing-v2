@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 export default function Header() {
   const router = useRouter()
   const [fx, setFx] = useState<{ buy: number; sell: number; date: string; source?: string } | null>(null)
+  const [loadingFx, setLoadingFx] = useState<boolean>(true)
   useEffect(() => {
     try {
       const raw = localStorage.getItem('acubat_fx')
@@ -18,7 +19,7 @@ export default function Header() {
         setFx(d.fx)
         try { localStorage.setItem('acubat_fx', JSON.stringify(d.fx)) } catch {}
       }
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setLoadingFx(false))
     // Suscribirse a actualizaciones inmediatas
     const handler = () => {
       try {
@@ -84,23 +85,26 @@ export default function Header() {
           {/* FX Banner */}
           <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-md border bg-yellow-50 border-yellow-200 text-yellow-800">
             <DollarSign className="w-4 h-4" />
-            {fx ? (
+            {loadingFx ? (
+              <span className="text-sm">Blue: obteniendo…</span>
+            ) : fx ? (
               <span className="text-sm">
                 Blue: Compra <strong>${'{'}fx.buy.toLocaleString('es-AR'){'}'}</strong> · Venta <strong>${'{'}fx.sell.toLocaleString('es-AR'){'}'}</strong>
                 <span className="ml-2 text-xs text-yellow-700">{new Date(fx.date).toLocaleString()}</span>
               </span>
             ) : (
-              <span className="text-sm">Blue: obteniendo…</span>
+              <span className="text-sm">Blue: sin datos</span>
             )}
             <button
               className="ml-2 text-xs underline hover:no-underline"
               onClick={() => {
+                setLoadingFx(true)
                 fetch('/api/fx').then(r => r.json()).then(d => {
                   if (d?.success && d?.fx) {
                     setFx(d.fx)
                     try { localStorage.setItem('acubat_fx', JSON.stringify(d.fx)) } catch {}
                   }
-                }).catch(() => {})
+                }).catch(() => {}).finally(() => setLoadingFx(false))
               }}
             >
               Reintentar
