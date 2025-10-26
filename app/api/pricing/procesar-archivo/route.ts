@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
 import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
 import { HistorialPricing } from "@/lib/supabase-historial"
+import { getBlueRate } from '@/lib/fx'
 
 // 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN CON FALLBACK ROBUSTO
 async function obtenerConfiguracion() {
@@ -509,6 +510,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('🎯 Obteniendo configuración...')
     console.log('⏰ Timestamp de solicitud:', new Date().toISOString())
     const config = await obtenerConfiguracion()
+    // Traer TC Dólar Blue (solo informar)
+    const fxInfo = await getBlueRate()
     console.log('✅ CONFIGURACIÓN CARGADA DESDE SUPABASE:')
     console.log('   - IVA:', config.iva + '%')
     console.log('   - Markup Minorista (Directa):', config.markups.directa + '%')
@@ -1961,7 +1964,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('🎯 Base de datos Varta local funcionando perfectamente')
       console.log('💾 Datos guardados en historial de Supabase')
       console.log('🚀 Sin dependencias de APIs externas inestables')
-      return NextResponse.json(resultado)
+      return NextResponse.json({ ...resultado, fx_info: fxInfo })
     })()
     
     // Race entre timeout y procesamiento

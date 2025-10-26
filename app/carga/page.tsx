@@ -47,6 +47,12 @@ interface Resultado {
   success: boolean
   archivo: string
   timestamp: string
+  fx_info?: {
+    buy: number
+    sell: number
+    date: string
+    source?: string
+  } | null
   estadisticas: {
     total_productos: number
     productos_rentables: number
@@ -499,6 +505,15 @@ export default function CargaPage() {
             <p className="text-gray-600">
               Sistema profesional para gestión de pricing de baterías con análisis completo de rentabilidad
             </p>
+            {resultado?.fx_info && (
+              <div className="mt-4 inline-flex items-center px-3 py-2 rounded-md border text-sm bg-yellow-50 border-yellow-200 text-yellow-800">
+                <span className="font-medium mr-2">Tipo de cambio (Dólar Blue):</span>
+                <span>Compra {formatCurrency(resultado.fx_info.buy, false)} · Venta {formatCurrency(resultado.fx_info.sell, false)}</span>
+                <span className="mx-2">|</span>
+                <span>{new Date(resultado.fx_info.date).toLocaleString()}</span>
+                {resultado.fx_info.source && <span className="ml-2 text-yellow-700">({resultado.fx_info.source})</span>}
+              </div>
+            )}
           </div>
 
           {/* Selección de Opciones */}
