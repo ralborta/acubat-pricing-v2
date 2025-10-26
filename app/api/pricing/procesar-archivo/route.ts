@@ -537,6 +537,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const config = await obtenerConfiguracion()
     // Traer TC Dólar Blue (solo informar)
     const fxInfo = await getBlueRate()
+    
+    // Si el usuario marcó USD pero no hay TC, ERROR
+    if (preciosEnUSD && (!fxInfo || !fxInfo.sell)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Precios en USD marcados pero no se pudo obtener el tipo de cambio. Verificá que FX_URL esté configurada y el microservicio responda.',
+        detalles: { preciosEnUSD, fxInfo }
+      }, { status: 400 })
+    }
+    
     console.log('✅ CONFIGURACIÓN CARGADA DESDE SUPABASE:')
     console.log('   - IVA:', config.iva + '%')
     console.log('   - Markup Minorista (Directa):', config.markups.directa + '%')

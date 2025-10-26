@@ -16,7 +16,7 @@ export interface FxMeta {
   ts: string
 }
 
-const FX_URL = process.env.FX_URL
+const FX_URL = process.env.FX_URL || 'https://web-production-dd6c3.up.railway.app/rates/blue'
 const FX_TIMEOUT_MS = Number(process.env.FX_TIMEOUT_MS || 5000)
 const FX_CACHE_TTL_MS = Number(process.env.FX_CACHE_TTL_MS || 10 * 60 * 1000) // 10 min
 
@@ -37,12 +37,7 @@ export async function getBlueRate(): Promise<FxInfo | null> {
     return fxCache.fx
   }
 
-  if (!FX_URL) {
-    lastFxMeta = { url: '', ok: false, error: 'FX_URL not configured', ts: new Date().toISOString() }
-    return null
-  }
-
-  const safeUrl = FX_URL // TS ya validó que no es undefined
+  const safeUrl = FX_URL
   
   async function fetchOnce(): Promise<FxInfo | null> {
     const controller = new AbortController()
