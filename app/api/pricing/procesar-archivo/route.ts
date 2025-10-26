@@ -424,17 +424,22 @@ Salida estricta:
 
 // 💵 DETECCIÓN DE USD (heurística simple)
 function detectarUSD(producto: any, columnMapping: any): boolean {
-  const header = columnMapping?.header || ''
-  const lowerHeader = header.toLowerCase()
-  
-  // Tokens que indican USD en headers
-  const usdTokens = ['usd', 'us$', 'u$s', '$us', 'dolar', 'dólar']
-  if (usdTokens.some(t => lowerHeader.includes(t))) return true
-  
-  // Revisar valores del producto para tokens USD
+  // Buscar "USD" explícitamente en valores (como "USD 124,99")
   for (const [key, value] of Object.entries(producto || {})) {
-    const strValue = String(value || '').toLowerCase()
-    if (usdTokens.some(t => strValue.includes(t))) return true
+    const strValue = String(value || '').trim()
+    // Detectar patrones: "USD 124,99", "usd 124", "USD124", etc.
+    if (/^USD\s*\d+([.,]\d+)?$/i.test(strValue)) {
+      console.log(`💵 Detected USD in column '${key}' with value '${strValue}'`)
+      return true
+    }
+  }
+  
+  // Buscar tokens USD en headers del columnMapping
+  if (columnMapping) {
+    const header = columnMapping?.header || ''
+    const lowerHeader = header.toLowerCase()
+    const usdTokens = ['usd', 'us$', 'u$s', '$us', 'dolar', 'dólar']
+    if (usdTokens.some(t => lowerHeader.includes(t))) return true
   }
   
   return false
