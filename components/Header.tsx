@@ -90,8 +90,21 @@ export default function Header() {
                 <span className="ml-2 text-xs text-yellow-700">{new Date(fx.date).toLocaleString()}</span>
               </span>
             ) : (
-              <span className="text-sm">Blue: sin datos</span>
+              <span className="text-sm">Blue: obteniendo…</span>
             )}
+            <button
+              className="ml-2 text-xs underline hover:no-underline"
+              onClick={() => {
+                fetch('/api/fx').then(r => r.json()).then(d => {
+                  if (d?.success && d?.fx) {
+                    setFx(d.fx)
+                    try { localStorage.setItem('acubat_fx', JSON.stringify(d.fx)) } catch {}
+                  }
+                }).catch(() => {})
+              }}
+            >
+              Reintentar
+            </button>
           </div>
           {/* Date and Update Button */}
           <div className="flex items-center gap-4">

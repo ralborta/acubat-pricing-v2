@@ -20,27 +20,35 @@ export async function getBlueRate(): Promise<FxInfo | null> {
     return fxCache.fx
   }
 
-  const controller = new AbortController()
-  const to = setTimeout(() => controller.abort(), FX_TIMEOUT_MS)
-  try {
-    const res = await fetch(FX_URL, { signal: controller.signal })
-    clearTimeout(to)
-    if (!res.ok) throw new Error(`FX HTTP ${res.status}`)
-    const data = await res.json()
-    const fx: FxInfo = {
-      pair: data.pair || 'USDARS_BLUE',
-      buy: Number(data.buy || data.compra || 0),
-      sell: Number(data.sell || data.venta || 0),
-      date: String(data.date || data.fecha || new Date().toISOString()),
-      source: String(data.source || 'Dólar Blue')
+  async function fetchOnce(): Promise<FxInfo | null> {
+    const controller = new AbortController()
+    const to = setTimeout(() => controller.abort(), FX_TIMEOUT_MS)
+    try {
+      const res = await fetch(FX_URL, { signal: controller.signal })
+      clearTimeout(to)
+      if (!res.ok) throw new Error(`FX HTTP ${res.status}`)
+      const data = await res.json()
+      const fx: FxInfo = {
+        pair: data.pair || 'USDARS_BLUE',
+        buy: Number(data.buy || data.compra || 0),
+        sell: Number(data.sell || data.venta || 0),
+        date: String(data.date || data.fecha || new Date().toISOString()),
+        source: String(data.source || 'Dólar Blue')
+      }
+      return fx
+    } catch (e) {
+      clearTimeout(to)
+      return null
     }
-    fxCache = { fx, ts: now }
-    return fx
-  } catch (e) {
-    clearTimeout(to)
-    fxCache = { fx: null, ts: now }
-    return null
   }
+
+  // Un intento + un reintento si falla
+  let fx = await fetchOnce()
+  if (!fx) fx = await fetchOnce()
+  if (fx) {
+    fxCache = { fx, ts: now }
+  }
+  return fx
 }
 
 
