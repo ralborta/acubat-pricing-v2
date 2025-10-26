@@ -40,6 +40,10 @@ export interface ProductoPricing {
   mayorista_precio_final?: number
   mayorista_rentabilidad?: number
   mayorista_markup_aplicado?: number
+  original_currency?: string
+  original_price?: number
+  applied_fx_rate?: number
+  applied_fx_date?: string
   equivalencia_varta?: any
   validacion_moneda?: any
 }
