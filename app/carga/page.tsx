@@ -385,6 +385,7 @@ export default function CargaPage() {
         try {
           if (data.fx_info) {
             localStorage.setItem('acubat_fx', JSON.stringify(data.fx_info))
+            window.dispatchEvent(new Event('acubat_fx_update'))
           }
         } catch {}
         // Filtro visual: ocultar filas con ambos precios base 0

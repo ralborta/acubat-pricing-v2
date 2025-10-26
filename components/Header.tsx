@@ -12,6 +12,34 @@ export default function Header() {
       const raw = localStorage.getItem('acubat_fx')
       if (raw) setFx(JSON.parse(raw))
     } catch {}
+    // Fetch inicial desde API
+    fetch('/api/fx').then(r => r.json()).then(d => {
+      if (d?.success && d?.fx) {
+        setFx(d.fx)
+        try { localStorage.setItem('acubat_fx', JSON.stringify(d.fx)) } catch {}
+      }
+    }).catch(() => {})
+    // Suscribirse a actualizaciones inmediatas
+    const handler = () => {
+      try {
+        const raw = localStorage.getItem('acubat_fx')
+        if (raw) setFx(JSON.parse(raw))
+      } catch {}
+    }
+    window.addEventListener('acubat_fx_update', handler as any)
+    // Intervalo cada 30 minutos
+    const iv = setInterval(() => {
+      fetch('/api/fx').then(r => r.json()).then(d => {
+        if (d?.success && d?.fx) {
+          setFx(d.fx)
+          try { localStorage.setItem('acubat_fx', JSON.stringify(d.fx)) } catch {}
+        }
+      }).catch(() => {})
+    }, 30 * 60 * 1000)
+    return () => {
+      window.removeEventListener('acubat_fx_update', handler as any)
+      clearInterval(iv)
+    }
   }, [])
   
   const currentDate = new Date().toLocaleDateString('es-ES', {
