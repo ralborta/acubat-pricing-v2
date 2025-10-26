@@ -1704,6 +1704,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) {
   const rate = Number(fxInfo.sell)
   console.log(`💵 ========== CONVERSIÓN USD → ARS ==========`)
+  console.log(`💵 Precio RAW: ${precioBase}`)
+  
+  // 🔧 CORRECCIÓN: Si el precio es > 1000, probablemente perdió los decimales
+  // Ejemplo: "USD 124,99" → parseado como 12499 → debe ser 124.99
+  if (precioBase > 1000) {
+    const precioOriginal = precioBase
+    precioBase = precioBase / 100  // Dividir por 100 para recuperar decimales
+    console.log(`💵 ⚠️ Precio > 1000 detectado (formato con coma): ${precioOriginal} → ${precioBase}`)
+  }
+  
   console.log(`💵 Precio ANTES de conversión: ${precioBase} USD`)
   console.log(`💵 Tipo de cambio (venta): ${rate}`)
   console.log(`💵 Cálculo: ${precioBase} × ${rate}`)
