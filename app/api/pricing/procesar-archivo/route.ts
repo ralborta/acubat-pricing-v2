@@ -1295,6 +1295,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     const productosProcesadosRaw = (await Promise.all(datosFiltrados.map(async (producto: any, index: number) => {
       console.log(`\n🔍 === PRODUCTO ${index + 1} ===`)
+      console.log(`💵 preciosEnUSD parameter: ${preciosEnUSD}`)
       
       // 🔍 DEBUG: Ver qué datos llegan del Excel
       console.log(`🔍 DATOS CRUDOS DEL PRODUCTO ${index + 1}:`)
