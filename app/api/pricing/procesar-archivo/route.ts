@@ -1661,12 +1661,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`💵 FX INFO disponible:`, fxInfo)
       console.log(`💵 USD detectado previamente: ${esUSD}`)
       
+      // DEBUG: Guardar info para respuesta
+      const debugFx = {
+        preciosEnUSD: preciosEnUSD,
+        esUSD: esUSD,
+        fxInfo: fxInfo ? { buy: fxInfo.buy, sell: fxInfo.sell, date: fxInfo.date } : null,
+        precioAntes: precioBase,
+        precioConvertido: null as number | null,
+        seAplicoConversion: false
+      }
+      
       if (esUSD && fxInfo && fxInfo.sell) {
         console.log(`💵 Precio detectado en USD: ${precioBase}`)
         precioBase = precioBase * fxInfo.sell
         monedaOriginal = 'USD'
         appliedFxRate = fxInfo.sell
         appliedFxDate = fxInfo.date
+        debugFx.precioConvertido = precioBase
+        debugFx.seAplicoConversion = true
         console.log(`💵 Convertido a ARS usando TC ${fxInfo.sell}: ${precioBase}`)
       } else {
         console.log(`💵 NO se aplicó conversión. esUSD=${esUSD}, fxInfo=${!!fxInfo}, fxInfo.sell=${fxInfo?.sell}`)
@@ -1882,6 +1894,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         original_price: precioBaseOriginal,
         applied_fx_rate: appliedFxRate,
         applied_fx_date: appliedFxDate,
+        debug_fx: debugFx,  // DEBUG INFO
         precio_base_minorista: precioBaseConDescuento,  // ✅ Precio base para Minorista (con descuento)
         precio_base_mayorista: mayoristaBaseConDescuento,  // ✅ Precio base para Mayorista (con descuento)
         descuento_proveedor: descuentoProveedor,  // ✅ % Descuento de proveedor aplicado
