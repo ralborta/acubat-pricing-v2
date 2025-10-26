@@ -1398,6 +1398,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Descripción: "${descripcion_val}" (columna: ${descCol})`)
       console.log(`   - Proveedor: "${proveedor}" (detectado por IA)`)
       
+      // 💵 DETECCIÓN TEMPRANA DE USD (antes de parsear precio)
+      let esUSD = false
+      for (const [key, value] of Object.entries(producto || {})) {
+        const strValue = String(value || '').trim()
+        if (/USD/i.test(strValue)) {
+          esUSD = true
+          console.log(`💵 USD detectado en columna '${key}': '${strValue}'`)
+          break
+        }
+      }
+      
       // Buscar precio (prioridad: Contado > precio > pdv > pvp)
       console.log(`\n💰 BÚSQUEDA DE PRECIO DEL PRODUCTO ${index + 1}:`)
       console.log(`🔍 Mapeo de columnas disponible:`, columnMapping)
@@ -1647,14 +1658,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       let appliedFxDate = null
       
       console.log(`💵 FX INFO disponible:`, fxInfo)
-      console.log(`💵 Producto para detección USD:`, producto)
-      console.log(`💵 Column mapping:`, columnMapping)
+      console.log(`💵 USD detectado previamente: ${esUSD}`)
       
-      // Detectar si el precio está en USD (heurística simple)
-      const precioEsUSD = detectarUSD(producto, columnMapping)
-      console.log(`💵 Resultado detección USD: ${precioEsUSD}`)
-      
-      if (precioEsUSD && fxInfo && fxInfo.sell) {
+      if (esUSD && fxInfo && fxInfo.sell) {
         console.log(`💵 Precio detectado en USD: ${precioBase}`)
         precioBase = precioBase * fxInfo.sell
         monedaOriginal = 'USD'
@@ -1662,7 +1668,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         appliedFxDate = fxInfo.date
         console.log(`💵 Convertido a ARS usando TC ${fxInfo.sell}: ${precioBase}`)
       } else {
-        console.log(`💵 NO se aplicó conversión. precioEsUSD=${precioEsUSD}, fxInfo=${!!fxInfo}, fxInfo.sell=${fxInfo?.sell}`)
+        console.log(`💵 NO se aplicó conversión. esUSD=${esUSD}, fxInfo=${!!fxInfo}, fxInfo.sell=${fxInfo?.sell}`)
       }
       
       // Descartar filas sin precio (evitar encabezados/títulos parsing)
