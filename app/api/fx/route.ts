@@ -16,11 +16,12 @@ export async function GET(req: Request) {
         const debug = url.searchParams.get('debug') === '1'
         return NextResponse.json({ success: false, error: 'FX no disponible', meta: debug ? meta : undefined }, { status: 502 })
       }
-      return NextResponse.json({ success: true, fx, meta: { ...getFxMeta(), cached: true } })
+      await saveFxCache(fx)
+      return NextResponse.json({ success: true, ...fx, meta: { ...getFxMeta(), cached: true } })
     }
     await saveFxCache(fx)
     const meta = getFxMeta()
-    return NextResponse.json({ success: true, fx, meta })
+    return NextResponse.json({ success: true, ...fx, meta })
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e?.message || 'FX error' }, { status: 500 })
   }

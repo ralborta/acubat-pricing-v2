@@ -16,9 +16,13 @@ export interface FxMeta {
   ts: string
 }
 
-const FX_URL = process.env.FX_URL || 'https://tu-app.railway.app/rates/blue'
-const FX_TIMEOUT_MS = Number(process.env.FX_TIMEOUT_MS || 1500)
+const FX_URL = process.env.FX_URL
+const FX_TIMEOUT_MS = Number(process.env.FX_TIMEOUT_MS || 5000)
 const FX_CACHE_TTL_MS = Number(process.env.FX_CACHE_TTL_MS || 10 * 60 * 1000) // 10 min
+
+if (!FX_URL) {
+  throw new Error('FX_URL environment variable is not set')
+}
 
 let fxCache: CacheEntry | null = null
 let lastFxMeta: FxMeta | null = null
