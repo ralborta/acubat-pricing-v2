@@ -558,10 +558,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('   - Última actualización:', config.ultimaActualizacion)
 
     // Leer archivo Excel con soporte para múltiples hojas
+    // Preservar formato original de celdas para detectar USD
     const buffer = await file.arrayBuffer()
-    const workbook = XLSX.read(buffer, { type: 'buffer' })
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellText: false, cellDates: false })
     
     console.log('📋 HOJAS DISPONIBLES:', workbook.SheetNames)
+    
+    // 💵 DETECCIÓN GLOBAL DE USD (antes de procesar productos)
+    let archivoEsUSD = preciosEnUSD // Checkbox tiene prioridad
+    if (!archivoEsUSD) {
+      // Buscar "USD" en las primeras 20 filas de todas las hojas
+      for (const sheetName of workbook.SheetNames) {
+        const ws = workbook.Sheets[sheetName]
+        const matriz = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', range: 0 }) as unknown as Array<Array<string | number>>
+        const primeras20 = matriz.slice(0, 20).flat().map(c => String(c || ''))
+        const tieneUSD = primeras20.some(c => /USD|DOLAR|DÓLAR|U\$S|\$US/i.test(c))
+        if (tieneUSD) {
+          archivoEsUSD = true
+          console.log(`💵 USD detectado en hoja "${sheetName}" - archivo será tratado como USD`)
+          break
+        }
+      }
+    }
+    
+    console.log(`💵 ARCHIVO DETECTADO COMO: ${archivoEsUSD ? 'USD' : 'ARS'}`)
     
     // 🎯 ANÁLISIS DE TODAS LAS HOJAS
     const diagnosticoHojas: Array<{ nombre: string; filas: number; headers: string[]; pvpOffLine?: string; precioLista?: string; precioUnitario?: string; descartada?: boolean; motivoDescarte?: string; score?: number; }> = []
@@ -1411,14 +1431,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Descripción: "${descripcion_val}" (columna: ${descCol})`)
       console.log(`   - Proveedor: "${proveedor}" (detectado por IA)`)
       
-      // 💵 USD: Si el usuario marcó el checkbox, TODOS los precios son USD
-      const esUSD = preciosEnUSD
-      
-      if (esUSD) {
-        console.log(`💵 USD ACTIVADO por checkbox del usuario - se aplicará conversión`)
-      } else {
-        console.log(`💵 Precios en ARS (checkbox no marcado)`)
-      }
+      // 💵 USD: Usar detección global del archivo
+      const esUSD = archivoEsUSD
       
       // Buscar precio (prioridad: Contado > precio > pdv > pvp)
       console.log(`\n💰 BÚSQUEDA DE PRECIO DEL PRODUCTO ${index + 1}:`)
