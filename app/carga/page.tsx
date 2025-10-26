@@ -76,6 +76,7 @@ export default function CargaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { configuracion } = useConfiguracion()
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<string>('')
+  const [preciosEnUSD, setPreciosEnUSD] = useState<boolean>(false)
   
   // Estados para conversión PDF
   const [convirtiendoPDF, setConvirtiendoPDF] = useState(false)
@@ -357,6 +358,9 @@ export default function CargaPage() {
       formData.append('file', archivoSeleccionado)
       if (proveedorSeleccionado) {
         formData.append('proveedorSeleccionado', proveedorSeleccionado)
+      }
+      if (preciosEnUSD) {
+        formData.append('preciosEnUSD', 'true')
       }
       
       // Obtener configuración actual del localStorage
@@ -837,6 +841,20 @@ export default function CargaPage() {
                     <p className="text-xs text-indigo-700 md:col-span-2">
                       Elegí un proveedor para aplicar sus descuentos preconfigurados a esta corrida de pricing.
                     </p>
+                  </div>
+
+                  {/* Checkbox para precios en USD */}
+                  <div className="mt-4 flex items-center">
+                    <input
+                      id="preciosEnUSD"
+                      type="checkbox"
+                      checked={preciosEnUSD}
+                      onChange={(e) => setPreciosEnUSD(e.target.checked)}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="preciosEnUSD" className="ml-2 block text-sm text-gray-700">
+                      💵 Los precios están en USD (se convertirán a ARS usando el tipo de cambio Blue)
+                    </label>
                   </div>
                 </div>
               </div>

@@ -521,9 +521,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const file = formData.get('file') as File
     const configuracion = formData.get('configuracion') as string
     const proveedorForzado = (formData.get('proveedorSeleccionado') as string) || ''
+    const preciosEnUSD = formData.get('preciosEnUSD') === 'true'
     
     console.log('📁 Archivo recibido:', file?.name, 'Tamaño:', file?.size)
     console.log('⚙️ Configuración recibida:', configuracion)
+    console.log('💵 Precios en USD:', preciosEnUSD)
     
     if (!file) {
       return NextResponse.json({ error: 'No se proporcionó archivo' }, { status: 400 })
@@ -1398,18 +1400,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Descripción: "${descripcion_val}" (columna: ${descCol})`)
       console.log(`   - Proveedor: "${proveedor}" (detectado por IA)`)
       
-      // 💵 DETECCIÓN TEMPRANA DE USD (antes de parsear precio)
-      let esUSD = false
-      console.log(`💵 Revisando producto para USD:`, JSON.stringify(producto).substring(0, 500))
-      for (const [key, value] of Object.entries(producto || {})) {
-        const strValue = String(value || '').trim()
-        if (/USD/i.test(strValue)) {
-          esUSD = true
-          console.log(`💵 ✅ USD detectado en columna '${key}': '${strValue}'`)
-          break
+      // 💵 USD: usar flag del usuario o detectar automáticamente
+      let esUSD = preciosEnUSD // Flag del form tiene prioridad
+      
+      // Si no viene del form, intentar detectar automáticamente
+      if (!esUSD) {
+        console.log(`💵 Revisando producto para USD:`, JSON.stringify(producto).substring(0, 500))
+        
+        // Buscar USD en nombres de columnas (keys)
+        for (const key of Object.keys(producto || {})) {
+          if (/USD|DOLAR|DÓLAR|U\$S|\$US/i.test(key)) {
+            esUSD = true
+            console.log(`💵 ✅ USD detectado en nombre de columna: '${key}'`)
+            break
+          }
         }
+        
+        // Buscar USD en valores (por si es texto)
+        if (!esUSD) {
+          for (const [key, value] of Object.entries(producto || {})) {
+            const strValue = String(value || '').trim()
+            if (/USD|DOLAR|DÓLAR|U\$S|\$US/i.test(strValue)) {
+              esUSD = true
+              console.log(`💵 ✅ USD detectado en valor de columna '${key}': '${strValue}'`)
+              break
+            }
+          }
+        }
+      } else {
+        console.log(`💵 USD forzado por parámetro del usuario`)
       }
-      console.log(`💵 Resultado detección temprana: esUSD=${esUSD}`)
+      
+      console.log(`💵 Resultado final: esUSD=${esUSD}`)
       
       // Buscar precio (prioridad: Contado > precio > pdv > pvp)
       console.log(`\n💰 BÚSQUEDA DE PRECIO DEL PRODUCTO ${index + 1}:`)
