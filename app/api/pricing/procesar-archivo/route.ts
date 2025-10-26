@@ -1400,14 +1400,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // 💵 DETECCIÓN TEMPRANA DE USD (antes de parsear precio)
       let esUSD = false
+      console.log(`💵 Revisando producto para USD:`, JSON.stringify(producto).substring(0, 500))
       for (const [key, value] of Object.entries(producto || {})) {
         const strValue = String(value || '').trim()
         if (/USD/i.test(strValue)) {
           esUSD = true
-          console.log(`💵 USD detectado en columna '${key}': '${strValue}'`)
+          console.log(`💵 ✅ USD detectado en columna '${key}': '${strValue}'`)
           break
         }
       }
+      console.log(`💵 Resultado detección temprana: esUSD=${esUSD}`)
       
       // Buscar precio (prioridad: Contado > precio > pdv > pvp)
       console.log(`\n💰 BÚSQUEDA DE PRECIO DEL PRODUCTO ${index + 1}:`)
