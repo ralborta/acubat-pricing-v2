@@ -422,6 +422,24 @@ Salida estricta:
   }
 }
 
+// 💵 DETECCIÓN DE USD (heurística simple)
+function detectarUSD(producto: any, columnMapping: any): boolean {
+  const header = columnMapping?.header || ''
+  const lowerHeader = header.toLowerCase()
+  
+  // Tokens que indican USD en headers
+  const usdTokens = ['usd', 'us$', 'u$s', '$us', 'dolar', 'dólar']
+  if (usdTokens.some(t => lowerHeader.includes(t))) return true
+  
+  // Revisar valores del producto para tokens USD
+  for (const [key, value] of Object.entries(producto || {})) {
+    const strValue = String(value || '').toLowerCase()
+    if (usdTokens.some(t => strValue.includes(t))) return true
+  }
+  
+  return false
+}
+
 // 💰 VALIDACIÓN SIMPLE DE MONEDA (sin IA)
 function validarMoneda(precio: any): { esPeso: boolean, confianza: number, razon: string } {
   // Convertir a string para análisis
@@ -1616,6 +1634,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       console.log(`💰 PRECIO BASE FINAL: ${precioBase}`)
+      
+      // 💵 DETECCIÓN Y CONVERSIÓN DE USD A ARS
+      let precioBaseOriginal = precioBase
+      let monedaOriginal = 'ARS'
+      let appliedFxRate = null
+      let appliedFxDate = null
+      
+      // Detectar si el precio está en USD (heurística simple)
+      const precioEsUSD = detectarUSD(producto, columnMapping)
+      
+      if (precioEsUSD && fxInfo && fxInfo.sell) {
+        console.log(`💵 Precio detectado en USD: ${precioBase}`)
+        precioBase = precioBase * fxInfo.sell
+        monedaOriginal = 'USD'
+        appliedFxRate = fxInfo.sell
+        appliedFxDate = fxInfo.date
+        console.log(`💵 Convertido a ARS usando TC ${fxInfo.sell}: ${precioBase}`)
+      }
+      
       // Descartar filas sin precio (evitar encabezados/títulos parsing)
       if (!precioBase || precioBase <= 0) {
         console.log(`⚠️ Producto ${index + 1} descartado: precioBase=0 (posible encabezado/título)`)
@@ -1822,6 +1859,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         descripcion: descripcion_val || '',
         proveedor: proveedor,  // ✅ Proveedor detectado por IA
         precio_base_original: precioBase,  // ✅ Precio base original (del archivo)
+        original_currency: monedaOriginal,
+        original_price: precioBaseOriginal,
+        applied_fx_rate: appliedFxRate,
+        applied_fx_date: appliedFxDate,
         precio_base_minorista: precioBaseConDescuento,  // ✅ Precio base para Minorista (con descuento)
         precio_base_mayorista: mayoristaBaseConDescuento,  // ✅ Precio base para Mayorista (con descuento)
         descuento_proveedor: descuentoProveedor,  // ✅ % Descuento de proveedor aplicado
