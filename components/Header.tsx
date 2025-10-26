@@ -14,7 +14,7 @@ export default function Header() {
       if (raw) setFx(JSON.parse(raw))
     } catch {}
     // Fetch inicial desde API
-    fetch('/api/fx').then(r => r.json()).then(d => {
+    fetch('/api/fx', { cache: 'no-store' }).then(r => r.json()).then(d => {
       if (d?.success && d?.fx) {
         setFx(d.fx)
         try { localStorage.setItem('acubat_fx', JSON.stringify(d.fx)) } catch {}
@@ -30,7 +30,7 @@ export default function Header() {
     window.addEventListener('acubat_fx_update', handler as any)
     // Intervalo cada 30 minutos
     const iv = setInterval(() => {
-      fetch('/api/fx').then(r => r.json()).then(d => {
+      fetch('/api/fx', { cache: 'no-store' }).then(r => r.json()).then(d => {
         if (d?.success && d?.fx) {
           setFx(d.fx)
           try { localStorage.setItem('acubat_fx', JSON.stringify(d.fx)) } catch {}
@@ -99,7 +99,7 @@ export default function Header() {
               className="ml-2 text-xs underline hover:no-underline"
               onClick={() => {
                 setLoadingFx(true)
-                fetch('/api/fx').then(r => r.json()).then(d => {
+                fetch('/api/fx', { cache: 'no-store' }).then(r => r.json()).then(d => {
                   if (d?.success && d?.fx) {
                     setFx(d.fx)
                     try { localStorage.setItem('acubat_fx', JSON.stringify(d.fx)) } catch {}

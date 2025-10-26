@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getBlueRate } from '@/lib/fx'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const fx = await getBlueRate()
