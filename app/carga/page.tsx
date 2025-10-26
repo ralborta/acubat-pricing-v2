@@ -382,6 +382,11 @@ export default function CargaPage() {
       
       if (data.success) {
         setResultado(data)
+        try {
+          if (data.fx_info) {
+            localStorage.setItem('acubat_fx', JSON.stringify(data.fx_info))
+          }
+        } catch {}
         // Filtro visual: ocultar filas con ambos precios base 0
         const headerTokens = ['precio','unitario','contado','cont','caja','pago','dia','dias','iva']
         const visibles = (data.productos || []).filter((p: any) => {

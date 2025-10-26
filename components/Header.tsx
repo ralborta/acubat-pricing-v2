@@ -1,10 +1,18 @@
 'use client'
 
-import { Search, Bell, Settings, User, TrendingUp } from 'lucide-react'
+import { Search, Bell, Settings, User, TrendingUp, DollarSign } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 export default function Header() {
   const router = useRouter()
+  const [fx, setFx] = useState<{ buy: number; sell: number; date: string; source?: string } | null>(null)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('acubat_fx')
+      if (raw) setFx(JSON.parse(raw))
+    } catch {}
+  }, [])
   
   const currentDate = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
@@ -45,6 +53,18 @@ export default function Header() {
 
         {/* Right Side Controls */}
         <div className="flex items-center gap-4">
+          {/* FX Banner */}
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-md border bg-yellow-50 border-yellow-200 text-yellow-800">
+            <DollarSign className="w-4 h-4" />
+            {fx ? (
+              <span className="text-sm">
+                Blue: Compra <strong>${'{'}fx.buy.toLocaleString('es-AR'){'}'}</strong> · Venta <strong>${'{'}fx.sell.toLocaleString('es-AR'){'}'}</strong>
+                <span className="ml-2 text-xs text-yellow-700">{new Date(fx.date).toLocaleString()}</span>
+              </span>
+            ) : (
+              <span className="text-sm">Blue: sin datos</span>
+            )}
+          </div>
           {/* Date and Update Button */}
           <div className="flex items-center gap-4">
             <div className="text-sm text-gray-600">
