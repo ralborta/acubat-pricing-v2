@@ -1401,38 +1401,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Descripción: "${descripcion_val}" (columna: ${descCol})`)
       console.log(`   - Proveedor: "${proveedor}" (detectado por IA)`)
       
-      // 💵 USD: usar flag del usuario o detectar automáticamente
-      let esUSD = preciosEnUSD // Flag del form tiene prioridad
+      // 💵 USD: Si el usuario marcó el checkbox, TODOS los precios son USD
+      const esUSD = preciosEnUSD
       
-      // Si no viene del form, intentar detectar automáticamente
-      if (!esUSD) {
-        console.log(`💵 Revisando producto para USD:`, JSON.stringify(producto).substring(0, 500))
-        
-        // Buscar USD en nombres de columnas (keys)
-        for (const key of Object.keys(producto || {})) {
-          if (/USD|DOLAR|DÓLAR|U\$S|\$US/i.test(key)) {
-            esUSD = true
-            console.log(`💵 ✅ USD detectado en nombre de columna: '${key}'`)
-            break
-          }
-        }
-        
-        // Buscar USD en valores (por si es texto)
-        if (!esUSD) {
-          for (const [key, value] of Object.entries(producto || {})) {
-            const strValue = String(value || '').trim()
-            if (/USD|DOLAR|DÓLAR|U\$S|\$US/i.test(strValue)) {
-              esUSD = true
-              console.log(`💵 ✅ USD detectado en valor de columna '${key}': '${strValue}'`)
-              break
-            }
-          }
-        }
+      if (esUSD) {
+        console.log(`💵 USD ACTIVADO por checkbox del usuario - se aplicará conversión`)
       } else {
-        console.log(`💵 USD forzado por parámetro del usuario`)
+        console.log(`💵 Precios en ARS (checkbox no marcado)`)
       }
-      
-      console.log(`💵 Resultado final: esUSD=${esUSD}`)
       
       // Buscar precio (prioridad: Contado > precio > pdv > pvp)
       console.log(`\n💰 BÚSQUEDA DE PRECIO DEL PRODUCTO ${index + 1}:`)
