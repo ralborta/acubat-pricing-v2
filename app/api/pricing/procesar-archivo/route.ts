@@ -1703,14 +1703,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
 if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) {
   const rate = Number(fxInfo.sell)
-  console.log(`💵 Precio detectado en USD: ${precioBase}`)
+  console.log(`💵 ========== CONVERSIÓN USD → ARS ==========`)
+  console.log(`💵 Precio ANTES de conversión: ${precioBase} USD`)
+  console.log(`💵 Tipo de cambio (venta): ${rate}`)
+  console.log(`💵 Cálculo: ${precioBase} × ${rate}`)
+  
   precioBase = Number(precioBase) * rate
+  
+  console.log(`💵 Precio DESPUÉS de conversión: ${precioBase} ARS`)
+  console.log(`💵 ==========================================`)
+  
   monedaOriginal = 'USD'
   appliedFxRate = rate
   appliedFxDate = fxInfo.date
   debugFx.precioConvertido = precioBase
   debugFx.seAplicoConversion = true
-  console.log(`💵 Convertido a ARS usando TC ${rate}: ${precioBase}`)
 } else {
   console.log(`💵 NO se aplicó conversión. esUSD=${esUSD}, fxInfo=${!!fxInfo}, sell=${fxInfo?.sell}`)
 }
