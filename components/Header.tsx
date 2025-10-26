@@ -91,7 +91,7 @@ export default function Header() {
               <span className="text-sm">Tipo de cambio: obteniendo…</span>
             ) : fx ? (
               <span className="text-sm">
-                Tipo de cambio: Compra <strong>${'{'}fx.buy.toLocaleString('es-AR'){'}'}</strong> · Venta <strong>${'{'}fx.sell.toLocaleString('es-AR'){'}'}</strong>
+                Tipo de cambio: Compra <strong>${fx.buy.toLocaleString('es-AR')}</strong> · Venta <strong>${fx.sell.toLocaleString('es-AR')}</strong>
                 <span className="ml-2 text-xs text-yellow-700">{new Date(fx.date).toLocaleString()}</span>
               </span>
             ) : (
