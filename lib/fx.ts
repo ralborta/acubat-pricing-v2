@@ -42,14 +42,16 @@ export async function getBlueRate(): Promise<FxInfo | null> {
     return null
   }
 
+  const safeUrl = FX_URL // TS ya validó que no es undefined
+  
   async function fetchOnce(): Promise<FxInfo | null> {
     const controller = new AbortController()
     const to = setTimeout(() => controller.abort(), FX_TIMEOUT_MS)
     try {
-      const res = await fetch(FX_URL!, { signal: controller.signal })
+      const res = await fetch(safeUrl, { signal: controller.signal })
       clearTimeout(to)
       if (!res.ok) {
-        lastFxMeta = { url: FX_URL, ok: false, status: res.status, ts: new Date().toISOString() }
+        lastFxMeta = { url: safeUrl, ok: false, status: res.status, ts: new Date().toISOString() }
         throw new Error(`FX HTTP ${res.status}`)
       }
       const data = await res.json()
@@ -60,11 +62,11 @@ export async function getBlueRate(): Promise<FxInfo | null> {
         date: String(data.date || data.fecha || new Date().toISOString()),
         source: String(data.source || 'Dólar Blue')
       }
-      lastFxMeta = { url: FX_URL, ok: true, status: 200, ts: new Date().toISOString() }
+      lastFxMeta = { url: safeUrl, ok: true, status: 200, ts: new Date().toISOString() }
       return fx
     } catch (e) {
       clearTimeout(to)
-      lastFxMeta = { url: FX_URL!, ok: false, error: (e as any)?.message || 'unknown', ts: new Date().toISOString() }
+      lastFxMeta = { url: safeUrl, ok: false, error: (e as any)?.message || 'unknown', ts: new Date().toISOString() }
       return null
     }
   }
