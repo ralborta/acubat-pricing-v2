@@ -1646,8 +1646,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       let appliedFxRate = null
       let appliedFxDate = null
       
+      console.log(`💵 FX INFO disponible:`, fxInfo)
+      console.log(`💵 Producto para detección USD:`, producto)
+      console.log(`💵 Column mapping:`, columnMapping)
+      
       // Detectar si el precio está en USD (heurística simple)
       const precioEsUSD = detectarUSD(producto, columnMapping)
+      console.log(`💵 Resultado detección USD: ${precioEsUSD}`)
       
       if (precioEsUSD && fxInfo && fxInfo.sell) {
         console.log(`💵 Precio detectado en USD: ${precioBase}`)
@@ -1656,6 +1661,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         appliedFxRate = fxInfo.sell
         appliedFxDate = fxInfo.date
         console.log(`💵 Convertido a ARS usando TC ${fxInfo.sell}: ${precioBase}`)
+      } else {
+        console.log(`💵 NO se aplicó conversión. precioEsUSD=${precioEsUSD}, fxInfo=${!!fxInfo}, fxInfo.sell=${fxInfo?.sell}`)
       }
       
       // Descartar filas sin precio (evitar encabezados/títulos parsing)
