@@ -5,7 +5,6 @@ import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
 import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
 import { HistorialPricing } from "@/lib/supabase-historial"
 import { getBlueRate } from '@/lib/fx'
-import { detectWorkbookIsUSD } from '@/lib/detect-usd'
 
 // 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN CON FALLBACK ROBUSTO
 async function obtenerConfiguracion() {
@@ -565,29 +564,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     console.log('📋 HOJAS DISPONIBLES:', workbook.SheetNames)
     
-    // 💵 DETECCIÓN GLOBAL DE USD (antes de procesar productos)
-    // Checkbox tiene prioridad > detección RAW de celdas
-    let archivoEsUSD = !!preciosEnUSD
-    const detectMeta = {
-      checkbox: !!preciosEnUSD,
-      auto_detect: false,
-      filename_hint: false
-    }
-    
-    if (!archivoEsUSD) {
-      // Detección automática usando celdas RAW (cell.w, cell.z)
-      archivoEsUSD = detectWorkbookIsUSD(workbook, 20)
-      detectMeta.auto_detect = archivoEsUSD
-    }
-    
-    // Pista adicional: nombre de archivo
-    if (!archivoEsUSD && /USD|DOLAR|DÓLAR|U\$S|\$US/i.test(file.name)) {
-      archivoEsUSD = true
-      detectMeta.filename_hint = true
-      console.log(`💵 USD detectado en nombre de archivo: "${file.name}"`)
-    }
-    
-    console.log(`💵 ARCHIVO DETECTADO COMO: ${archivoEsUSD ? 'USD' : 'ARS'}`, detectMeta)
+    // 💵 USD: Usar SOLO el checkbox del usuario (sin detección automática)
+    console.log(`💵 Checkbox "Precios en USD": ${preciosEnUSD ? 'MARCADO ✅' : 'NO MARCADO ❌'}`)
+    console.log(`💵 La conversión USD → ARS se aplicará: ${preciosEnUSD ? 'SÍ' : 'NO'}`)
     
     // 🎯 ANÁLISIS DE TODAS LAS HOJAS
     const diagnosticoHojas: Array<{ nombre: string; filas: number; headers: string[]; pvpOffLine?: string; precioLista?: string; precioUnitario?: string; descartada?: boolean; motivoDescarte?: string; score?: number; }> = []
@@ -1437,8 +1416,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - Descripción: "${descripcion_val}" (columna: ${descCol})`)
       console.log(`   - Proveedor: "${proveedor}" (detectado por IA)`)
       
-      // 💵 USD: Usar detección global del archivo
-      const esUSD = archivoEsUSD
+      // 💵 USD: Usar SOLO el checkbox del usuario (sin detección automática)
+      const esUSD = preciosEnUSD || false
       
       // Buscar precio (prioridad: Contado > precio > pdv > pvp)
       console.log(`\n💰 BÚSQUEDA DE PRECIO DEL PRODUCTO ${index + 1}:`)
@@ -1682,14 +1661,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       console.log(`💰 PRECIO BASE FINAL: ${precioBase}`)
       
-      // 💵 DETECCIÓN Y CONVERSIÓN DE USD A ARS
+      // 💵 CONVERSIÓN USD → ARS (SOLO si el usuario marcó el checkbox)
       let precioBaseOriginal = precioBase
       let monedaOriginal = 'ARS'
       let appliedFxRate = null
       let appliedFxDate = null
       
       console.log(`💵 FX INFO disponible:`, fxInfo)
-      console.log(`💵 USD detectado previamente: ${esUSD}`)
+      console.log(`💵 Checkbox "Precios en USD" marcado: ${esUSD}`)
       
       // DEBUG: Guardar info para respuesta
       const debugFx = {
@@ -1704,16 +1683,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) {
   const rate = Number(fxInfo.sell)
   console.log(`💵 ========== CONVERSIÓN USD → ARS ==========`)
-  console.log(`💵 Precio RAW: ${precioBase}`)
-  
-  // 🔧 CORRECCIÓN: Si el precio es > 1000, probablemente perdió los decimales
-  // Ejemplo: "USD 124,99" → parseado como 12499 → debe ser 124.99
-  if (precioBase > 1000) {
-    const precioOriginal = precioBase
-    precioBase = precioBase / 100  // Dividir por 100 para recuperar decimales
-    console.log(`💵 ⚠️ Precio > 1000 detectado (formato con coma): ${precioOriginal} → ${precioBase}`)
-  }
-  
   console.log(`💵 Precio ANTES de conversión: ${precioBase} USD`)
   console.log(`💵 Tipo de cambio (venta): ${rate}`)
   console.log(`💵 Cálculo: ${precioBase} × ${rate}`)
@@ -1729,7 +1698,11 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
   debugFx.precioConvertido = precioBase
   debugFx.seAplicoConversion = true
 } else {
-  console.log(`💵 NO se aplicó conversión. esUSD=${esUSD}, fxInfo=${!!fxInfo}, sell=${fxInfo?.sell}`)
+  if (esUSD) {
+    console.log(`⚠️ Checkbox USD marcado pero NO se pudo aplicar conversión (falta tipo de cambio)`)
+  } else {
+    console.log(`💵 NO se aplicó conversión (checkbox "Precios en USD" NO marcado)`)
+  }
 }
       
       // Descartar filas sin precio (evitar encabezados/títulos parsing)
