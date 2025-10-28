@@ -8,12 +8,34 @@
 import { getCellPrecioFlexible } from './column-resolver';
 import { parseLocaleNumber } from '../parse-number';
 
-export function getPrecioSeguro(row: Record<string, any>): number | null {
-  // 1) priorizar si la celda ya vino numérica (XLSX bien tipado)
-  const bruto = getCellPrecioFlexible(row);
+// Fallback posicional para proveedores específicos cuando headers son __EMPTY_*
+const FALLBACK_POSICIONAL: Record<string, string[]> = {
+  'MOURA': ['__EMPTY_15', 'col_15', '__EMPTY_14', 'col_14'], // columna 15-16 suele tener precio
+};
+
+export function getPrecioSeguro(row: Record<string, any>, proveedor?: string): number | null {
+  // 1) Intentar con resolver de columnas (método principal)
+  let bruto = getCellPrecioFlexible(row);
+  
+  // 2) Fallback posicional si no se encontró y tenemos proveedor conocido
+  if ((bruto === undefined || bruto === null || bruto === '') && proveedor) {
+    const proveedorUpper = proveedor.toUpperCase();
+    const fallbacks = FALLBACK_POSICIONAL[proveedorUpper];
+    
+    if (fallbacks) {
+      console.log(`⚠️ No se encontró por nombre, intentando fallback posicional para ${proveedorUpper}`);
+      for (const col of fallbacks) {
+        if (row[col] !== undefined && row[col] !== null && row[col] !== '') {
+          bruto = row[col];
+          console.log(`✅ Valor encontrado en columna posicional '${col}': "${bruto}"`);
+          break;
+        }
+      }
+    }
+  }
   
   if (bruto === undefined || bruto === null || bruto === '') {
-    console.log(`❌ No se encontró valor en columna de precio`);
+    console.log(`❌ No se encontró valor en columna de precio (ni por nombre ni posicional)`);
     return null;
   }
   

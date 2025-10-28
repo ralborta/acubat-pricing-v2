@@ -7,6 +7,7 @@ import { HistorialPricing } from "@/lib/supabase-historial"
 import { getBlueRate } from '@/lib/fx'
 import { parseLocaleNumber } from '@/lib/parse-number'
 import { getPrecioSeguro } from '@/lib/utils/precio-extractor'
+import { readWithSmartHeader, isProductRow } from '@/lib/utils/smart-header'
 
 // 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN CON FALLBACK ROBUSTO
 async function obtenerConfiguracion() {
@@ -579,52 +580,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       console.log(`\n🔍 Analizando hoja "${sheetName}":`)
       
-      // Leer datos de la hoja (detección dinámica de la fila de encabezados)
-      // Paso 1: leer como matriz para inspeccionar múltiples filas potenciales de headers
-      const matriz = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as unknown as Array<Array<string | number>>
-      if (!Array.isArray(matriz) || matriz.length === 0) {
-        console.log(`  ❌ Hoja vacía`)
+      // 🎯 Usar readWithSmartHeader para detectar encabezados automáticamente
+      // Resuelve __EMPTY_* en XLS viejos con headers en otras filas
+      const datosHoja = readWithSmartHeader(worksheet)
+      if (!datosHoja || datosHoja.length === 0) {
+        console.log(`  ❌ Hoja vacía o sin datos`)
         continue
       }
-
-      // Paso 2: buscar una fila que contenga indicadores de encabezado reales
-      const indicadores = ['pvp off line', 'precio de lista', 'precio unitario', 'código', 'codigo', 'descripcion', 'descripción', 'rubro', 'marca']
-      let headerRowIndex = -1
-      for (let r = 0; r < Math.min(matriz.length, 40); r++) {
-        const fila = (matriz[r] || []).map(c => String(c || '').toLowerCase())
-        const noVacios = fila.filter(x => x.trim() !== '').length
-        const tieneIndicador = indicadores.some(ind => fila.some(cell => cell.includes(ind)))
-        if (tieneIndicador && noVacios >= 3) {
-          headerRowIndex = r
-          break
-        }
-      }
-
-      // Si no se encontró una fila fuerte, usar heurísticas previas (0, luego 1, luego 2)
-      if (headerRowIndex < 0) {
-        headerRowIndex = 0
-      }
-
-      // Paso 3: construir JSON usando la fila detectada como headers
-      // 🔧 Caso particular LIQUI MOLY (cabecera multifila): si detectamos el patrón, fijar headerRowIndex
-      try {
-        const firstCell = String((matriz?.[0]?.[0]) || '').toLowerCase()
-        const idxAplic = matriz.slice(0, 10).findIndex((row: any) => {
-          const c = String((row?.[0]) || '').toLowerCase()
-          return c.includes('aditivos') && (c.includes('func') || c.includes('funcion')) && (c.includes('aplic') || c.includes('aplicacion'))
-        })
-        if (/liqui/.test(firstCell) && firstCell.includes('precio') && idxAplic >= 0) {
-          headerRowIndex = idxAplic
-          console.log(`  🔧 LIQUI MOLY (cabecera multifila) → headerRowIndex=${headerRowIndex}`)
-        }
-      } catch {}
-      let datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex })
-      if (datosHoja.length === 0) {
-        console.log(`  ❌ Hoja sin datos tras seleccionar headerRowIndex=${headerRowIndex}`)
-        continue
-      }
+      
       let headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
-      console.log(`  🧭 headerRowIndex=${headerRowIndex} → headers:`, headersHoja)
+      console.log(`  🧭 Headers detectados:`, headersHoja)
       
       // Función para normalizar headers (quitar acentos, espacios, etc.)
       const H = (h?: string) => (h || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim()
@@ -712,24 +677,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`\n🔍 Procesando hoja: ${hojaInfo.nombre}`)
       console.log(`🔍 DEBUG: hojaInfo =`, { nombre: hojaInfo.nombre, filas: hojaInfo.filas, descartada: hojaInfo.descartada })
       
-      // Aplicar la misma detección dinámica de headers
-      const matriz = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as unknown as Array<Array<string | number>>
-      let headerRowIndex = -1
-      const indicadores = ['pvp off line', 'precio de lista', 'precio unitario', 'código', 'codigo', 'descripcion', 'descripción', 'rubro', 'marca']
-      
-      for (let r = 0; r < Math.min(matriz.length, 40); r++) {
-        const fila = (matriz[r] || []).map(c => String(c || '').toLowerCase())
-        const noVacios = fila.filter(x => x.trim() !== '').length
-        const tieneIndicador = indicadores.some(ind => fila.some(cell => cell.includes(ind)))
-        if (tieneIndicador && noVacios >= 3) {
-          headerRowIndex = r
-          break
-        }
+      // 🎯 Usar readWithSmartHeader para detectar encabezados automáticamente
+      const datosHoja = readWithSmartHeader(worksheet)
+      if (!datosHoja || datosHoja.length === 0) {
+        console.log(`  ❌ Hoja sin datos`)
+        continue
       }
-      
-      if (headerRowIndex < 0) headerRowIndex = 0
-      
-      const datosHoja = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex })
       const headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
       
       console.log(`  📋 Headers detectados:`, headersHoja)
@@ -744,6 +697,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       })))
       
       const datosFiltrados = datosHoja.filter((producto: any, index: number) => {
+        // 🎯 Filtro robusto con isProductRow
+        if (!isProductRow(producto)) {
+          console.log(`    ⚠️  Fila ${index + 1} descartada (no es producto - TOTAL/vacía/separador)`)
+          return false
+        }
+        
         const valores = Object.values(producto).map(v => String(v || '').toLowerCase())
         const esNota = valores.some(v => v.includes('nota') || v.includes('tel:') || v.includes('bornes') || v.includes('precios para la compra'))
         const esTitulo = valores.some(v => v.includes('sistema de pricing') || v.includes('optimizado para máximo rendimiento'))
@@ -1462,7 +1421,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // 🎯 INTENTO 1: Usar getPrecioSeguro (resolver robusto de columnas)
       console.log(`\n🎯 INTENTO 1: Usando getPrecioSeguro (resolver robusto)`)
-      const precioRobusto = getPrecioSeguro(producto)
+      const precioRobusto = getPrecioSeguro(producto, proveedor)
       if (precioRobusto != null) {
         precioBase = precioRobusto
         console.log(`✅ Precio encontrado por resolver robusto: ${precioBase}`)
