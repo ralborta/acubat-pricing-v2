@@ -6,6 +6,7 @@ import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
 import { HistorialPricing } from "@/lib/supabase-historial"
 import { getBlueRate } from '@/lib/fx'
 import { parseLocaleNumber } from '@/lib/parse-number'
+import { getPrecioSeguro } from '@/lib/utils/precio-extractor'
 
 // 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN CON FALLBACK ROBUSTO
 async function obtenerConfiguracion() {
@@ -1459,6 +1460,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`🔍 Columnas de precio a buscar:`, columnasPrecio)
       console.log(`🔍 Mapeo completo de columnas:`, columnMapping)
       
+      // 🎯 INTENTO 1: Usar getPrecioSeguro (resolver robusto de columnas)
+      console.log(`\n🎯 INTENTO 1: Usando getPrecioSeguro (resolver robusto)`)
+      const precioRobusto = getPrecioSeguro(producto)
+      if (precioRobusto != null) {
+        precioBase = precioRobusto
+        console.log(`✅ Precio encontrado por resolver robusto: ${precioBase}`)
+      }
+      
+      // 🎯 INTENTO 2: Fallback a búsqueda por columnMapping si no se encontró
+      if (precioBase === 0) {
+        console.log(`\n🎯 INTENTO 2: Fallback a búsqueda por columnMapping`)
+      
       for (const columna of columnasPrecio) {
         if (!columna.value) continue // Saltar si no hay valor
         
@@ -1505,6 +1518,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           }
         }
       }
+      } // Fin del fallback (INTENTO 2)
       
       if (precioBase === 0) {
         // 🧩 Heurística específica LIQUI MOLY: intentar elegir columna de precio cuando el header es anómalo
