@@ -1622,8 +1622,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           
       for (const columna of columnasPrecio) {
             if (producto[columna]) {
-              const valor = parseFloat(String(getCellFlexible(producto, columna)))
-              if (valor > 0) {
+              let valorStr = String(getCellFlexible(producto, columna))
+              // 🔧 FIX: Convertir coma a punto ANTES de parsear
+              valorStr = valorStr.replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
+              if (valorStr.includes(',')) {
+                valorStr = valorStr.replace(/\./g, '').replace(',', '.')
+              }
+              const valor = parseFloat(valorStr)
+              if (!isNaN(valor) && valor > 0) {
                 precioBase = valor
                 console.log(`✅ Precio encontrado en '${columna}': ${precioBase}`)
                 break
