@@ -1498,6 +1498,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           
           console.log(`🔍 Valor original: "${valor}" -> Valor limpio: "${valorLimpio}"`)
           
+          // 🔧 FIX: Si tiene COMA, convertir a punto ANTES de parsear
+          if (valorLimpio.includes(',')) {
+            valorLimpio = valorLimpio.replace(/\./g, '').replace(',', '.')
+            console.log(`🔍 Coma detectada → convertido: "${valorLimpio}"`)
+          }
+          
           // Intentar parsear como número
           let precio = parseFloat(valorLimpio)
           
@@ -1540,8 +1546,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             const v = getCellFlexible(producto, candidato)
             if (v !== undefined && v !== null && v !== '') {
               let s = String(v).replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
+              // 🔧 FIX: Convertir coma a punto ANTES de parsear
+              if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.')
               let n = parseFloat(s)
-              if (isNaN(n)) n = parseFloat(s.replace(/\./g, '').replace(',', '.'))
               if (!isNaN(n) && n > 0) {
                 precioBase = n
                 console.log(`✅ LIQUI MOLY: precio tomado de columna '${candidato}' (preferencia 7) → ${precioBase}`)
@@ -1569,6 +1576,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             .trim()
           
           console.log(`🔍 Búsqueda alternativa - Valor original: "${value}" -> Valor limpio: "${valorLimpio}"`)
+          
+          // 🔧 FIX: Convertir coma a punto ANTES de parsear
+          if (valorLimpio.includes(',')) {
+            valorLimpio = valorLimpio.replace(/\./g, '').replace(',', '.')
+          }
           
           // Intentar parsear como número
           let precio = parseFloat(valorLimpio)
@@ -1649,8 +1661,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const v7 = col7 ? getCellFlexible(producto, col7) : undefined
           if (v7 !== undefined && v7 !== null && v7 !== '') {
             let s7 = String(v7).replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
+            // 🔧 FIX: Convertir coma a punto ANTES de parsear
+            if (s7.includes(',')) s7 = s7.replace(/\./g, '').replace(',', '.')
             let n7 = parseFloat(s7)
-            if (isNaN(n7)) n7 = parseFloat(s7.replace(/\./g, '').replace(',', '.'))
             if (!isNaN(n7) && n7 > 0) {
               console.log(`🔧 LIQUI MOLY: precio '${precioBase}' corregido desde col7 '${col7}' → ${n7}`)
               precioBase = n7
