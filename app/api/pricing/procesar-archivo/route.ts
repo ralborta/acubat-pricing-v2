@@ -5,6 +5,7 @@ import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
 import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
 import { HistorialPricing } from "@/lib/supabase-historial"
 import { getBlueRate } from '@/lib/fx'
+import { parseLocaleNumber } from '@/lib/parse-number'
 
 // 🎯 FUNCIÓN PARA OBTENER CONFIGURACIÓN CON FALLBACK ROBUSTO
 async function obtenerConfiguracion() {
@@ -1490,46 +1491,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
         
         if (valor !== undefined && valor !== null && valor !== '') {
-          // 🧹 LIMPIAR VALOR: Quitar símbolos y caracteres no numéricos
-          let valorLimpio = String(valor)
-            .replace(/\$/g, '') // Quitar símbolo $
-            .replace(/[^\d.,]/g, '') // Quitar todo excepto dígitos, puntos y comas
-            .trim()
+          console.log(`🔍 Valor original en '${columna.key}': "${valor}"`)
           
-          console.log(`🔍 Valor original: "${valor}" -> Valor limpio: "${valorLimpio}"`)
+          // 🎯 PARSEO ROBUSTO CON parseLocaleNumber
+          const precio = parseLocaleNumber(valor)
           
-          // 🔧 FIX: Si tiene COMA, convertir a punto ANTES de parsear
-          if (valorLimpio.includes(',')) {
-            valorLimpio = valorLimpio.replace(/\./g, '').replace(',', '.')
-            console.log(`🔍 Coma detectada → convertido: "${valorLimpio}"`)
-          }
-          
-          // Intentar parsear como número
-          let precio = parseFloat(valorLimpio)
-          
-          // 🎯 DETECCIÓN DE FORMATO ARGENTINO: Punto para miles (1-3 dígitos después del punto)
-          if (!isNaN(precio)) {
-            // Verificar si tiene punto y 1-3 dígitos después (formato argentino: 136.490, 39.720, 2.500)
-            if (valorLimpio.includes('.') && valorLimpio.split('.')[1] && 
-                valorLimpio.split('.')[1].length >= 1 && valorLimpio.split('.')[1].length <= 3) {
-              // Es formato argentino: 39.720 -> 39720, 2.500 -> 2500
-              const valorArgentino = valorLimpio.replace('.', '')
-              precio = parseFloat(valorArgentino)
-              console.log(`🔍 Formato argentino detectado: ${valorLimpio} -> ${valorArgentino} -> ${precio}`)
-            }
-          }
-          
-          // Si no es número, intentar limpiar formato argentino completo
-          if (isNaN(precio) && typeof valorLimpio === 'string') {
-            const valorFinal = valorLimpio.replace(/\./g, '').replace(',', '.')
-            precio = parseFloat(valorFinal)
-            console.log(`🔍 Valor final limpio: ${valorFinal} -> ${precio}`)
-          }
-          
-          if (!isNaN(precio) && precio > 0) {
+          if (precio != null && precio > 0) {
             precioBase = precio
             console.log(`✅ Precio encontrado en '${columna.key}' (${columna.value}): ${precioBase}`)
             break
+          } else {
+            console.log(`❌ Valor parseado inválido: ${precio}`)
           }
         }
       }
@@ -1545,11 +1517,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           if (candidato) {
             const v = getCellFlexible(producto, candidato)
             if (v !== undefined && v !== null && v !== '') {
-              let s = String(v).replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
-              // 🔧 FIX: Convertir coma a punto ANTES de parsear
-              if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.')
-              let n = parseFloat(s)
-              if (!isNaN(n) && n > 0) {
+              const n = parseLocaleNumber(v)
+              if (n != null && n > 0) {
                 precioBase = n
                 console.log(`✅ LIQUI MOLY: precio tomado de columna '${candidato}' (preferencia 7) → ${precioBase}`)
               }
@@ -1569,41 +1538,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const value = getCellFlexible(producto, key)
         if (isCodigoHeaderName(String(key))) continue // evitar columnas de código como precio
         if (value !== undefined && value !== null && value !== '') {
-          // 🧹 LIMPIAR VALOR: Quitar símbolos y caracteres no numéricos
-          let valorLimpio = String(value)
-            .replace(/\$/g, '') // Quitar símbolo $
-            .replace(/[^\d.,]/g, '') // Quitar todo excepto dígitos, puntos y comas
-            .trim()
+          console.log(`🔍 Búsqueda alternativa - Valor original en '${key}': "${value}"`)
           
-          console.log(`🔍 Búsqueda alternativa - Valor original: "${value}" -> Valor limpio: "${valorLimpio}"`)
+          const precio = parseLocaleNumber(value)
           
-          // 🔧 FIX: Convertir coma a punto ANTES de parsear
-          if (valorLimpio.includes(',')) {
-            valorLimpio = valorLimpio.replace(/\./g, '').replace(',', '.')
-          }
-          
-          // Intentar parsear como número
-          let precio = parseFloat(valorLimpio)
-          
-          // 🎯 DETECCIÓN DE FORMATO ARGENTINO: Si el número tiene 3 dígitos después del punto
-          if (!isNaN(precio)) {
-            // Verificar si tiene punto y exactamente 3 dígitos después (formato argentino: 136.490)
-            if (valorLimpio.includes('.') && valorLimpio.split('.')[1] && valorLimpio.split('.')[1].length === 3) {
-              // Es formato argentino: 136.490 -> 136490
-              const valorArgentino = valorLimpio.replace('.', '')
-              precio = parseFloat(valorArgentino)
-              console.log(`🔍 Formato argentino detectado en búsqueda alternativa: ${valorLimpio} -> ${valorArgentino} -> ${precio}`)
-            }
-          }
-          
-          // Si no es número, intentar limpiar formato argentino completo
-          if (isNaN(precio) && typeof valorLimpio === 'string') {
-            const valorFinal = valorLimpio.replace(/\./g, '').replace(',', '.')
-            precio = parseFloat(valorFinal)
-            console.log(`🔍 Valor final limpio en búsqueda alternativa: ${valorFinal} -> ${precio}`)
-          }
-          
-          if (!isNaN(precio) && precio > 1000 && precio < 1000000) {
+          if (precio != null && precio > 1000 && precio < 1000000) {
             precioBase = precio
             console.log(`✅ Precio encontrado por búsqueda alternativa en '${key}': ${precioBase}`)
             break
@@ -1622,14 +1561,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           
       for (const columna of columnasPrecio) {
             if (producto[columna]) {
-              let valorStr = String(getCellFlexible(producto, columna))
-              // 🔧 FIX: Convertir coma a punto ANTES de parsear
-              valorStr = valorStr.replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
-              if (valorStr.includes(',')) {
-                valorStr = valorStr.replace(/\./g, '').replace(',', '.')
-              }
-              const valor = parseFloat(valorStr)
-              if (!isNaN(valor) && valor > 0) {
+              const valor = parseLocaleNumber(getCellFlexible(producto, columna))
+              if (valor != null && valor > 0) {
                 precioBase = valor
                 console.log(`✅ Precio encontrado en '${columna}': ${precioBase}`)
                 break
@@ -1642,15 +1575,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (precioBase === 0) {
           console.log(`🔍 BÚSQUEDA POR CONTENIDO DE COLUMNAS...`)
           for (const [key, raw] of Object.entries(producto)) {
-            const value = String(getCellFlexible(producto, key) ?? '')
+            const value = getCellFlexible(producto, key)
             if (isCodigoHeaderName(String(key))) continue
-            if (typeof value === 'string' && value.includes(',')) {
-              // Intentar parsear números con comas (formato argentino)
-              const valorLimpio = value.replace(/\./g, '').replace(',', '.')
-              const valor = parseFloat(valorLimpio)
-              if (valor > 1000 && valor < 1000000) {
+            if (value !== undefined && value !== null && value !== '') {
+              const valor = parseLocaleNumber(value)
+              if (valor != null && valor > 1000 && valor < 1000000) {
                 precioBase = valor
-                console.log(`✅ Precio encontrado en '${key}' (formato argentino): ${precioBase}`)
+                console.log(`✅ Precio encontrado en '${key}' (contenido): ${precioBase}`)
                 break
               }
             }
@@ -1666,11 +1597,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const col7 = keysLM[6]
           const v7 = col7 ? getCellFlexible(producto, col7) : undefined
           if (v7 !== undefined && v7 !== null && v7 !== '') {
-            let s7 = String(v7).replace(/\$/g, '').replace(/[^\d.,]/g, '').trim()
-            // 🔧 FIX: Convertir coma a punto ANTES de parsear
-            if (s7.includes(',')) s7 = s7.replace(/\./g, '').replace(',', '.')
-            let n7 = parseFloat(s7)
-            if (!isNaN(n7) && n7 > 0) {
+            const n7 = parseLocaleNumber(v7)
+            if (n7 != null && n7 > 0) {
               console.log(`🔧 LIQUI MOLY: precio '${precioBase}' corregido desde col7 '${col7}' → ${n7}`)
               precioBase = n7
             }
