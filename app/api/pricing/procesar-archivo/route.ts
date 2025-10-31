@@ -603,12 +603,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const contado = headersHoja.find(h => H(h).includes('contado'))
       const precioLista = headersHoja.find(h => H(h).includes('precio') && H(h).includes('lista'))
       const precioUnitario = headersHoja.find(h => H(h).includes('precio') && H(h).includes('unit'))
-      const codigo = headersHoja.find(h => H(h).includes('codigo') || H(h).includes('código'))
+      let codigo = headersHoja.find(h => H(h).includes('codigo') || H(h).includes('código'))
       // Para MOURA, buscar "Descripción Modelo SAP" como modelo
       // Para otros proveedores, buscar "modelo" normalmente (sin restricciones)
-      const modelo = esMoura 
+      let modelo = esMoura 
         ? headersHoja.find(h => H(h).includes('descripcion modelo sap') || H(h).includes('descripción modelo sap') || (H(h).includes('modelo sap') && (H(h).includes('descripcion') || H(h).includes('descripción'))))
         : headersHoja.find(h => H(h).includes('modelo'))
+      
+      // 🛠️ AJUSTE CLAVE SOLO MOURA: si NO hay código pero SÍ hay "Descripción Modelo SAP", usala como identificador
+      if (esMoura && !codigo && modelo) {
+        console.log(`🧩 MOURA: usando "Descripción Modelo SAP" como código/ID de producto`)
+        codigo = modelo
+      }
+      
       const marca = headersHoja.find(h => H(h).includes('marca'))
       const descripcion = headersHoja.find(h => {
         const hNorm = H(h)
