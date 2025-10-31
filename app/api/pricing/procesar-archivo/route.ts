@@ -594,6 +594,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Función para normalizar headers (quitar acentos, espacios, etc.)
       const H = (h?: string) => (h || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim()
       
+      // 🎯 DETECTAR SI ES MOURA para ajustar detección
+      const esMoura = file.name.toLowerCase().includes('moura')
+      
       // Calcular score basado en columnas clave y cantidad de datos
       let score = 0
       const pvpOffLine = headersHoja.find(h => H(h).includes('pvp') && H(h).includes('off'))
@@ -601,8 +604,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const precioLista = headersHoja.find(h => H(h).includes('precio') && H(h).includes('lista'))
       const precioUnitario = headersHoja.find(h => H(h).includes('precio') && H(h).includes('unit'))
       const codigo = headersHoja.find(h => H(h).includes('codigo') || H(h).includes('código'))
+      // Para MOURA, buscar "Descripción Modelo SAP" como modelo
+      const modelo = esMoura 
+        ? headersHoja.find(h => H(h).includes('descripcion modelo sap') || H(h).includes('descripción modelo sap') || (H(h).includes('modelo sap') && (H(h).includes('descripcion') || H(h).includes('descripción'))))
+        : headersHoja.find(h => H(h).includes('modelo') && !H(h).includes('descripcion') && !H(h).includes('descripción'))
       const marca = headersHoja.find(h => H(h).includes('marca'))
-      const descripcion = headersHoja.find(h => H(h).includes('descripcion') || H(h).includes('descripción'))
+      const descripcion = headersHoja.find(h => {
+        const hNorm = H(h)
+        // Para MOURA, no considerar "Descripción Modelo SAP" como descripción (es modelo)
+        if (esMoura && (hNorm.includes('descripcion modelo sap') || hNorm.includes('descripción modelo sap'))) {
+          return false
+        }
+        return hNorm.includes('descripcion') || hNorm.includes('descripción')
+      })
       const rubro = headersHoja.find(h => H(h).includes('rubro'))
       
       // Buscar cualquier columna de precio (incluyendo "Contado")
@@ -616,6 +630,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       else if (precioUnitario) score += 3  // Precio Unitario es importante
       
       if (codigo) score += 3      // Código es muy importante
+      if (modelo) score += 3      // Modelo es muy importante (para MOURA: "Descripción Modelo SAP")
       if (marca) score += 3       // Marca es muy importante
       if (descripcion) score += 2 // Descripción es importante
       if (rubro) score += 1       // Rubro es útil
@@ -629,13 +644,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (datosHoja.length < 2) score = 0
       
       // Bonus por tener múltiples columnas clave
-      const columnasClave = [tienePrecio, codigo, marca, descripcion, rubro].filter(Boolean).length
+      const columnasClave = [tienePrecio, codigo, modelo, marca, descripcion, rubro].filter(Boolean).length
       if (columnasClave >= 3) score += 2
       if (columnasClave >= 4) score += 3
       
-      // 🎯 FLEXIBILIDAD: Si tiene código y datos, es válida aunque no tenga precio
-      if (codigo && datosHoja.length >= 5) {
-        score = Math.max(score, 3) // Mínimo score para hojas con código y datos
+      // 🎯 FLEXIBILIDAD: Si tiene código/modelo y datos, es válida aunque no tenga precio
+      if ((codigo || modelo) && datosHoja.length >= 5) {
+        score = Math.max(score, 3) // Mínimo score para hojas con código/modelo y datos
       }
       
       console.log(`  📊 Score: ${score} (${datosHoja.length} filas)`)
@@ -647,6 +662,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       else if (precioUnitario) console.log(`    ✅ Precio Unitario: "${precioUnitario}"`)
       else console.log(`    ❌ Precio: NO ENCONTRADO`)
       if (codigo) console.log(`    ✅ CODIGO: "${codigo}"`)
+      if (modelo) console.log(`    ✅ MODELO: "${modelo}"`)
       if (marca) console.log(`    ✅ MARCA: "${marca}"`)
       if (descripcion) console.log(`    ✅ DESCRIPCION: "${descripcion}"`)
       if (rubro) console.log(`    ✅ RUBRO: "${rubro}"`)
