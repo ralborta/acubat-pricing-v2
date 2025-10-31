@@ -16,7 +16,8 @@ const FALLBACK_POSICIONAL: Record<string, string[]> = {
 
 export function getPrecioSeguro(row: Record<string, any>, proveedor?: string): number | null {
   // 🛑 CORRECCIÓN: Detectar MOURA primero para pasarlo a getCellPrecioFlexible
-  const esMoura = proveedor && proveedor.toUpperCase().includes('MOURA');
+  // Forzar a boolean para evitar tipos string vacío
+  const esMoura = Boolean(proveedor && proveedor.toUpperCase().includes('MOURA'));
   
   // 1) Intentar con resolver de columnas (método principal) - pasar esMoura para que busque "Contado" si es MOURA
   let bruto = getCellPrecioFlexible(row, esMoura);
