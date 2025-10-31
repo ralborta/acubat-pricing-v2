@@ -856,6 +856,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('🔧 Iniciando detección manual UNIVERSAL...')
       console.log('📋 Headers disponibles:', headers)
       
+      // 🎯 DETECTAR SI ES MOURA: por nombre de archivo o contenido
+      const esMoura = file.name.toLowerCase().includes('moura') || 
+                     headers.some(h => h && h.toLowerCase().includes('descripcion modelo sap'))
+      
       const mapeo: any = {
         tipo: '',
         modelo: '',
@@ -906,6 +910,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           mapeo.tipo = header
           console.log(`✅ Tipo detectado específicamente: "${header}" (columna con tipos D/A/1/2/4)`)
           // 🚨 SOBRESCRIBIR cualquier detección anterior
+        }
+        
+        // 🎯 DETECCIÓN ESPECÍFICA SOLO PARA MOURA: "Descripción Modelo SAP" como modelo
+        if (esMoura && !mapeo.modelo && (
+          headerLower.includes('descripcion modelo sap') ||
+          headerLower.includes('descripción modelo sap') ||
+          (headerLower.includes('modelo sap') && (headerLower.includes('descripcion') || headerLower.includes('descripción')))
+        )) {
+          mapeo.modelo = header
+          console.log(`✅ Modelo detectado específicamente para MOURA: "${header}"`)
         }
         
         // Modelo - Buscar columnas que contengan identificadores únicos
