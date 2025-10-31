@@ -7,6 +7,7 @@ import { normHeader } from './headers';
 
 type Row = Record<string, any>;
 
+// Alias de precio (sin incluir "contado" que será fallback)
 const PRECIO_ALIASES = [
   'precio de lista',
   'precio lista',
@@ -18,9 +19,15 @@ const PRECIO_ALIASES = [
   'p lista s/iva',
   'precio s/iva',
   'precio 1',
-  'contado',
   'pdv',
   'pvp',
+];
+
+// Alias de fallback cuando no se encuentra precio principal
+const PRECIO_FALLBACK_ALIASES = [
+  'contado',
+  'cash',
+  'efectivo',
 ];
 
 const BLOQUEADAS = [
@@ -59,7 +66,7 @@ export function resolverColumnaPrecio(headers: string[]): string | null {
     return n;
   });
 
-  // 1) Match exacto por alias normalizado
+  // 1) Match exacto por alias normalizado (PRIORIDAD: buscar primero precios principales)
   for (const alias of PRECIO_ALIASES) {
     const nAlias = normHeader(alias);
     const foundIdx = normHeaders.findIndex(h => h === nAlias);
@@ -92,7 +99,30 @@ export function resolverColumnaPrecio(headers: string[]): string | null {
     return original;
   }
 
-  console.warn(`⚠️ NO se encontró columna de precio. Headers disponibles:`, headers);
+  // 4) FALLBACK: Si no se encontró precio principal, buscar "Contado" y sinónimos
+  console.log(`⚠️ No se encontró columna de precio principal, buscando fallback "Contado"...`);
+  for (const alias of PRECIO_FALLBACK_ALIASES) {
+    const nAlias = normHeader(alias);
+    const foundIdx = normHeaders.findIndex(h => h === nAlias);
+    if (foundIdx >= 0) {
+      const original = normMap.get(normHeaders[foundIdx])!;
+      console.log(`✅ Columna precio encontrada (fallback match exacto): "${original}" (alias: "${alias}")`);
+      return original;
+    }
+  }
+
+  // 5) FALLBACK: Match por palabra completa en alias de fallback
+  for (const alias of PRECIO_FALLBACK_ALIASES) {
+    const nAlias = normHeader(alias);
+    const foundIdx = normHeaders.findIndex(h => wordEq(h, nAlias));
+    if (foundIdx >= 0) {
+      const original = normMap.get(normHeaders[foundIdx])!;
+      console.log(`✅ Columna precio encontrada (fallback match palabra): "${original}" (alias: "${alias}")`);
+      return original;
+    }
+  }
+
+  console.warn(`⚠️ NO se encontró columna de precio (ni principal ni fallback). Headers disponibles:`, headers);
   return null;
 }
 

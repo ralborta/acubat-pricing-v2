@@ -7,6 +7,7 @@
 
 import { getCellPrecioFlexible } from './column-resolver';
 import { parseLocaleNumber } from '../parse-number';
+import { normHeader } from './headers';
 
 // Fallback posicional para proveedores específicos cuando headers son __EMPTY_*
 const FALLBACK_POSICIONAL: Record<string, string[]> = {
@@ -17,7 +18,34 @@ export function getPrecioSeguro(row: Record<string, any>, proveedor?: string): n
   // 1) Intentar con resolver de columnas (método principal)
   let bruto = getCellPrecioFlexible(row);
   
-  // 2) Fallback posicional si no se encontró y tenemos proveedor conocido
+  // 2) Si no se encontró valor válido, buscar explícitamente en "Contado" como fallback
+  if (bruto === undefined || bruto === null || bruto === '') {
+    console.log(`⚠️ No se encontró valor en columna de precio principal, buscando en "Contado"...`);
+    const headers = Object.keys(row || {});
+    const contadoPatterns = ['contado', 'cash', 'efectivo'];
+    
+    // Buscar columna "Contado" con normalización flexible
+    for (const pattern of contadoPatterns) {
+      const normPattern = normHeader(pattern);
+      for (const header of headers) {
+        if (header && typeof header === 'string') {
+          const normHeaderName = normHeader(header);
+          // Buscar match exacto o parcial
+          if (normHeaderName === normPattern || normHeaderName.includes(normPattern)) {
+            const valor = row[header];
+            if (valor !== undefined && valor !== null && valor !== '') {
+              bruto = valor;
+              console.log(`✅ Valor encontrado en columna "Contado" (${header}): "${bruto}"`);
+              break;
+            }
+          }
+        }
+      }
+      if (bruto !== undefined && bruto !== null && bruto !== '') break;
+    }
+  }
+  
+  // 3) Fallback posicional si no se encontró y tenemos proveedor conocido
   if ((bruto === undefined || bruto === null || bruto === '') && proveedor) {
     const proveedorUpper = proveedor.toUpperCase();
     const fallbacks = FALLBACK_POSICIONAL[proveedorUpper];
@@ -35,7 +63,7 @@ export function getPrecioSeguro(row: Record<string, any>, proveedor?: string): n
   }
   
   if (bruto === undefined || bruto === null || bruto === '') {
-    console.log(`❌ No se encontró valor en columna de precio (ni por nombre ni posicional)`);
+    console.log(`❌ No se encontró valor en columna de precio (ni por nombre ni posicional ni contado)`);
     return null;
   }
   
