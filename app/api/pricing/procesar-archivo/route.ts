@@ -675,16 +675,46 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (descripcion) console.log(`    ✅ DESCRIPCION: "${descripcion}"`)
       if (rubro) console.log(`    ✅ RUBRO: "${rubro}"`)
       
+      // 🔍 LOGS DE DIAGNÓSTICO PARA MOURA
+      console.log(`📘 MOURA DETECTADO: ${esMoura}`)
+      console.log(`📋 Headers detectados:`, headersHoja.slice(0, 10))
+      console.log(`✅ codigo:`, codigo)
+      console.log(`✅ modelo:`, modelo)
+      console.log(`📊 Filas:`, datosHoja.length)
+      console.log(`🎯 Score final:`, score)
+      
       // 🎯 LÓGICA FLEXIBLE: No descartar por score; procesar toda hoja no vacía
-      const descartada = datosHoja.length < 1
+      let descartada = datosHoja.length < 1
+      // Si tiene score > 0 y datos, NO descartar
+      if (score > 0 && datosHoja.length > 0) {
+        descartada = false
+      }
+      
+      console.log(`🔍 Hoja "${sheetName}": ${datosHoja.length} filas, score ${score}, descartada: ${descartada}`)
       
       diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada, score })
     }
     
+    // 🔍 LOG DIAGNÓSTICO: Ver qué se detectó
+    console.log(`\n🧩 Diagnóstico hojas =>`, diagnosticoHojas.map(h => ({
+      nombre: h.nombre,
+      filas: h.filas,
+      descartada: h.descartada,
+      score: h.score,
+      tienePrecio: !!h.pvpOffLine || !!h.precioLista || !!h.precioUnitario
+    })))
+    
     // 🎯 PROCESAR TODAS LAS HOJAS VÁLIDAS
     const hojasValidas = diagnosticoHojas.filter(h => !h.descartada && h.filas > 0)
     
+    console.log(`\n✅ Hojas válidas encontradas:`, hojasValidas.map(h => ({
+      nombre: h.nombre,
+      filas: h.filas,
+      score: h.score
+    })))
+    
     if (hojasValidas.length === 0) {
+      console.log(`❌ No se encontraron hojas válidas. Diagnóstico completo:`, diagnosticoHojas)
       return NextResponse.json({ success: false, error: 'No se encontró una hoja válida con datos de productos', diagnosticoHojas }, { status: 400 })
     }
     
