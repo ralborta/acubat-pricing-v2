@@ -605,9 +605,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const precioUnitario = headersHoja.find(h => H(h).includes('precio') && H(h).includes('unit'))
       const codigo = headersHoja.find(h => H(h).includes('codigo') || H(h).includes('código'))
       // Para MOURA, buscar "Descripción Modelo SAP" como modelo
+      // Para otros proveedores, buscar "modelo" normalmente (sin restricciones)
       const modelo = esMoura 
         ? headersHoja.find(h => H(h).includes('descripcion modelo sap') || H(h).includes('descripción modelo sap') || (H(h).includes('modelo sap') && (H(h).includes('descripcion') || H(h).includes('descripción'))))
-        : headersHoja.find(h => H(h).includes('modelo') && !H(h).includes('descripcion') && !H(h).includes('descripción'))
+        : headersHoja.find(h => H(h).includes('modelo'))
       const marca = headersHoja.find(h => H(h).includes('marca'))
       const descripcion = headersHoja.find(h => {
         const hNorm = H(h)

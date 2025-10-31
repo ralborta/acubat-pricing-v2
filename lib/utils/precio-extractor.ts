@@ -18,9 +18,10 @@ export function getPrecioSeguro(row: Record<string, any>, proveedor?: string): n
   // 1) Intentar con resolver de columnas (método principal)
   let bruto = getCellPrecioFlexible(row);
   
-  // 2) Si no se encontró valor válido, buscar explícitamente en "Contado" como fallback
-  if (bruto === undefined || bruto === null || bruto === '') {
-    console.log(`⚠️ No se encontró valor en columna de precio principal, buscando en "Contado"...`);
+  // 2) Si no se encontró valor válido, buscar explícitamente en "Contado" como fallback SOLO PARA MOURA
+  const esMoura = proveedor && proveedor.toUpperCase().includes('MOURA');
+  if ((bruto === undefined || bruto === null || bruto === '') && esMoura) {
+    console.log(`⚠️ No se encontró valor en columna de precio principal, buscando en "Contado" (SOLO MOURA)...`);
     const headers = Object.keys(row || {});
     const contadoPatterns = ['contado', 'cash', 'efectivo'];
     

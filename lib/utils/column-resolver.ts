@@ -99,30 +99,10 @@ export function resolverColumnaPrecio(headers: string[]): string | null {
     return original;
   }
 
-  // 4) FALLBACK: Si no se encontró precio principal, buscar "Contado" y sinónimos
-  console.log(`⚠️ No se encontró columna de precio principal, buscando fallback "Contado"...`);
-  for (const alias of PRECIO_FALLBACK_ALIASES) {
-    const nAlias = normHeader(alias);
-    const foundIdx = normHeaders.findIndex(h => h === nAlias);
-    if (foundIdx >= 0) {
-      const original = normMap.get(normHeaders[foundIdx])!;
-      console.log(`✅ Columna precio encontrada (fallback match exacto): "${original}" (alias: "${alias}")`);
-      return original;
-    }
-  }
+  // ⚠️ NOTA: El fallback de "Contado" se maneja en getPrecioSeguro() SOLO para MOURA
+  // No se aplica aquí para evitar que afecte a otros proveedores
 
-  // 5) FALLBACK: Match por palabra completa en alias de fallback
-  for (const alias of PRECIO_FALLBACK_ALIASES) {
-    const nAlias = normHeader(alias);
-    const foundIdx = normHeaders.findIndex(h => wordEq(h, nAlias));
-    if (foundIdx >= 0) {
-      const original = normMap.get(normHeaders[foundIdx])!;
-      console.log(`✅ Columna precio encontrada (fallback match palabra): "${original}" (alias: "${alias}")`);
-      return original;
-    }
-  }
-
-  console.warn(`⚠️ NO se encontró columna de precio (ni principal ni fallback). Headers disponibles:`, headers);
+  console.warn(`⚠️ NO se encontró columna de precio. Headers disponibles:`, headers);
   return null;
 }
 
