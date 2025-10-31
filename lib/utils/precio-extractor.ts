@@ -15,11 +15,13 @@ const FALLBACK_POSICIONAL: Record<string, string[]> = {
 };
 
 export function getPrecioSeguro(row: Record<string, any>, proveedor?: string): number | null {
-  // 1) Intentar con resolver de columnas (método principal)
-  let bruto = getCellPrecioFlexible(row);
+  // 🛑 CORRECCIÓN: Detectar MOURA primero para pasarlo a getCellPrecioFlexible
+  const esMoura = proveedor && proveedor.toUpperCase().includes('MOURA');
+  
+  // 1) Intentar con resolver de columnas (método principal) - pasar esMoura para que busque "Contado" si es MOURA
+  let bruto = getCellPrecioFlexible(row, esMoura);
   
   // 2) Si no se encontró valor válido, buscar explícitamente en "Contado" como fallback SOLO PARA MOURA
-  const esMoura = proveedor && proveedor.toUpperCase().includes('MOURA');
   if ((bruto === undefined || bruto === null || bruto === '') && esMoura) {
     console.log(`⚠️ No se encontró valor en columna de precio principal, buscando en "Contado" (SOLO MOURA)...`);
     const headers = Object.keys(row || {});

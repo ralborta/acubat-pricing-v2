@@ -56,7 +56,8 @@ function wordEq(a: string, b: string): boolean {
 }
 
 /** Devuelve el nombre de la columna que corresponde a "Precio de Lista" o null */
-export function resolverColumnaPrecio(headers: string[]): string | null {
+// 🛑 CORRECCIÓN: Añadir 'esMoura' como parámetro
+export function resolverColumnaPrecio(headers: string[], esMoura: boolean = false): string | null {
   if (!headers?.length) return null;
 
   const normMap = new Map<string, string>(); // norm -> original
@@ -99,17 +100,40 @@ export function resolverColumnaPrecio(headers: string[]): string | null {
     return original;
   }
 
-  // ⚠️ NOTA: El fallback de "Contado" se maneja en getPrecioSeguro() SOLO para MOURA
-  // No se aplica aquí para evitar que afecte a otros proveedores
+  // 4) FALLBACK: Si no se encontró precio principal, buscar "Contado" y sinónimos (SOLO MOURA)
+  // 🛑 CORRECCIÓN: Envolver toda la lógica de fallback en 'if (esMoura)'
+  if (esMoura) {
+    console.log(`⚠️ No se encontró columna de precio principal, buscando fallback "Contado" (MOURA)...`);
+    for (const alias of PRECIO_FALLBACK_ALIASES) {
+      const nAlias = normHeader(alias);
+      const foundIdx = normHeaders.findIndex(h => h === nAlias);
+      if (foundIdx >= 0) {
+        const original = normMap.get(normHeaders[foundIdx])!;
+        console.log(`✅ Columna precio encontrada (fallback match exacto): "${original}" (alias: "${alias}")`);
+        return original;
+      }
+    }
 
-  console.warn(`⚠️ NO se encontró columna de precio. Headers disponibles:`, headers);
+    // 5) FALLBACK: Match por palabra completa en alias de fallback (SOLO MOURA)
+    for (const alias of PRECIO_FALLBACK_ALIASES) {
+      const nAlias = normHeader(alias);
+      const foundIdx = normHeaders.findIndex(h => wordEq(h, nAlias));
+      if (foundIdx >= 0) {
+        const original = normMap.get(normHeaders[foundIdx])!;
+        console.log(`✅ Columna precio encontrada (fallback match palabra): "${original}" (alias: "${alias}")`);
+        return original;
+      }
+    }
+  } // <-- Fin del 'if (esMoura)'
+
+  console.warn(`⚠️ NO se encontró columna de precio (ni principal ni fallback). Headers disponibles:`, headers);
   return null;
 }
 
 /** Obtiene una celda por "intención" (precio) de una fila */
-export function getCellPrecioFlexible(row: Row): any {
+export function getCellPrecioFlexible(row: Row, esMoura: boolean = false): any {
   const headers = Object.keys(row || {});
-  const col = resolverColumnaPrecio(headers);
+  const col = resolverColumnaPrecio(headers, esMoura);
   return col ? row[col] : undefined;
 }
 

@@ -22,9 +22,11 @@ describe('resolverColumnaPrecio', () => {
       expect(resolverColumnaPrecio(headers)).toBe('P. Lista');
     });
 
-    test('Contado → match', () => {
+    test('Contado → match (solo MOURA)', () => {
       const headers = ['Artículo', 'Contado', 'Tarjeta'];
-      expect(resolverColumnaPrecio(headers)).toBe('Contado');
+      // "Contado" solo se encuentra si es MOURA
+      expect(resolverColumnaPrecio(headers, false)).toBeNull(); // No MOURA = no encuentra Contado
+      expect(resolverColumnaPrecio(headers, true)).toBe('Contado'); // MOURA = encuentra Contado
     });
 
     test('PDV → match', () => {
