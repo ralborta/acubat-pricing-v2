@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 45
 import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
-import { detectarColumnas, validarMapeo } from '../../../../lib/column-ai'
+import { mapColumnsStrict } from '../../../../lib/pricing_mapper'
 import { HistorialPricing } from "@/lib/supabase-historial"
 import { getBlueRate } from '@/lib/fx'
 import { parseLocaleNumber } from '@/lib/parse-number'
@@ -313,117 +313,7 @@ MUESTRA(<=10 filas): ${JSON.stringify(datosMuestra.slice(0, 10))}`;
   }
 }
 
-async function analizarArchivoConIA(headers: string[], datos: any[]): Promise<any> {
-  try {
-    // 🎯 CREAR LISTAS BLANCAS POR CAMPO
-    const headersNorm = headers.map(h => h.trim());
-    const ALLOWED = {
-      tipo: headersNorm.filter(h => /rubro|tipo|categ|familia|segmento/i.test(h)),
-      modelo: headersNorm.filter(h => /sku|cod(igo)?|code|ref(erencia)?|identificador|art[ií]culo/i.test(h)),
-      sku: headersNorm.filter(h => /sku|cod(igo)?|code|ref(erencia)?|identificador|art[ií]culo/i.test(h)),
-      precio: headersNorm.filter(h =>
-        /precio|contado|pvp|lista|sugerido|valor|importe|ars|\$/i.test(h)
-      ).filter(h => !/usd|u\$s|us\$|d[oó]lar/i.test(h)),
-      descripcion: headersNorm.filter(h => /descrip|detalle|nombre|producto/i.test(h)),
-      proveedor: headersNorm.filter(h => /marca|fabricante|proveedor/i.test(h)),
-    };
-    
-    console.log('🎯 LISTAS BLANCAS CREADAS:', ALLOWED);
-    
-    const contexto = `
-Eres un mapeador de columnas. Debes elegir SOLO nombres de columnas existentes.
-Prohibido inventar valores o mezclar celdas.
-
-Objetivo: devolver un JSON con nombres de columnas para estos campos:
-- tipo: familia/categoría (Rubro/Tipo/Categoría…)
-- marca_header: columna de marca/proveedor/fabricante
-- modelo_header: columna de modelo/código interno si así lo usan
-- sku_header: columna de SKU/código/referencia (si existe)
-- id_header: COLUMNA PRINCIPAL DE IDENTIDAD (DEBE provenir del archivo)
-- precio: precio en ARS (nunca USD)
-- descripcion: descripción/nombre de producto (si existe)
-- ident_source: "sku" o "modelo" o "id" (elige la fuente que mejor represente identidad única)
-- ident_header: nombre exacto de la columna que se usará como ID final (debe igualar id_header)
-- status: ok|warn|error
-- mens: explicación breve
-
-Reglas duras:
-- "id_header" es OBLIGATORIO. Si no hay ninguna columna elegible para ID, devuelve status="error" y mens="NO_ID_COLUMN".
-- El ID debe ser una columna con alta unicidad (muchos valores distintos) y con patrón de código (alfa-numérico y pocos espacios).
-- Prioridad para ID: columnas con keywords [sku, código, cod, ref, referencia, part number, modelo, artículo, item, ean, upc, id].
-- Nunca respondas con valores de celdas. SOLO nombres de columnas existentes.
-- Si "marca_header" no existe literalmente, devolver "" (vacío), no inventes.
-
-Listas blancas (solo puedes elegir dentro de estas por campo):
-- ALLOWED.id = ${JSON.stringify(headersNorm.filter(h => /(sku|c(ó|o)d(igo)?|ref|referencia|part( )?(number|no)|modelo|art(í|i)culo|item|ean|upc|nro|id)/i.test(h)))}
-- ALLOWED.marca = ${JSON.stringify(ALLOWED.proveedor)}
-- ALLOWED.modelo = ${JSON.stringify(ALLOWED.modelo)}
-- ALLOWED.sku = ${JSON.stringify(ALLOWED.sku)}
-- ALLOWED.tipo = ${JSON.stringify(ALLOWED.tipo)}
-- ALLOWED.precio = ${JSON.stringify(ALLOWED.precio)}
-- ALLOWED.descripcion = ${JSON.stringify(ALLOWED.descripcion)}
-
-COLUMNAS: ${headers.join(', ')}
-
-MUESTRA (hasta 10 filas):
-${JSON.stringify(datos.slice(0, 10), null, 2)}
-
-Salida estricta:
-{
-  "tipo": "nombre_columna|''",
-  "marca_header": "nombre_columna|''",
-  "modelo_header": "nombre_columna|''",
-  "sku_header": "nombre_columna|''",
-  "id_header": "nombre_columna|''",
-  "precio": "nombre_columna|''",
-  "descripcion": "nombre_columna|''",
-  "ident_source": "id|sku|modelo|''",
-  "ident_header": "nombre_columna|''",
-  "status": "ok|warn|error",
-  "mens": "string"
-}
-    `
-
-    // 🎯 USAR GPT-4o PARA MÁXIMA PRECISIÓN
-    console.log('🚀 LLAMANDO A GPT-4o PARA MÁXIMA PRECISIÓN...')
-    const mapeo = await callLLM(proModel, contexto)
-    
-    console.log('🧠 GPT-4o analizó el archivo:', mapeo)
-    console.log('📊 Status:', mapeo.status)
-    console.log('💬 Mensaje:', mapeo.mens)
-      
-      // 🎯 ADAPTAR LA NUEVA ESTRUCTURA A LA EXISTENTE
-      const resultadoAdaptado = {
-        tipo: mapeo.tipo || '',
-      marca_header: mapeo.marca_header || '',
-      modelo_header: mapeo.modelo_header || '',
-      sku_header: mapeo.sku_header || '',
-      id_header: mapeo.id_header || mapeo.ident_header || '',
-      precio: mapeo.precio || '',
-        descripcion: mapeo.descripcion || '',
-      ident_source: mapeo.ident_source || (mapeo.id_header ? 'id' : ''),
-      confianza: mapeo.status === 'ok' ? 95 : mapeo.status === 'warn' ? 80 : 50,
-      evidencia: { status: mapeo.status, mens: mapeo.mens },
-    }
-    
-    console.log('🧠 RESPUESTA ORIGINAL DE GPT-4o:', mapeo)
-      console.log('🔧 RESULTADO ADAPTADO:', resultadoAdaptado)
-      
-      return resultadoAdaptado
-
-  } catch (error) {
-    console.error('❌ Error con OpenAI API:', error)
-    // Fallback a detección manual si falla la IA
-    console.log('⚠️ La IA falló, retornando mapeo vacío para usar detección manual en el handler principal')
-    return {
-      tipo: '',
-      modelo: '',
-      precio: '',
-      contado: '',
-      descripcion: ''
-    }
-  }
-}
+// ❌ ELIMINADO: analizarArchivoConIA - Ya no se usa, reemplazado por mapColumnsStrict
 
 // 💵 DETECCIÓN DE USD (heurística simple)
 function detectarUSD(producto: any, columnMapping: any): boolean {
@@ -878,419 +768,97 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('🔑 Columnas disponibles:', Object.keys(datos[0] || {}))
     console.log('📝 Muestra de datos (primeras 3 filas):', datos.slice(0, 3))
 
-    // 🎯 DETECCIÓN SIMPLE DE COLUMNAS CON IA - USAR HEADERS CONSOLIDADOS
-    console.log('🔍 DETECTANDO COLUMNAS CON IA SIMPLE...')
+    // 🎯 DETECCIÓN AVANZADA DE COLUMNAS CON IA (mapColumnsStrict)
+    console.log('🧠 Usando detección avanzada con IA (mapColumnsStrict)...')
     console.log('📋 Headers para IA:', headers)
-    const mapeoColumnas = detectarColumnas(headers)
-    const validacionMapeo = validarMapeo(mapeoColumnas)
+    console.log('📊 Muestra de datos (primeras 10 filas):', datos.slice(0, 10))
     
-    console.log('📊 MAPEO DETECTADO:', mapeoColumnas)
-    console.log('✅ VALIDACIÓN:', validacionMapeo)
-
-    // 🎯 GARANTIZAR ID_HEADER OBLIGATORIO
-    let idHeader = (mapeoColumnas as any).id_header || (mapeoColumnas as any).ident_header || '';
-    if (!idHeader) {
+    let columnMapping: any = {};
+    let idHeader = '';
+    
+    try {
+      // Llamar a mapColumnsStrict con headers y muestra de datos
+      const { result } = await mapColumnsStrict({
+        columnas: headers,
+        muestra: datos.slice(0, 10),
+        model: 'gpt-4o-mini' // Usar el modelo optimizado
+      });
+      
+      console.log('✅ mapColumnsStrict completado exitosamente')
+      console.log('📊 Resultado:', result)
+      console.log('🎯 Confianza:', result.confianza)
+      console.log('📝 Notas:', result.notas)
+      
+      // Adaptar el resultado de mapColumnsStrict al formato esperado
+      idHeader = result.identificador || result.modelo || '';
+      
+      // Fallback: si no hay identificador, usar pickIdColumn
+      if (!idHeader) {
+        console.log('⚠️ No se encontró identificador en resultado, usando pickIdColumn como fallback...')
+        idHeader = pickIdColumn(headers, datos);
+        console.log('🧭 pickIdColumn eligió:', idHeader);
+      }
+      
+      // Validar que tenemos un ID válido
+      if (!idHeader) {
+        return NextResponse.json({
+          success: false,
+          error: 'NO_ID_COLUMN: no se encontró una columna de ID válida (sku/código/referencia/modelo/…)',
+          headers,
+          muestra: datos.slice(0, 5),
+          resultado_ia: result
+        }, { status: 400 });
+      }
+      
+      // Construir columnMapping en el formato esperado
+      columnMapping = {
+        tipo: result.tipo || '',
+        modelo: result.modelo || '',
+        precio: result.precio_ars || '',
+        descripcion: result.descripcion || '',
+        id_header: idHeader,
+        ident_header: result.identificador || idHeader,
+        modelo_header: result.modelo || '',
+        sku_header: '', // mapColumnsStrict no devuelve SKU específico, se maneja más adelante
+        confianza: result.confianza || 0,
+        evidencia: result.evidencia || {}
+      };
+      
+      console.log('✅ MAPEO DE COLUMNAS ADAPTADO:')
+      console.log('📋 columnMapping:', columnMapping)
+      
+    } catch (error) {
+      console.error('❌ Error en mapColumnsStrict:', error);
+      console.log('⚠️ Usando pickIdColumn como fallback total...')
+      
+      // Fallback total: usar solo pickIdColumn
       idHeader = pickIdColumn(headers, datos);
-      console.log('🧭 pickIdColumn eligió:', idHeader);
-    }
-    if (!idHeader) {
-      return NextResponse.json({
-        success: false,
-        error: 'NO_ID_COLUMN: no se encontró una columna de ID válida (sku/código/referencia/modelo/…)',
-        headers,
-        muestra: datos.slice(0,5)
-      }, { status: 400 });
-    }
-    (mapeoColumnas as any).id_header = idHeader;
-    (mapeoColumnas as any).modelo = (mapeoColumnas as any).modelo || (mapeoColumnas as any).modelo_header || '';
-    (mapeoColumnas as any).sku = (mapeoColumnas as any).sku || (mapeoColumnas as any).sku_header || '';
-
-    // 🔧 DETECCIÓN MANUAL UNIVERSAL (funciona con CUALQUIER archivo)
-    const detectColumnsManualmente = (headers: string[], datos: any[]) => {
-      console.log('🔧 Iniciando detección manual UNIVERSAL...')
-      console.log('📋 Headers disponibles:', headers)
       
-      // 🎯 DETECTAR SI ES MOURA: por nombre de archivo o contenido
-      const esMoura = file.name.toLowerCase().includes('moura') || 
-                     headers.some(h => h && h.toLowerCase().includes('descripcion modelo sap'))
+      if (!idHeader) {
+        return NextResponse.json({
+          success: false,
+          error: 'NO_ID_COLUMN: no se encontró una columna de ID válida y la IA falló',
+          headers,
+          muestra: datos.slice(0, 5),
+          error_detalle: error instanceof Error ? error.message : 'Error desconocido'
+        }, { status: 400 });
+      }
       
-      const mapeo: any = {
+      // Mapeo mínimo con fallback
+      columnMapping = {
         tipo: '',
-        modelo: '',
+        modelo: idHeader,
         precio: '',
-        contado: '',
-        descripcion: ''
-      }
-
-      // 🔍 ANÁLISIS UNIVERSAL: Analizar TODAS las columnas para entender qué contienen
-      console.log('🔍 ANÁLISIS UNIVERSAL DE COLUMNAS...')
+        descripcion: '',
+        id_header: idHeader,
+        ident_header: idHeader,
+        modelo_header: idHeader,
+        sku_header: '',
+        confianza: 0.5,
+        evidencia: {}
+      };
       
-      headers.forEach(header => {
-        if (!header || typeof header !== 'string') return
-        const headerLower = header.toLowerCase().trim()
-        const sampleData = datos?.[0]?.[header]
-        
-        console.log(`🔍 Analizando columna "${header}":`)
-        console.log(`   - Tipo de dato: ${typeof sampleData}`)
-        console.log(`   - Valor: ${sampleData}`)
-        console.log(`   - Es número: ${!isNaN(parseFloat(sampleData))}`)
-        console.log(`   - Es texto: ${typeof sampleData === 'string'}`)
-        
-        // 🎯 DETECCIÓN INTELIGENTE POR CONTENIDO Y NOMBRE
-        
-        // 🎯 SISTEMA SIMPLIFICADO: No necesitamos marca
-        
-        // Tipo - Buscar columnas que contengan categorías
-        if (!mapeo.tipo && (
-          headerLower.includes('tipo') || 
-          headerLower.includes('categoria') || 
-          headerLower.includes('category') ||
-          headerLower.includes('familia') ||
-          headerLower.includes('clase')
-        )) {
-          mapeo.tipo = header
-          console.log(`✅ Tipo detectado: "${header}"`)
-        }
-        
-        // 🎯 DETECCIÓN ESPECÍFICA PARA ESTE ARCHIVO
-        if (header === 'TIPO') {
-          mapeo.tipo = header
-          console.log(`✅ Tipo detectado específicamente: "${header}"`)
-          // 🚨 SOBRESCRIBIR cualquier detección anterior
-        }
-        
-        // 🎯 DETECCIÓN ESPECÍFICA PARA ARCHIVOS CON __EMPTY
-        if (header === '__EMPTY_1') {
-          mapeo.tipo = header
-          console.log(`✅ Tipo detectado específicamente: "${header}" (columna con tipos D/A/1/2/4)`)
-          // 🚨 SOBRESCRIBIR cualquier detección anterior
-        }
-        
-        // 🎯 DETECCIÓN ESPECÍFICA SOLO PARA MOURA: "Descripción Modelo SAP" como modelo
-        if (esMoura && !mapeo.modelo && (
-          headerLower.includes('descripcion modelo sap') ||
-          headerLower.includes('descripción modelo sap') ||
-          (headerLower.includes('modelo sap') && (headerLower.includes('descripcion') || headerLower.includes('descripción')))
-        )) {
-          mapeo.modelo = header
-          console.log(`✅ Modelo detectado específicamente para MOURA: "${header}"`)
-        }
-        
-        // Modelo - Buscar columnas que contengan identificadores únicos
-        if (!mapeo.modelo && (
-          headerLower.includes('modelo') || 
-          headerLower.includes('model') || 
-          headerLower.includes('codigo') ||
-          headerLower.includes('code') ||
-          headerLower.includes('sku') ||
-          headerLower.includes('baterias') ||
-          headerLower.includes('ub') ||
-          headerLower.includes('identificador') ||
-          headerLower.includes('id')
-        )) {
-          mapeo.modelo = header
-          console.log(`✅ Modelo detectado: "${header}"`)
-        }
-        
-        // 🎯 DETECCIÓN ESPECÍFICA PARA ESTE ARCHIVO
-        if (!mapeo.modelo && header === 'Denominacion Comercial') {
-          mapeo.modelo = header
-          console.log(`✅ Modelo detectado específicamente: "${header}"`)
-        }
-        
-        // 🎯 DETECCIÓN ESPECÍFICA PARA "sku"
-        if (header === 'sku' || header === 'SKU') {
-          mapeo.modelo = header
-          console.log(`✅ SKU detectado específicamente: "${header}"`)
-          // 🚨 SOBRESCRIBIR cualquier detección anterior
-        }
-        
-        // 🎯 DETECCIÓN ESPECÍFICA PARA ARCHIVOS CON __EMPTY
-        if (!mapeo.modelo && header === '__EMPTY') {
-          mapeo.modelo = header
-          console.log(`✅ Modelo detectado específicamente: "${header}" (columna con modelos UB 450 Ag, etc.)`)
-          // 🚨 SOBRESCRIBIR cualquier detección anterior
-        }
-        
-        // Precio - PRIORIZAR PVP Off Line sobre otros precios
-        if (!mapeo.precio && (
-          headerLower.includes('pvp off line') ||  // PRIORIDAD ALTA
-          headerLower.includes('pvp_off_line') ||
-          headerLower.includes('pvp off') ||
-          headerLower.includes('off line') ||
-          headerLower.includes('offline') ||
-          headerLower.includes('precio') || 
-          headerLower.includes('price') || 
-          headerLower.includes('costo') ||
-          headerLower.includes('cost') ||
-          headerLower.includes('valor') ||
-          headerLower.includes('precio de lista') ||
-          headerLower.includes('precio lista') ||
-          headerLower.includes('venta') ||
-          headerLower.includes('publico') ||
-          headerLower === 'precio' ||  // ✅ Agregar búsqueda exacta de "PRECIO"
-          headerLower === 'precios'    // ✅ Agregar búsqueda exacta de "PRECIOS"
-        )) {
-          mapeo.precio = header
-          console.log(`✅ Precio detectado: "${header}"`)
-        }
-        
-        // 🎯 DETECCIÓN ESPECÍFICA PARA ESTE ARCHIVO - BUSCAR COLUMNA CON PRECIOS REALES
-        if (header === '__EMPTY_14') {
-          mapeo.precio = header
-          console.log(`✅ Precio detectado específicamente: "${header}" (columna con precios reales)`)
-          // 🚨 SOBRESCRIBIR cualquier detección anterior
-        }
-        
-        // 🎯 DETECCIÓN ESPECÍFICA PARA "Precio s/iva"
-        if (header === 'Precio s/iva' || header === 'precio s/iva') {
-          mapeo.precio = header
-          console.log(`✅ Precio s/iva detectado específicamente: "${header}"`)
-          // 🚨 SOBRESCRIBIR cualquier detección anterior
-        }
-        
-        // 🎯 DETECCIÓN DE COLUMNA "CONTADO" (PRIORIDAD ALTA)
-        if (!mapeo.contado && (
-          headerLower.includes('contado') || 
-          headerLower.includes('cash') ||
-          headerLower === 'contado' ||
-          headerLower === 'cash'
-        )) {
-          mapeo.contado = header
-          console.log(`✅ Contado detectado: "${header}"`)
-        }
-        
-        // 🎯 DETECCIÓN ESPECÍFICA PARA ARCHIVO DE BATERÍAS
-        if (header === 'Contado') {
-          mapeo.contado = header
-          console.log(`✅ Contado detectado específicamente: "${header}"`)
-          // 🚨 SOBRESCRIBIR cualquier detección anterior
-        }
-        
-        // 🎯 SISTEMA SIMPLIFICADO: No necesitamos capacidad
-
-        // 🎯 SISTEMA SIMPLIFICADO: No necesitamos voltaje
-        
-        // 🎯 SISTEMA SIMPLIFICADO: No necesitamos descripción
-      })
-
-      // 🚨 VALIDACIÓN UNIVERSAL: Si no se detectó precio, usar ANÁLISIS DE CONTENIDO
-      if (!mapeo.precio && !mapeo.pdv && !mapeo.pvp) {
-        console.log('⚠️ No se detectó columna de precio, usando ANÁLISIS DE CONTENIDO...')
-        
-        // Buscar columnas que contengan números grandes (precios)
-        for (const header of headers) {
-          const sampleData = datos?.[0]?.[header]
-          
-          if (sampleData) {
-            // Intentar parsear como número
-            let valor = parseFloat(sampleData)
-            
-            // Si es string, intentar limpiar formato argentino
-            if (isNaN(valor) && typeof sampleData === 'string') {
-              const valorLimpio = sampleData.replace(/\./g, '').replace(',', '.')
-              valor = parseFloat(valorLimpio)
-            }
-            
-            // Si es un número razonable para precio (entre 1000 y 1000000)
-            // PERO NO si el header contiene palabras que indican que es un código
-            const headerLower = header.toLowerCase()
-            const esCodigo = headerLower.includes('codigo') || 
-                           headerLower.includes('code') || 
-                           headerLower.includes('sku') ||
-                           headerLower.includes('referencia') ||
-                           headerLower.includes('ref') ||
-                           headerLower.includes('articulo') ||
-                           headerLower.includes('unitaro') ||
-                           headerLower.includes('marca') ||
-                           headerLower.includes('brand') ||
-                           headerLower.includes('fabricante') ||
-                           headerLower.includes('manufacturer') ||
-                           headerLower.includes('tipo') ||
-                           headerLower.includes('categoria') ||
-                           headerLower.includes('clase') ||
-                           headerLower.includes('grupo') ||
-                           headerLower.includes('category') ||
-                           headerLower.includes('funcion') ||
-                           headerLower.includes('función') ||
-                           headerLower.includes('modelo') ||
-                           headerLower.includes('model') ||
-                           headerLower.includes('descripcion') ||
-                           headerLower.includes('description') ||
-                           headerLower.includes('detalle') ||
-                           headerLower.includes('comentario')
-            
-            if (valor > 1000 && valor < 1000000 && !esCodigo) {
-              mapeo.precio = header
-              console.log(`✅ Precio detectado por ANÁLISIS DE CONTENIDO en '${header}': ${valor}`)
-              break
-            } else if (esCodigo) {
-              console.log(`❌ Ignorando columna '${header}' porque parece ser código, no precio`)
-            }
-          }
-        }
-      }
-
-      // 🎯 SISTEMA SIMPLIFICADO: No necesitamos validación de descripción
-
-      // 🚨 VALIDACIÓN UNIVERSAL: Solo necesitamos Tipo, Modelo y Precio
-      if (!mapeo.tipo) {
-        console.log('⚠️ No se detectó tipo, usando "Batería" por defecto...')
-        mapeo.tipo = 'BATERIA'
-      }
-
-      if (!mapeo.modelo) {
-        console.log('⚠️ No se detectó modelo, usando primera columna con texto...')
-        for (const header of headers) {
-          const sampleData = datos?.[0]?.[header]
-          if (sampleData && typeof sampleData === 'string' && sampleData.length > 0) {
-            mapeo.modelo = header
-            console.log(`✅ Modelo asignado: "${header}"`)
-            break
-          }
-        }
-      }
-      
-      // 🎯 SISTEMA SIMPLIFICADO: Solo Tipo, Modelo y Precio
-      console.log('🎯 SISTEMA SIMPLIFICADO: Solo necesitamos Tipo, Modelo y Precio')
-
-      // 🔧 VALIDACIÓN AGRESIVA: Aplicar también en detección manual
-      console.log('🔍 VALIDACIÓN AGRESIVA: Aplicando en detección manual...')
-      
-      // Validar y corregir precio - FORZAR "PVP Off Line" si existe
-      if (datos[0]) {
-        const pvpOffLineColumn = headers.find(h => h && h.toLowerCase().includes('pvp off line'))
-        if (pvpOffLineColumn) {
-          mapeo.precio = pvpOffLineColumn
-          console.log(`✅ Precio forzado a: "${pvpOffLineColumn}"`)
-        }
-      }
-      
-      // Validar y corregir modelo - FORZAR "CODIGO" si existe
-      if (datos[0]) {
-        const codigoColumn = headers.find(h => h && h.toLowerCase().includes('codigo'))
-        if (codigoColumn) {
-          mapeo.modelo = codigoColumn
-          console.log(`✅ Modelo forzado a: "${codigoColumn}"`)
-        }
-      }
-      
-      // Validar y corregir tipo - FORZAR "RUBRO" si existe
-      if (datos[0]) {
-        const rubroColumn = headers.find(h => h && h.toLowerCase().includes('rubro'))
-        if (rubroColumn) {
-          mapeo.tipo = rubroColumn
-          console.log(`✅ Tipo forzado a: "${rubroColumn}"`)
-        }
-      }
-      
-      // Validar y corregir marca - FORZAR "MARCA" si existe
-      if (datos[0]) {
-        const marcaColumn = headers.find(h => h && h.toLowerCase().includes('marca'))
-        if (marcaColumn) {
-          mapeo.marca = marcaColumn
-          mapeo.proveedor = marcaColumn
-          console.log(`✅ Marca forzada a: "${marcaColumn}"`)
-        }
-      }
-      
-      // Validar y corregir descripción - FORZAR "DESCRIPCION" si existe
-      if (datos[0]) {
-        const descripcionColumn = headers.find(h => h && h.toLowerCase().includes('descripcion'))
-        if (descripcionColumn) {
-          mapeo.descripcion = descripcionColumn
-          console.log(`✅ Descripción forzada a: "${descripcionColumn}"`)
-        }
-      }
-
-      console.log('🔧 DETECCIÓN MANUAL UNIVERSAL COMPLETADA:')
-      console.log('📋 Mapeo final:', mapeo)
-      
-      return mapeo
-    }
-
-    // 🎯 USAR DETECCIÓN SIMPLE CON IA
-    console.log('🧠 Usando detección simple con IA...')
-    let columnMapping = mapeoColumnas
-    console.log('🔧 RESULTADO INICIAL:', columnMapping)
-    
-    // 🔧 VALIDACIÓN AGRESIVA: Siempre verificar si el mapeo es correcto
-    console.log('🔍 VALIDACIÓN AGRESIVA: Verificando mapeo de la IA...')
-    
-    // Validar y corregir precio - Fallback: PVP Off Line -> Precio de Lista -> Precio Unitario
-    if (datos[0]) {
-      const pvpOffLineColumn = headers.find(h => h && h.toLowerCase().includes('pvp off line'))
-      const precioListaColumn = headers.find(h => h && h.toLowerCase().includes('precio de lista'))
-      const precioUnitarioColumn = headers.find(h => h && h.toLowerCase().includes('precio unitario'))
-      const candidatoPrecio = pvpOffLineColumn || precioListaColumn || precioUnitarioColumn
-      if (candidatoPrecio) {
-        columnMapping.precio = candidatoPrecio
-        console.log(`✅ Precio forzado a: "${candidatoPrecio}"`)
-      } else {
-        console.log(`❌ No se encontró ninguna columna de precio reconocida`)
-      }
-    }
-    
-    // Validar y corregir modelo - FORZAR "CODIGO" si existe
-    if (datos[0]) {
-      const codigoColumn = headers.find(h => h && h.toLowerCase().includes('codigo'))
-      if (codigoColumn) {
-        const valorModelo = (datos[0] as any)?.[codigoColumn]
-        console.log(`🔍 FORZANDO MODELO: Columna '${codigoColumn}' contiene: '${valorModelo}'`)
-        
-        // FORZAR SIEMPRE, sin importar el contenido
-        columnMapping.modelo = codigoColumn
-        console.log(`✅ Modelo forzado a: "${codigoColumn}"`)
-      } else {
-        console.log(`❌ No se encontró columna "CODIGO"`)
-      }
-    }
-    
-    // Validar y corregir tipo - FORZAR "RUBRO" si existe
-    if (datos[0]) {
-      const rubroColumn = headers.find(h => h && h.toLowerCase().includes('rubro'))
-      if (rubroColumn) {
-        columnMapping.tipo = rubroColumn
-        console.log(`✅ Tipo forzado a: "${rubroColumn}"`)
-      }
-    }
-    
-    // Validar y corregir descripcion - FORZAR "DESCRIPCION" si existe
-    if (datos[0]) {
-      const descripcionColumn = headers.find(h => h && h.toLowerCase().includes('descripcion'))
-      if (descripcionColumn) {
-        columnMapping.descripcion = descripcionColumn
-        console.log(`✅ Descripción forzada a: "${descripcionColumn}"`)
-      }
-    }
-    
-    // Validar y corregir proveedor - FORZAR "MARCA" si existe
-    if (datos[0]) {
-      const marcaColumn = headers.find(h => h && h.toLowerCase().includes('marca'))
-      if (marcaColumn) {
-        columnMapping.marca = marcaColumn
-        columnMapping.proveedor = marcaColumn
-        console.log(`✅ Proveedor forzado a: "${marcaColumn}"`)
-      }
-    }
-    
-    console.log('🔧 RESULTADO DESPUÉS DE VALIDACIÓN AGRESIVA:', columnMapping)
-    
-    // 🔍 DEBUG: Ver qué detectó la IA
-    console.log('🧠 RESULTADO DE LA IA:')
-    console.log('📋 Mapeo de columnas:', columnMapping)
-    
-    // 🚨 VALIDACIÓN: Usar IA como principal, manual como fallback
-    if (!columnMapping || Object.values(columnMapping).some(v => !v)) {
-      console.log('⚠️ La IA no detectó todas las columnas, usando detección manual como fallback...')
-      const columnMappingManual = detectColumnsManualmente(headers, datos)
-      console.log('🔧 DETECCIÓN MANUAL (FALLBACK):')
-      console.log('📋 Mapeo manual:', columnMappingManual)
-      
-      // Combinar IA + manual
-      Object.assign(columnMapping, columnMappingManual)
-    } else {
-      console.log('✅ La IA detectó todas las columnas correctamente')
+      console.log('⚠️ MAPEO MÍNIMO CON FALLBACK:', columnMapping)
     }
     
     // 🔍 DEBUG: Mapeo final
@@ -2021,17 +1589,17 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       sesion_id: sesionGuardada?.sesion_id || null,
       ia_analisis: {
         columnas_detectadas: columnMapping,
-        modelo_ia: 'GPT-4o (mapeo de columnas)',
+        modelo_ia: 'GPT-4o-mini (mapeo avanzado de columnas)',
         timestamp_analisis: new Date().toISOString()
       },
       stats: {
         filas_input: datos.length,
         filas_con_id: productosProcesados.length,
         ratio_id: Number((productosProcesados.length / datos.length).toFixed(3)),
-        id_header: (mapeoColumnas as any).id_header,
-        marca_header: (mapeoColumnas as any).marca_header || '',
-        modelo_header: (mapeoColumnas as any).modelo || (mapeoColumnas as any).modelo_header || '',
-        sku_header: (mapeoColumnas as any).sku || (mapeoColumnas as any).sku_header || '',
+        id_header: (columnMapping as any).id_header || (columnMapping as any).ident_header || '',
+        marca_header: (columnMapping as any).marca_header || '',
+        modelo_header: (columnMapping as any).modelo || (columnMapping as any).modelo_header || '',
+        sku_header: (columnMapping as any).sku || (columnMapping as any).sku_header || '',
       },
       estadisticas: {
         total_productos: totalProductos,

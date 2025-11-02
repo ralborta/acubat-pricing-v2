@@ -98,7 +98,7 @@ export interface MapColumnsOutput {
   notas: string[];
 }
 
-const DEFAULT_MODEL = "gpt-4"; // Cambiado a gpt-4 para mejor precisión
+const DEFAULT_MODEL = "gpt-4o-mini"; // Modelo optimizado: rápido, barato y suficiente para esta tarea
 
 // 🎯 FUNCIÓN PARA APLICAR CONFIGURACIÓN DEL SISTEMA
 export async function aplicarConfiguracionPricing(precioBase: number, canal: 'mayorista' | 'directa' | 'distribucion'): Promise<{
@@ -189,11 +189,20 @@ Debes mapear exactamente qué columna corresponde a:
 REGLAS OBLIGATORIAS
 1) Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
 2) Dimensiones PROHIBIDAS (blacklist, en encabezado y contenido): pallet|palet|kg|peso|largo|ancho|alto|mm|cm|ah|cca|dimens|unidad(es)? por pallet|capacidad|volumen
-3) Precio (prioridad)
-   - Encabezados sugerentes: precio|precio lista|pvp|sugerido proveedor|lista|AR$|ARS|$
+3) Precio (PRIORIDAD ESTRICTA - elegir en este orden):
+   a) "PVP Off Line" o "pvp off line" (SIEMPRE la mayor prioridad)
+   b) "Precio de Lista" o "precio lista" o "precio lista sugerido"
+   c) "Contado" (si existe como columna de precio válida)
+   d) "Precio Unitario" (último recurso)
+   e) Cualquier otra columna con encabezado "precio|pvp|lista|sugerido proveedor|AR$|ARS|$" PERO SIN palabras USD/dólar
    - Contenido: >=80% de filas con valores numéricos plausibles para Argentina (≈150.000–3.000.000).
    - Si hay duplicados (con/sin IVA), prefiere "precio lista / sugerido proveedor"; si hay dos variantes, elige "sin IVA" y deja nota.
-4) Identificador: intenta "modelo" como código más específico; si no existe, identificador = nombre (indícalo en notas).
+4) Identificador (PRIORIDAD ESTRICTA para encontrar columna de ID):
+   a) Columnas con nombres que contengan: "codigo", "código", "cod", "sku", "ref", "referencia", "part number", "modelo", "artículo", "item", "ean", "upc", "id", "nro"
+   b) La columna debe tener alta unicidad (muchos valores distintos) y patrón de código (alfanumérico, pocos espacios)
+   c) Prioriza columnas que sean claramente identificadores únicos sobre descripciones largas
+   d) Si hay múltiples candidatos, elige la que tenga mayor unicidad y mejor patrón de código
+   e) Si no existe, identificador = modelo (indícalo en notas).
 5) Devuelve los NOMBRES DE COLUMNA EXACTOS tal como aparecen (no renombres).
 6) Evidencia: incluye 2–5 muestras por campo y el motivo de la elección.
 7) Si la confianza < 0.6 en cualquier campo, déjalo null y explica en notas.
