@@ -781,6 +781,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const { result } = await mapColumnsStrict({
         columnas: headers,
         muestra: datos.slice(0, 10),
+        nombreArchivo: file.name, // Pasar nombre del archivo para inferir tipo
         model: 'gpt-4o-mini' // Usar el modelo optimizado
       });
       

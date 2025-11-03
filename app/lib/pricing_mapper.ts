@@ -48,7 +48,8 @@ export interface MapColumnsInput {
   columnas: string[];
   hojas?: string[];
   muestra: ColumnSampleRow[]; // pasa 5–10 filas reales
-  model?: string;             // por defecto gpt-4.1
+  nombreArchivo?: string;     // nombre del archivo para inferir tipo
+  model?: string;             // por defecto gpt-4o-mini
   apiKey?: string;            // si no, toma process.env.OPENAI_API_KEY
   minConfidence?: number;     // default 0.7
   minCoverage?: number;       // default 0.8 (80% numérico en precio)
@@ -178,13 +179,14 @@ export async function aplicarConfiguracionPricing(precioBase: number, canal: 'ma
 /* ----------------------------- SYSTEM PROMPT ----------------------------- */
 function buildSystemPrompt(): string {
   return `
-Eres especialista senior en pricing de baterías automotrices en Argentina.
+Eres especialista senior en pricing de productos automotrices en Argentina (baterías, aditivos, herramientas, etc.).
 Usa únicamente las COLUMNAS y la MUESTRA provistas en este turno (ignora conocimiento previo).
 Debes mapear exactamente qué columna corresponde a:
-- "tipo" (familia/categoría: "Ca Ag Blindada", "J.I.S.", "Batería")
-- "modelo" (código identificador: "UB 550 Ag", "VA40DD/E")
+- "tipo" (familia/categoría del archivo: "Batería", "Aditivos", "Aditivos Nafta", "Herramientas", "Ca Ag Blindada", "J.I.S.", etc. - INFIERELO del contexto del archivo/hoja, NO uses "batería" por defecto)
+- "modelo" (código identificador: "UB 550 Ag", "VA40DD/E", números de código como "2124", "1870", etc.)
+- "marca" (nombre del producto/marca: incluso si la columna se llama "Producto", debe mapearse como "marca" cuando contiene nombres de productos/marcas como "Injection Reiniger", "Pro-Line", etc.)
 - "precio_ars" (precio en pesos argentinos)
-- "descripcion" (si existe)
+- "descripcion" (función/descripción del producto: columnas como "FUNCIÓN", "APLICACIÓN", o cualquier columna que describa qué hace el producto)
 
 REGLAS OBLIGATORIAS
 1) Moneda ARS solamente. En Argentina, "$" es ARS. Rechaza columnas con USD, U$S, US$, "dólar" o mezcla de monedas. No conviertas.
@@ -203,18 +205,41 @@ REGLAS OBLIGATORIAS
    c) Prioriza columnas que sean claramente identificadores únicos sobre descripciones largas
    d) Si hay múltiples candidatos, elige la que tenga mayor unicidad y mejor patrón de código
    e) Si no existe, identificador = modelo (indícalo en notas).
-5) Devuelve los NOMBRES DE COLUMNA EXACTOS tal como aparecen (no renombres).
-6) Evidencia: incluye 2–5 muestras por campo y el motivo de la elección.
-7) Si la confianza < 0.6 en cualquier campo, déjalo null y explica en notas.
-8) Salida estricta: responde solo con JSON que cumpla el schema provisto (sin texto extra).`;
+5) Marca (REGLA ESPECIAL):
+   a) Si hay una columna llamada "Producto" o similar que contiene nombres de productos/marcas (ej: "Injection Reiniger", "Pro-Line", nombres de marcas), MAPÉALA COMO "marca"
+   b) La segunda columna (columna sin nombre o con nombre genérico) que contiene nombres de productos debe mapearse como "marca", NO como "modelo" ni "descripcion"
+   c) Prioriza columnas con nombres de productos/marcas comerciales sobre códigos
+6) Tipo/Categoría (DETECCIÓN INTELIGENTE):
+   a) NO uses "batería" por defecto - INFIERE el tipo del contexto:
+      - Si el archivo/hoja menciona "ADITIVOS", "ADITIVOS NAFTA" → tipo = "Aditivos" o "Aditivos Nafta"
+      - Si menciona "HERRAMIENTAS" → tipo = "Herramientas"
+      - Si menciona "BATERÍAS", "BATERIA" → tipo = "Batería"
+      - Analiza los headers del archivo y el contenido de las columnas para inferir el tipo
+   b) Busca palabras clave en nombres de columnas y en el contenido: "aditivo", "herramienta", "batería", "nafta", "combustible", etc.
+   c) Si no puedes inferir con certeza, usa el tipo más general que encuentres en el contexto, nunca asumas "batería"
+7) Descripción (REGLA ESPECIAL):
+   a) Busca columnas que describan la FUNCIÓN o APLICACIÓN del producto
+   b) Columnas con nombres como "FUNCIÓN", "APLICACIÓN", "Descripción", "Detalle" que expliquen qué hace el producto
+   c) Si la columna "marca" contiene nombres de productos y hay otra columna con funciones/aplicaciones, usa esa para descripción
+   d) Puede ser una columna entre la 2da y 3ra columna si contiene información descriptiva
+8) Devuelve los NOMBRES DE COLUMNA EXACTOS tal como aparecen (no renombres).
+9) Evidencia: incluye 2–5 muestras por campo y el motivo de la elección.
+10) Si la confianza < 0.6 en cualquier campo, déjalo null y explica en notas.
+11) Salida estricta: responde solo con JSON que cumpla el schema provisto (sin texto extra).`;
 }
 
 /* ------------------------------ USER PAYLOAD ----------------------------- */
-function buildUserPayload(columnas: string[], hojas: string[] | undefined, muestra: ColumnSampleRow[]): string {
-  return `COLUMNAS: ${JSON.stringify(columnas)}
+function buildUserPayload(columnas: string[], hojas: string[] | undefined, muestra: ColumnSampleRow[], nombreArchivo?: string): string {
+  return `NOMBRE DEL ARCHIVO: ${nombreArchivo || 'N/A'}
+COLUMNAS: ${JSON.stringify(columnas)}
 HOJAS: ${JSON.stringify(hojas ?? [])}
 MUESTRA (hasta 10 filas reales):
-${JSON.stringify(muestra.slice(0, 10))}`;
+${JSON.stringify(muestra.slice(0, 10))}
+
+INSTRUCCIONES ESPECIALES:
+- Analiza el NOMBRE DEL ARCHIVO y las HOJAS para inferir el TIPO (Aditivos, Herramientas, Baterías, etc.)
+- Si la primera columna contiene códigos numéricos (ej: "2124", "1870") y la segunda contiene nombres de productos (ej: "Injection Reiniger"), mapea: primera = identificador, segunda = marca
+- Busca columnas "FUNCIÓN" o "APLICACIÓN" para mapear como descripcion`;
 }
 
 /* -------------------------------- SCHEMA -------------------------------- */
@@ -386,6 +411,7 @@ export async function mapColumnsStrict({
   columnas,
   hojas,
   muestra,
+  nombreArchivo,
   model = DEFAULT_MODEL,
   apiKey = process.env.OPENAI_API_KEY!,
   minConfidence = 0.7,
@@ -397,7 +423,7 @@ export async function mapColumnsStrict({
 
   const client = new OpenAI({ apiKey });
   const system = buildSystemPrompt();
-  const user = buildUserPayload(columnas, hojas, muestra);
+  const user = buildUserPayload(columnas, hojas, muestra, nombreArchivo);
 
   // 1) Intento con Structured Outputs strict
   const basePayload = {
