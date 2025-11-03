@@ -1233,30 +1233,86 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (!sku_val && idCol === skuCol) sku_val = id_val;
       if (!sku_val && dynamicIdKeys.some(k => /sku/i.test(String(k)))) sku_val = id_val;
 
-      // Descripción - Extraer de FUNCIÓN, APLICACIÓN, o columna mapeada por IA
+      // Descripción - Extraer de FUNCIÓN, APLICACIÓN, o columna mapeada por IA (PRIORIDAD ALTA)
       let descripcion_val = '';
-      if (descCol) {
-        descripcion_val = String(getCellFlexible(producto, descCol) ?? '').trim();
-      }
       
-      // Si hay columnas FUNCIÓN y APLICACIÓN, concatenarlas
-      const funcionCol = headers.find(h => h && h.toLowerCase().includes('función'));
-      const aplicacionCol = headers.find(h => h && h.toLowerCase().includes('aplicación'));
+      // 🎯 PRIORIDAD 1: Buscar columnas FUNCIÓN y APLICACIÓN (más importante que columna mapeada por IA)
+      const funcionCol = headers.find(h => {
+        if (!h) return false;
+        const hNorm = h.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+        return hNorm.includes('funcion') || hNorm.includes('funcion');
+      });
+      const aplicacionCol = headers.find(h => {
+        if (!h) return false;
+        const hNorm = h.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+        return hNorm.includes('aplicacion') || hNorm.includes('aplicación');
+      });
       
+      console.log(`  🔍 Búsqueda de descripción: FUNCIÓN=${funcionCol || 'NO'}, APLICACIÓN=${aplicacionCol || 'NO'}, descCol IA=${descCol || 'NO'}`);
+      
+      // Si hay columnas FUNCIÓN y APLICACIÓN, concatenarlas (PRIORIDAD MÁXIMA)
       if (funcionCol && aplicacionCol) {
         const funcion = String(getCellFlexible(producto, funcionCol) ?? '').trim();
         const aplicacion = String(getCellFlexible(producto, aplicacionCol) ?? '').trim();
         if (funcion && aplicacion) {
           descripcion_val = `${funcion} — ${aplicacion}`;
+          console.log(`  ✅ Descripción desde FUNCIÓN + APLICACIÓN: "${descripcion_val}"`);
         } else if (funcion) {
           descripcion_val = funcion;
+          console.log(`  ✅ Descripción desde FUNCIÓN: "${descripcion_val}"`);
         } else if (aplicacion) {
           descripcion_val = aplicacion;
+          console.log(`  ✅ Descripción desde APLICACIÓN: "${descripcion_val}"`);
         }
       } else if (funcionCol && !descripcion_val) {
         descripcion_val = String(getCellFlexible(producto, funcionCol) ?? '').trim();
+        if (descripcion_val) {
+          console.log(`  ✅ Descripción desde FUNCIÓN: "${descripcion_val}"`);
+        }
       } else if (aplicacionCol && !descripcion_val) {
         descripcion_val = String(getCellFlexible(producto, aplicacionCol) ?? '').trim();
+        if (descripcion_val) {
+          console.log(`  ✅ Descripción desde APLICACIÓN: "${descripcion_val}"`);
+        }
+      }
+      
+      // 🎯 PRIORIDAD 2: Si no hay FUNCIÓN/APLICACIÓN, usar columna mapeada por IA
+      if (!descripcion_val && descCol) {
+        descripcion_val = String(getCellFlexible(producto, descCol) ?? '').trim();
+        if (descripcion_val) {
+          console.log(`  ✅ Descripción desde columna mapeada por IA (${descCol}): "${descripcion_val}"`);
+        }
+      }
+      
+      // 🎯 PRIORIDAD 3: Buscar cualquier columna que contenga "descripción" o "detalle"
+      if (!descripcion_val) {
+        const descGenCol = headers.find(h => {
+          if (!h) return false;
+          const hNorm = h.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+          return (hNorm.includes('descripcion') || hNorm.includes('descripción') || hNorm.includes('detalle')) 
+            && !hNorm.includes('modelo sap'); // Excluir "Descripción Modelo SAP" de Moura
+        });
+        if (descGenCol) {
+          descripcion_val = String(getCellFlexible(producto, descGenCol) ?? '').trim();
+          if (descripcion_val) {
+            console.log(`  ✅ Descripción desde columna genérica (${descGenCol}): "${descripcion_val}"`);
+          }
+        }
+      }
+      
+      // 🎯 Último recurso: Para LIQUI MOLY, buscar columna "DENOMINACION COMERCIAL" o similar
+      if (!descripcion_val && fileName.toLowerCase().includes('liqui')) {
+        const denominacionCol = headers.find(h => {
+          if (!h) return false;
+          const hNorm = h.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+          return hNorm.includes('denominacion') || hNorm.includes('denominación') || hNorm.includes('comercial');
+        });
+        if (denominacionCol) {
+          descripcion_val = String(getCellFlexible(producto, denominacionCol) ?? '').trim();
+          if (descripcion_val) {
+            console.log(`  ✅ Descripción desde DENOMINACIÓN COMERCIAL (${denominacionCol}): "${descripcion_val}"`);
+          }
+        }
       }
 
       // Tipo - Usar el tipo sanitizado detectado por la IA (no buscar en columnas del producto)
