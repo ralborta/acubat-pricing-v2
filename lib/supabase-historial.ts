@@ -81,6 +81,17 @@ export class HistorialPricing {
       }))
 
       // 3. Guardar productos
+      // 🔍 DEBUG: Verificar qué se está insertando
+      if (productosConSesion.length > 0) {
+        const primerProducto = productosConSesion[0] as any;
+        console.log('🔍 DEBUG INSERT: Primer producto que se insertará:');
+        console.log(`   - producto: "${primerProducto.producto}"`);
+        console.log(`   - descripcion: "${primerProducto.descripcion}" (tipo: ${typeof primerProducto.descripcion})`);
+        console.log(`   - proveedor: "${primerProducto.proveedor}"`);
+        console.log(`   - modelo: "${primerProducto.modelo}"`);
+        console.log(`   - Campos en objeto: ${Object.keys(primerProducto).join(', ')}`);
+      }
+      
       const { data: productosGuardados, error: errorProductos } = await supabase
         .from('productos_pricing')
         .insert(productosConSesion)
@@ -88,10 +99,25 @@ export class HistorialPricing {
 
       if (errorProductos) {
         console.error('❌ Error guardando productos:', errorProductos)
+        console.error('❌ Detalle del error:', JSON.stringify(errorProductos, null, 2))
+        // Si el error es por columna faltante, informarlo claramente
+        if (errorProductos.message?.includes('column') || errorProductos.message?.includes('descripcion')) {
+          console.error('⚠️ POSIBLE CAUSA: La columna "descripcion" no existe en la tabla productos_pricing');
+          console.error('⚠️ SOLUCIÓN: Ejecutar en Supabase: ALTER TABLE productos_pricing ADD COLUMN IF NOT EXISTS descripcion TEXT;');
+        }
         throw new Error(`Error guardando productos: ${errorProductos.message}`)
       }
 
       console.log('✅ Productos guardados:', productosGuardados?.length || 0)
+      
+      // 🔍 DEBUG: Verificar qué se guardó realmente
+      if (productosGuardados && productosGuardados.length > 0) {
+        const primerGuardado = productosGuardados[0] as any;
+        console.log('🔍 DEBUG INSERT: Primer producto guardado (devuelto por Supabase):');
+        console.log(`   - producto: "${primerGuardado.producto}"`);
+        console.log(`   - descripcion: "${primerGuardado.descripcion}" (tipo: ${typeof primerGuardado.descripcion})`);
+        console.log(`   - proveedor: "${primerGuardado.proveedor}"`);
+      }
 
       return {
         sesion_id: sesionGuardada.id,

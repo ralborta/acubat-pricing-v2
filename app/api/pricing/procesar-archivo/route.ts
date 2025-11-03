@@ -2249,6 +2249,23 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       }
 
       // Preparar productos para guardar
+      // 🔍 DEBUG: Verificar qué se va a guardar
+      console.log('\n🔍 ========== DEBUG: PRODUCTOS ANTES DE GUARDAR EN BD ==========');
+      if (productosProcesados.length > 0) {
+        const primerProducto = productosProcesados[0] as any;
+        console.log('   - Primer producto a guardar:');
+        console.log(`     * producto: "${primerProducto.producto}"`);
+        console.log(`     * descripcion: "${primerProducto.descripcion}" (tipo: ${typeof primerProducto.descripcion})`);
+        console.log(`     * proveedor: "${primerProducto.proveedor}"`);
+        console.log(`     * modelo: "${primerProducto.modelo}"`);
+        
+        // Verificar los primeros 5 productos
+        productosProcesados.slice(0, 5).forEach((p: any, idx: number) => {
+          console.log(`   - Producto ${idx + 1} a guardar: producto="${p.producto}", descripcion="${p.descripcion || '(vacío)'}", proveedor="${p.proveedor}"`);
+        });
+      }
+      console.log('🔍 ===============================================================\n');
+      
       const productosData = productosProcesados.map(producto => ({
         producto: producto.producto,
         tipo: producto.tipo,
