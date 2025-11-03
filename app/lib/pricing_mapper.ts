@@ -218,7 +218,7 @@ Debes mapear exactamente qué columna corresponde a:
 - "tipo" (familia/categoría del archivo: "Batería", "Aditivos", "Aditivos Nafta", "Herramientas", "Ca Ag Blindada", "J.I.S.", etc. - INFIERELO del contexto del archivo/hoja, NO uses "batería" por defecto)
 - "modelo" (código identificador corto: "UB 550 Ag", "VA40DD/E", números como "2124", "1870", SKU como "7000", etc. - NO uses columnas con texto descriptivo largo como "BATERIA YUASA 6N2-2A". Si la columna "Modelo" contiene texto descriptivo largo, el modelo debe ser el SKU/código de la primera columna)
 - "descripcion" (texto descriptivo completo del producto: "BATERIA YUASA 6N2-2A", "Injection Reiniger", etc. - Si la columna "Modelo" contiene texto descriptivo largo con marca y nombre de producto, mapea esa columna como "descripcion", NO como "modelo")
-- "marca" (nombre del producto/marca: incluso si la columna se llama "Producto", debe mapearse como "marca" cuando contiene nombres de productos/marcas como "Injection Reiniger", "Pro-Line", etc.)
+- "marca" (NOMBRE DE COLUMNA que contiene el nombre del producto/marca: incluso si la columna se llama "Producto", debe mapearse como "marca" cuando contiene nombres de productos/marcas como "Injection Reiniger", "Pro-Line", etc. - IMPORTANTE: devuelve el NOMBRE DE LA COLUMNA, NO el valor extraído)
 - "precio_ars" (precio en pesos argentinos)
 - "descripcion" (función/descripción del producto: columnas como "FUNCIÓN", "APLICACIÓN", o cualquier columna que describa qué hace el producto)
 
@@ -241,14 +241,15 @@ REGLAS OBLIGATORIAS
    e) NO uses "modelo" como identificador si contiene texto descriptivo largo (ej: "BATERIA YUASA 6N2-2A")
    f) Si no existe, identificador = modelo (solo si modelo es un código corto, indícalo en notas).
 5) Marca (REGLA ESPECIAL):
-   a) Si hay una columna llamada "Producto" o similar que contiene nombres de productos/marcas (ej: "Injection Reiniger", "Pro-Line", nombres de marcas), MAPÉALA COMO "marca"
+   a) Si hay una columna llamada "Producto" o similar que contiene nombres de productos/marcas (ej: "Injection Reiniger", "Pro-Line", nombres de marcas), MAPÉALA COMO "marca" (devuelve el NOMBRE DE LA COLUMNA, ej: "Producto")
    b) La segunda columna (columna sin nombre o con nombre genérico) que contiene nombres de productos debe mapearse como "marca", NO como "modelo" ni "descripcion"
    c) Prioriza columnas con nombres de productos/marcas comerciales sobre códigos
    d) CASO ESPECIAL YUASA/MOURA: Si la columna "Modelo" contiene texto descriptivo largo como "BATERIA YUASA 6N2-2A":
       * DEBES mapear esa columna como "descripcion" (NO como modelo) - ES OBLIGATORIO
       * El campo "modelo" en el JSON debe contener el nombre de la columna del SKU/código (ej: "sku "), NO "Modelo"
       * El campo "descripcion" en el JSON debe contener el nombre de la columna descriptiva (ej: "Modelo")
-      * La marca "YUASA" o "MOURA" se extraerá automáticamente del contenido por el sistema, pero puedes indicarlo en notas
+      * El campo "marca" puede ser "Modelo" si esa columna contiene la marca, o null si no hay columna específica de marca
+      * IMPORTANTE: Todos los campos (marca, modelo, descripcion, etc.) deben ser NOMBRES DE COLUMNAS, NO valores extraídos
 6) Tipo/Categoría (DETECCIÓN INTELIGENTE):
    a) NO uses "batería" por defecto - INFIERE el tipo del contexto:
       - Si el archivo/hoja menciona "ADITIVOS", "ADITIVOS NAFTA" → tipo = "Aditivos" o "Aditivos Nafta"
