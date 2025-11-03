@@ -400,6 +400,25 @@ export default function CargaPage() {
       
       const data = await response.json()
       
+      // 🔍 DEBUG: Verificar qué se recibió del backend
+      console.log('🔍 ========== DEBUG FRONTEND: RESPUESTA DEL BACKEND ==========')
+      console.log('   - success:', data.success)
+      console.log('   - total productos:', data.productos?.length || 0)
+      if (data.productos && data.productos.length > 0) {
+        const primerProducto = data.productos[0]
+        console.log('   - Primer producto recibido:')
+        console.log('     * producto:', primerProducto.producto, '(tipo:', typeof primerProducto.producto + ')')
+        console.log('     * descripcion:', primerProducto.descripcion, '(tipo:', typeof primerProducto.descripcion + ')')
+        console.log('     * proveedor:', primerProducto.proveedor, '(tipo:', typeof primerProducto.proveedor + ')')
+        console.log('     * modelo:', primerProducto.modelo)
+        
+        // Verificar los primeros 5 productos
+        data.productos.slice(0, 5).forEach((p: any, idx: number) => {
+          console.log(`   - Producto ${idx + 1}: producto="${p.producto}", descripcion="${p.descripcion || '(vacío)'}", proveedor="${p.proveedor}"`)
+        })
+      }
+      console.log('🔍 ============================================================\n')
+      
       if (data.success) {
         setResultado(data)
         try {
