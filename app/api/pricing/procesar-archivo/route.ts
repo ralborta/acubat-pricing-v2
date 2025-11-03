@@ -949,6 +949,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.error('❌ Error en mapColumnsStrict:', error);
       console.log('⚠️ Usando pickIdColumn como fallback total...')
       
+      // 🎯 PROOF-OF-LIFE: Registrar fallback en diagnóstico
+      const hojaActual = workbook.SheetNames.find(s => datos.some((d: any) => d.__sheet === s)) || workbook.SheetNames[0];
+      diagnosticoIA.push({
+        file: file.name,
+        sheet: hojaActual,
+        source: 'FALLBACK',
+        forced: false,
+        model: 'none',
+        request_id: 'none',
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        latency_ms: 0,
+        confidence: 0,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        error_stack: error instanceof Error ? error.stack : undefined
+      });
+      
       // Fallback total: usar solo pickIdColumn
       idHeader = pickIdColumn(headers, datos);
       
@@ -958,7 +975,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           error: 'NO_ID_COLUMN: no se encontró una columna de ID válida y la IA falló',
           headers,
           muestra: datos.slice(0, 5),
-          error_detalle: error instanceof Error ? error.message : 'Error desconocido'
+          error_detalle: error instanceof Error ? error.message : 'Error desconocido',
+          diagnosticoIA // 🎯 Incluir diagnóstico incluso en error
         }, { status: 400 });
       }
       
@@ -977,6 +995,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       };
       
       console.log('⚠️ MAPEO MÍNIMO CON FALLBACK:', columnMapping)
+      console.log('🧠 ========== FALLBACK ACTIVADO (NO SE USÓ IA) ==========')
     }
     
     // 🔍 DEBUG: Mapeo final
