@@ -621,19 +621,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       tienePrecio: !!h.pvpOffLine || !!h.precioLista || !!h.precioUnitario
     })))
     
-    // 🎯 PROCESAR TODAS LAS HOJAS VÁLIDAS
-    const hojasValidas = diagnosticoHojas.filter(h => !h.descartada && h.filas > 0)
+    // 🎯 PROCESAR TODAS LAS HOJAS CON DATOS (relajar validación - dejar que la IA decida)
+    // Solo descartar hojas completamente vacías (< 1 fila después de leer)
+    const hojasValidas = diagnosticoHojas.filter(h => h.filas > 0)
     
-    console.log(`\n✅ Hojas válidas encontradas:`, hojasValidas.map(h => ({
+    console.log(`\n✅ Hojas con datos encontradas:`, hojasValidas.map(h => ({
       nombre: h.nombre,
       filas: h.filas,
-      score: h.score
+      score: h.score,
+      descartada: h.descartada
     })))
     
     if (hojasValidas.length === 0) {
-      console.log(`❌ No se encontraron hojas válidas. Diagnóstico completo:`, diagnosticoHojas)
+      console.log(`❌ No se encontraron hojas con datos. Diagnóstico completo:`, diagnosticoHojas)
       return NextResponse.json({ success: false, error: 'No se encontró una hoja válida con datos de productos', diagnosticoHojas }, { status: 400 })
     }
+    
+    console.log(`\n⚠️ RELAJACIÓN: Procesando ${hojasValidas.length} hojas con datos (dejando que la IA determine si son válidas)`)
     
     console.log(`\n✅ HOJAS VÁLIDAS ENCONTRADAS: ${hojasValidas.length}`)
     console.log(`📊 Procesando hojas:`, hojasValidas.map(h => `${h.nombre}(${h.filas})`))
@@ -667,26 +671,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         values: Object.values(p).slice(0, 3)
       })))
       
+      // 🎯 FILTRO RELAJADO: Solo descartar filas obviamente inválidas, dejar que la IA procese el resto
       const datosFiltrados = datosHoja.filter((producto: any, index: number) => {
-        // 🎯 Filtro robusto con isProductRow
-        if (!isProductRow(producto)) {
-          console.log(`    ⚠️  Fila ${index + 1} descartada (no es producto - TOTAL/vacía/separador)`)
+        const valores = Object.values(producto).map(v => String(v || '').toLowerCase())
+        
+        // Solo descartar filas OBVIAMENTE inválidas:
+        // 1. Filas completamente vacías
+        const esVacio = valores.every(v => !v || v.trim() === '' || v === '0')
+        if (esVacio) {
+          console.log(`    ⚠️  Fila ${index + 1} descartada (vacía)`)
           return false
         }
         
-        const valores = Object.values(producto).map(v => String(v || '').toLowerCase())
-        const esNota = valores.some(v => v.includes('nota') || v.includes('tel:') || v.includes('bornes') || v.includes('precios para la compra'))
-        const esTitulo = valores.some(v => v.includes('sistema de pricing') || v.includes('optimizado para máximo rendimiento'))
-        const esVacio = valores.every(v => v.trim() === '')
-        const esEncabezado = isHeaderRowLikely(producto, index)
-        // Descartar explícitamente las filas grises superiores del patrón LIQUI MOLY
-        const esFilaGrisLiqui = index < 3 && Object.values(producto).some(v => String(v).toLowerCase().includes('precio'))
-        
-        if (esNota || esTitulo || esVacio || esEncabezado || esFilaGrisLiqui) {
-          console.log(`    ⚠️  Fila ${index + 1} descartada (${esNota ? 'nota' : esTitulo ? 'título' : esFilaGrisLiqui ? 'encabezado-liqui' : esEncabezado ? 'encabezado' : 'vacía'}):`, valores.slice(0, 3))
+        // 2. Filas que dicen explícitamente "TOTAL" o "SUBTOTAL" (pero no en nombres de productos)
+        const tieneTotalExplicito = valores.some(v => v.trim() === 'total' || v.trim() === 'subtotal')
+        if (tieneTotalExplicito && index > 5) { // Solo descartar si está al final
+          console.log(`    ⚠️  Fila ${index + 1} descartada (TOTAL/SUBTOTAL explícito)`)
+          return false
         }
         
-        return !esNota && !esTitulo && !esVacio && !esEncabezado && !esFilaGrisLiqui
+        // 3. Notas o información de contacto (muy específico)
+        const esNotaContacto = valores.some(v => 
+          (v.includes('tel:') || v.includes('email:') || v.includes('@')) && 
+          valores.filter(v => v.trim()).length < 3 // Si tiene tel pero pocos campos, es nota
+        )
+        if (esNotaContacto) {
+          console.log(`    ⚠️  Fila ${index + 1} descartada (nota/contacto)`)
+          return false
+        }
+        
+        // ✅ TODO LO DEMÁS se deja pasar - la IA decidirá si es válido
+        return true
       })
       
       console.log(`\n🔍 FILTRO POR HOJA ${hojaInfo.nombre} - DESPUÉS:`)

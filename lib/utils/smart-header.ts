@@ -115,16 +115,6 @@ export function isProductRow(row: Record<string, any>): boolean {
   const values = Object.values(row);
   const strings = values.map(v => String(v || '').toLowerCase().trim());
   
-  // Descartar si tiene "total" en cualquier columna
-  if (strings.some(v => v.includes('total'))) {
-    return false;
-  }
-  
-  // Descartar si tiene "subtotal"
-  if (strings.some(v => v.includes('subtotal'))) {
-    return false;
-  }
-  
   // Descartar si todas las columnas están vacías
   if (strings.every(v => !v || v === '0')) {
     return false;
@@ -134,6 +124,9 @@ export function isProductRow(row: Record<string, any>): boolean {
   if (strings.some(v => /^[-=_]{3,}$/.test(v))) {
     return false;
   }
+  
+  // RELAJADO: No descartar por "total" o "subtotal" automáticamente
+  // Puede ser parte del nombre de un producto. La IA decidirá.
   
   return true;
 }
