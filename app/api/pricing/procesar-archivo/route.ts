@@ -498,19 +498,99 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log(`💵 Checkbox "Precios en USD": ${preciosEnUSD ? 'MARCADO ✅' : 'NO MARCADO ❌'}`)
     console.log(`💵 La conversión USD → ARS se aplicará: ${preciosEnUSD ? 'SÍ' : 'NO'}`)
     
-    // 🎯 ANÁLISIS DE TODAS LAS HOJAS
-    const diagnosticoHojas: Array<{ nombre: string; filas: number; headers: string[]; pvpOffLine?: string; precioLista?: string; precioUnitario?: string; descartada?: boolean; motivoDescarte?: string; score?: number; }> = []
+    // 🎯 ANÁLISIS DE TODAS LAS HOJAS (diagnóstico crudo primero)
+    type Diag = {
+      nombre: string;
+      filas: number;
+      headers: string[];
+      ref?: string | null;
+      vacia?: boolean;
+      error?: string;
+      score?: number;
+      descartada?: boolean;
+      pvpOffLine?: string;
+      precioLista?: string;
+      precioUnitario?: string;
+    };
     
-    for (let i = 0; i < workbook.SheetNames.length; i++) {
-      const sheetName = workbook.SheetNames[i]
-    const worksheet = workbook.Sheets[sheetName]
+    const diagnosticoHojas: Diag[] = [];
+    
+    function cleanHeader(h?: string) {
+      return String(h ?? "").trim() || "";
+    }
+    
+    // 🔁 Diagnóstico crudo de todas las hojas (sin descartar todavía)
+    for (const sheetName of workbook.SheetNames) {
+      try {
+        const ws = workbook.Sheets[sheetName];
+        const ref = (ws && ws["!ref"]) ? ws["!ref"] : null;
+        
+        // AOA para ver si hay algo
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
+        const guessHeaders = (aoa?.[0] ?? []).map((x: any) => cleanHeader(String(x)));
+        const rowsCount = Math.max(0, (aoa?.length ?? 0) - 1);
+        
+        diagnosticoHojas.push({
+          nombre: sheetName,
+          filas: rowsCount,
+          headers: guessHeaders.slice(0, 25),
+          ref,
+          vacia: rowsCount <= 0
+        });
+      } catch (e: any) {
+        diagnosticoHojas.push({
+          nombre: sheetName,
+          filas: 0,
+          headers: [],
+          error: `read_error: ${e?.message}`
+        });
+      }
+    }
+    
+    if (diagnosticoHojas.length === 0) {
+      // jamás debería pasar ahora
+      return NextResponse.json({
+        success: false,
+        error: "No se pudo inspeccionar ninguna hoja",
+        diagnosticoHojas: [{ nombre: "<none>", filas: 0, headers: [], error: "workbook sin hojas" }]
+      }, { status: 400 });
+    }
+    
+    console.log(`\n📊 DIAGNÓSTICO CRUDO DE ${diagnosticoHojas.length} HOJAS:`)
+    diagnosticoHojas.forEach(h => {
+      console.log(`  - ${h.nombre}: ${h.filas} filas, ${h.headers.length} headers, ${h.vacia ? 'VACÍA' : 'CON DATOS'}`)
+    })
+    
+    // Función robusta para leer hoja
+    function readSheetSafe(ws: XLSX.WorkSheet) {
+      try {
+        const data = readWithSmartHeader(ws);
+        if (Array.isArray(data) && data.length > 0) return data;
+      } catch (e) {
+        console.warn("⚠️ readWithSmartHeader falló, voy con fallback std:", (e as any)?.message);
+      }
+      // fallback: usa la primera fila como header, sin rebanar
+      return XLSX.utils.sheet_to_json(ws, { defval: "" });
+    }
+    
+    // 🎯 Ahora procesar cada hoja con análisis detallado
+    for (let i = 0; i < diagnosticoHojas.length; i++) {
+      const diag = diagnosticoHojas[i];
+      const sheetName = diag.nombre;
+      const worksheet = workbook.Sheets[sheetName];
       
       console.log(`\n🔍 Analizando hoja "${sheetName}":`)
       
-      // 🎯 Usar readWithSmartHeader para detectar encabezados automáticamente
-      // Resuelve __EMPTY_* en XLS viejos con headers en otras filas
-      const datosHoja = readWithSmartHeader(worksheet)
-      if (!datosHoja || datosHoja.length === 0) {
+      const datosHoja = readSheetSafe(worksheet);
+      
+      // Actualizar diagnóstico con datos reales
+      if (datosHoja && datosHoja.length > 0) {
+        diag.filas = datosHoja.length;
+        diag.headers = Object.keys(datosHoja[0] as any).slice(0, 25);
+        diag.vacia = false;
+      } else {
+        diag.filas = 0;
+        diag.vacia = true;
         console.log(`  ❌ Hoja vacía o sin datos`)
         continue
       }
@@ -523,7 +603,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const H = (h?: string) => (h || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim()
       
       // 🎯 DETECTAR SI ES MOURA para ajustar detección
-      const esMoura = file.name.toLowerCase().includes('moura')
+      const esMoura = fileName.toLowerCase().includes('moura')
       
       // Calcular score basado en columnas clave y cantidad de datos
       let score = 0
@@ -533,7 +613,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const precioUnitario = headersHoja.find(h => H(h).includes('precio') && H(h).includes('unit'))
       let codigo = headersHoja.find(h => H(h).includes('codigo') || H(h).includes('código'))
       // Para MOURA, buscar "Descripción Modelo SAP" como modelo
-      // Para otros proveedores, buscar "modelo" normalmente (sin restricciones)
       let modelo = esMoura 
         ? headersHoja.find(h => H(h).includes('descripcion modelo sap') || H(h).includes('descripción modelo sap') || (H(h).includes('modelo sap') && (H(h).includes('descripcion') || H(h).includes('descripción'))))
         : headersHoja.find(h => H(h).includes('modelo'))
@@ -558,89 +637,58 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Buscar cualquier columna de precio (incluyendo "Contado")
       const tienePrecio = pvpOffLine || contado || precioLista || precioUnitario
 
-      // NO DESCARTAR TEMPRANO - evaluar con score flexible
+      if (pvpOffLine) score += 5
+      else if (contado) score += 4
+      else if (precioLista) score += 4
+      else if (precioUnitario) score += 3
       
-      if (pvpOffLine) score += 5  // PVP Off Line es crítico
-      else if (contado) score += 4  // Contado es muy importante
-      else if (precioLista) score += 4  // Precio de Lista es muy importante
-      else if (precioUnitario) score += 3  // Precio Unitario es importante
+      if (codigo) score += 3
+      if (modelo) score += 3
+      if (marca) score += 3
+      if (descripcion) score += 2
+      if (rubro) score += 1
       
-      if (codigo) score += 3      // Código es muy importante
-      if (modelo) score += 3      // Modelo es muy importante (para MOURA: "Descripción Modelo SAP")
-      if (marca) score += 3       // Marca es muy importante
-      if (descripcion) score += 2 // Descripción es importante
-      if (rubro) score += 1       // Rubro es útil
-      
-      // Bonus por cantidad de datos (más estricto)
       if (datosHoja.length >= 10) score += 5
       else if (datosHoja.length >= 5) score += 3
       else if (datosHoja.length >= 2) score += 1
       
-      // Penalizar hojas con muy pocos datos
       if (datosHoja.length < 2) score = 0
       
-      // Bonus por tener múltiples columnas clave
       const columnasClave = [tienePrecio, codigo, modelo, marca, descripcion, rubro].filter(Boolean).length
       if (columnasClave >= 3) score += 2
       if (columnasClave >= 4) score += 3
       
-      // 🎯 FLEXIBILIDAD: Si tiene código/modelo y datos, es válida aunque no tenga precio
       if ((codigo || modelo) && datosHoja.length >= 5) {
-        score = Math.max(score, 3) // Mínimo score para hojas con código/modelo y datos
+        score = Math.max(score, 3)
       }
       
-      // 🎯 FLEXIBILIDAD EXTRA: Si tiene cualquier columna de precio y primera columna tiene valores, es válida
       if (tienePrecio && datosHoja.length >= 2) {
-        // Verificar que la primera columna tenga valores no vacíos
         const primeraCol = headersHoja[0]
         const tieneValoresEnPrimera = datosHoja.some((row: any) => {
           const valor = String(row[primeraCol] || '').trim()
           return valor && valor.length > 0 && !valor.toLowerCase().includes('total')
         })
         if (tieneValoresEnPrimera) {
-          score = Math.max(score, 4) // Score mínimo alto si tiene precio y primera columna con valores
+          score = Math.max(score, 4)
           console.log(`  ✅ Primera columna "${primeraCol}" tiene valores válidos`)
         }
       }
       
       console.log(`  📊 Score: ${score} (${datosHoja.length} filas)`)
-      console.log(`  📋 Headers: ${headersHoja.length}`)
-      console.log(`  🎯 Columnas clave encontradas: ${columnasClave}/5`)
-      if (pvpOffLine) console.log(`    ✅ PVP Off Line: "${pvpOffLine}"`)
-      else if (contado) console.log(`    ✅ Contado: "${contado}"`)
-      else if (precioLista) console.log(`    ✅ Precio de Lista: "${precioLista}"`)
-      else if (precioUnitario) console.log(`    ✅ Precio Unitario: "${precioUnitario}"`)
-      else console.log(`    ❌ Precio: NO ENCONTRADO`)
-      if (codigo) console.log(`    ✅ CODIGO: "${codigo}"`)
-      if (modelo) console.log(`    ✅ MODELO: "${modelo}"`)
-      if (marca) console.log(`    ✅ MARCA: "${marca}"`)
-      if (descripcion) console.log(`    ✅ DESCRIPCION: "${descripcion}"`)
-      if (rubro) console.log(`    ✅ RUBRO: "${rubro}"`)
-      
-      // 🔍 LOGS DE DIAGNÓSTICO PARA MOURA
-      console.log(`📘 MOURA DETECTADO: ${esMoura}`)
-      console.log(`📋 Headers detectados:`, headersHoja.slice(0, 10))
-      console.log(`✅ codigo:`, codigo)
-      console.log(`✅ modelo:`, modelo)
-      console.log(`📊 Filas:`, datosHoja.length)
-      console.log(`🎯 Score final:`, score)
       
       // 🎯 LÓGICA FLEXIBLE: No descartar por score; procesar toda hoja no vacía
       let descartada = datosHoja.length < 1
       
-      // Si tiene precio y datos, NO descartar (incluso si score es bajo)
       if (tienePrecio && datosHoja.length >= 2) {
         descartada = false
-        score = Math.max(score, 4) // Asegurar score mínimo
+        score = Math.max(score, 4)
       }
       
-      // Si tiene código/modelo identificador y datos, NO descartar
       if ((codigo || modelo) && datosHoja.length >= 2) {
         descartada = false
-        score = Math.max(score, 3) // Asegurar score mínimo
+        score = Math.max(score, 3)
       }
       
-      // Si tiene score > 0 y datos, NO descartar
       if (score > 0 && datosHoja.length > 0) {
         descartada = false
       }
