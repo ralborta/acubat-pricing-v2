@@ -49,12 +49,13 @@ export interface MapColumnsInput {
   hojas?: string[];
   muestra: ColumnSampleRow[]; // pasa 5–10 filas reales
   nombreArchivo?: string;     // nombre del archivo para inferir tipo
+  vendorHint?: string;         // hint del proveedor (MOURA, LIQUI MOLY, VARTA, etc.)
   model?: string;             // por defecto gpt-4o-mini
   apiKey?: string;            // si no, toma process.env.OPENAI_API_KEY
   minConfidence?: number;     // default 0.7
   minCoverage?: number;       // default 0.8 (80% numérico en precio)
   minPriceMax?: number;       // default 100000 (ARS)
-  maxRetries?: number;        // default 1 (1 reintento con feedback)
+  maxRetries?: number;         // default 1 (1 reintento con feedback)
 }
 
 export interface MapColumnsOutput {
@@ -63,7 +64,16 @@ export interface MapColumnsOutput {
   precio_ars: string | null;
   descripcion: string | null;
   identificador: string | null;
+  marca?: string | null; // Agregado: marca del producto
   confianza: number;
+  confidence?: { // Agregado: confianza por campo
+    identificador?: number | null;
+    modelo?: number | null;
+    marca?: number | null;
+    tipo?: number | null;
+    precio_ars?: number | null;
+    descripcion?: number | null;
+  };
   evidencia: {
     precio_ars: {
       columna_elegida: string | null;
@@ -83,6 +93,11 @@ export interface MapColumnsOutput {
       muestras: string[];
       motivo: string;
     };
+    marca?: { // Agregado: evidencia de marca
+      columna_elegida: string | null;
+      muestras: string[];
+      motivo: string;
+    };
   };
   clasificacion_columnas?: {
     columna: string;
@@ -91,6 +106,7 @@ export interface MapColumnsOutput {
       | "modelo"
       | "tipo"
       | "descripcion"
+      | "marca"
       | "dimension"
       | "moneda_usd"
       | "desconocida";
@@ -177,9 +193,12 @@ export async function aplicarConfiguracionPricing(precioBase: number, canal: 'ma
 }
 
 /* ----------------------------- SYSTEM PROMPT ----------------------------- */
-function buildSystemPrompt(): string {
+function buildSystemPrompt(vendorHint?: string): string {
+  const hintText = vendorHint ? `\n\nHINT DE PROVEEDOR: ${vendorHint}\n- Si es MOURA: identificador := columna "CÓDIGO/CODIGO"; modelo := "DENOMINACIÓN COMERCIAL/APLICACIONES" si existe.\n- Si es ADITIVOS o LIQUI MOLY: primera columna numérica = identificador, segunda columna "Producto" = marca, descripcion := FUNCIÓN + " — " + APLICACIÓN.\n- Si es VARTA: sigue las reglas normales de baterías.\n` : '';
+  
   return `
 Eres especialista senior en pricing de productos automotrices en Argentina (baterías, aditivos, herramientas, etc.).
+${hintText}
 Usa únicamente las COLUMNAS y la MUESTRA provistas en este turno (ignora conocimiento previo).
 Debes mapear exactamente qué columna corresponde a:
 - "tipo" (familia/categoría del archivo: "Batería", "Aditivos", "Aditivos Nafta", "Herramientas", "Ca Ag Blindada", "J.I.S.", etc. - INFIERELO del contexto del archivo/hoja, NO uses "batería" por defecto)
@@ -248,13 +267,26 @@ const SCHEMA = {
   schema: {
     type: "object",
     additionalProperties: false,
-    properties: {
+      properties: {
       tipo: { type: ["string","null"] },
       modelo: { type: ["string","null"] },
+      marca: { type: ["string","null"] },
       precio_ars: { type: ["string","null"] },
       descripcion: { type: ["string","null"] },
       identificador: { type: ["string","null"] },
       confianza: { type: "number", minimum: 0, maximum: 1 },
+      confidence: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          identificador: { type: ["number","null"] },
+          modelo: { type: ["number","null"] },
+          marca: { type: ["number","null"] },
+          tipo: { type: ["number","null"] },
+          precio_ars: { type: ["number","null"] },
+          descripcion: { type: ["number","null"] }
+        }
+      },
       evidencia: {
         type: "object",
         additionalProperties: false,
@@ -291,6 +323,16 @@ const SCHEMA = {
               motivo: { type: "string" }
             },
             required: ["columna_elegida","muestras","motivo"]
+          },
+          marca: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              columna_elegida: { type: ["string","null"] },
+              muestras: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 5 },
+              motivo: { type: "string" }
+            },
+            required: ["columna_elegida","muestras","motivo"]
           }
         },
         required: ["precio_ars","modelo","tipo"]
@@ -304,7 +346,7 @@ const SCHEMA = {
             columna: { type: "string" },
             categoria_inferida: {
               type: "string",
-              enum: ["precio_ars","modelo","tipo","descripcion","dimension","moneda_usd","desconocida"]
+              enum: ["precio_ars","modelo","tipo","descripcion","marca","dimension","moneda_usd","desconocida"]
             },
             motivo_breve: { type: "string" }
           },
@@ -323,7 +365,8 @@ const SCHEMA = {
       "evidencia",
       "clasificacion_columnas",
       "notas"
-    ]
+    ],
+    optional: ["marca", "confidence"] // Marca y confidence son opcionales en el schema
   },
   strict: true as const
 };
@@ -412,6 +455,7 @@ export async function mapColumnsStrict({
   hojas,
   muestra,
   nombreArchivo,
+  vendorHint,
   model = DEFAULT_MODEL,
   apiKey = process.env.OPENAI_API_KEY!,
   minConfidence = 0.7,
@@ -422,7 +466,7 @@ export async function mapColumnsStrict({
   if (!apiKey) throw new Error("OPENAI_API_KEY no configurada.");
 
   const client = new OpenAI({ apiKey });
-  const system = buildSystemPrompt();
+  const system = buildSystemPrompt(vendorHint);
   const user = buildUserPayload(columnas, hojas, muestra, nombreArchivo);
 
   // 1) Intento con Structured Outputs strict
@@ -510,6 +554,67 @@ export async function mapColumnsStrict({
     throw new Error("No se pudo extraer JSON del modelo (verifica que uses Responses API, no Chat Completions).");
   }
 
+  // 🎯 FALLBACKS HARDCODEADOS: Si la IA no detectó algo crítico, usar heurísticas básicas
+  if (out) {
+    const H = columnas.map(h => (h || "").toLowerCase().trim());
+    const findHeader = (...cands: string[]) => columnas.find(x => x && cands.some(c => x.toLowerCase().trim().includes(c))) || null;
+
+    // Fallback para identificador si no existe
+    if (!out.identificador) {
+      out.identificador = findHeader("código", "codigo", "sku", "ref", "id", "ean", "upc", "artículo", "articulo", "item", "nro") || null;
+      if (out.identificador) {
+        out.confianza = Math.min(out.confianza ?? 0.6, 0.6);
+        out.notas.push("identificador detectado por fallback hardcodeado");
+      }
+    }
+
+    // Fallback para precio si no existe
+    if (!out.precio_ars) {
+      out.precio_ars = findHeader("pvp off line", "precio de lista", "precio lista", "contado", "precio unitario", "precio", "pvp", "ars", "ar$", "$") || null;
+      if (out.precio_ars) {
+        out.confianza = Math.min(out.confianza ?? 0.6, 0.6);
+        out.notas.push("precio_ars detectado por fallback hardcodeado");
+      }
+    }
+
+    // Fallback para marca si existe columna "Producto" y no se mapeó
+    if (!out.marca && findHeader("producto")) {
+      out.marca = findHeader("producto");
+      if (!out.confidence) out.confidence = {};
+      out.confidence.marca = 0.7;
+      out.notas.push("marca mapeada desde columna 'Producto' por fallback");
+    }
+  }
+
   return { result: out, attempts };
+}
+
+// 🎯 HELPER: Inferir tipo del contexto si la IA no lo detectó
+export function inferirTipoPorContexto(headers: string[], nombreArchivo?: string, nombreHoja?: string): string | null {
+  const blob = `${headers.join(" | ")} ${nombreArchivo || ""} ${nombreHoja || ""}`.toLowerCase();
+  
+  if (/\baditivos\b/.test(blob)) {
+    if (/nafta/.test(blob)) return "Aditivos Nafta";
+    if (/diesel/.test(blob)) return "Aditivos Diesel";
+    return "Aditivos";
+  }
+  if (/\bherramienta/.test(blob)) return "Herramientas";
+  if (/\bbateri(a|as|as)\b/.test(blob)) return "Batería";
+  
+  return null;
+}
+
+// 🎯 HELPER: Sanitizar tipo para uso consistente en DB/UI
+export function sanitizeTipo(tipo: string | null | undefined): string | null {
+  if (!tipo) return null;
+  const s = tipo.toLowerCase().trim();
+  
+  if (s.includes("aditivos diesel")) return "ADITIVOS_DIESEL";
+  if (s.includes("aditivos nafta")) return "ADITIVOS_NAFTA";
+  if (s.includes("aditivos")) return "ADITIVOS";
+  if (s.includes("herramient")) return "HERRAMIENTAS";
+  if (s.includes("bater")) return "BATERIA";
+  
+  return tipo; // Mantener original si no coincide
 }
 

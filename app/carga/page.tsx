@@ -61,6 +61,20 @@ interface Resultado {
   productos: Producto[]
 }
 
+// 🎯 Helper para mostrar labels de tipo sin hardcodear "Batería"
+function getTipoLabel(tipo: string | null | undefined): string {
+  if (!tipo) return '—';
+  const s = String(tipo).toUpperCase().trim();
+  const labels: Record<string, string> = {
+    'BATERIA': 'Batería',
+    'ADITIVOS': 'Aditivos',
+    'ADITIVOS_NAFTA': 'Aditivos Nafta',
+    'ADITIVOS_DIESEL': 'Aditivos Diesel',
+    'HERRAMIENTAS': 'Herramientas'
+  };
+  return labels[s] || tipo;
+}
+
 export default function CargaPage() {
   const [opcionSeleccionada, setOpcionSeleccionada] = useState<'base' | 'pricing' | 'simulacion' | null>(null)
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null)
@@ -452,7 +466,7 @@ export default function CargaPage() {
       // Fila Minorista
       csvRows.push([
         producto.producto || 'N/A',
-        producto.tipo || 'Batería',
+        getTipoLabel(producto.tipo),
         producto.modelo || 'N/A',
         producto.precio_base_minorista || 0,
         (producto.descuento_proveedor || 0) + '%',
@@ -1132,7 +1146,7 @@ export default function CargaPage() {
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    ⚡ {producto.tipo || 'Batería'}
+                                    ⚡ {getTipoLabel(producto.tipo)}
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
@@ -1188,7 +1202,7 @@ export default function CargaPage() {
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    ⚡ {producto.tipo || 'Batería'}
+                                    ⚡ {getTipoLabel(producto.tipo)}
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">

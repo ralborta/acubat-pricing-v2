@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 45
 import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
-import { mapColumnsStrict } from '../../../lib/pricing_mapper'
+import { mapColumnsStrict, inferirTipoPorContexto, sanitizeTipo } from '../../../lib/pricing_mapper'
 import { HistorialPricing } from "@/lib/supabase-historial"
 import { getBlueRate } from '@/lib/fx'
 import { parseLocaleNumber } from '@/lib/parse-number'
@@ -776,12 +776,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let columnMapping: any = {};
     let idHeader = '';
     
+    // 🎯 Inferir vendor hint del nombre del archivo y hojas
+    function inferVendorHint(fileName?: string, sheetNames?: string[]): string {
+      const blob = `${fileName || ""} ${(sheetNames || []).join(" ")}`.toLowerCase();
+      if (blob.includes("moura")) return "MOURA";
+      if (blob.includes("liqui moly") || blob.includes("aditivos")) return "ADITIVOS|LIQUI MOLY";
+      if (blob.includes("varta")) return "VARTA";
+      return "";
+    }
+    
+    const vendorHint = inferVendorHint(file.name, workbook.SheetNames);
+    console.log(`🎯 Vendor Hint inferido: ${vendorHint || 'Ninguno'}`);
+    
     try {
       // Llamar a mapColumnsStrict con headers y muestra de datos
       const { result } = await mapColumnsStrict({
         columnas: headers,
         muestra: datos.slice(0, 10),
         nombreArchivo: file.name, // Pasar nombre del archivo para inferir tipo
+        vendorHint: vendorHint || undefined, // Pasar vendor hint si existe
         model: 'gpt-4o-mini' // Usar el modelo optimizado
       });
       
@@ -811,17 +824,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }, { status: 400 });
       }
       
+      // 🎯 Inferir tipo si la IA no lo detectó
+      let tipoFinal = result.tipo;
+      if (!tipoFinal) {
+        const hojaActual = workbook.SheetNames.find(s => datos.some((d: any) => d.__sheet === s)) || workbook.SheetNames[0];
+        tipoFinal = inferirTipoPorContexto(headers, file.name, hojaActual);
+        console.log(`🔍 Tipo inferido por contexto: ${tipoFinal || 'null'}`);
+      }
+      
+      // 🎯 Sanitizar tipo para uso consistente
+      const tipoSanitizado = sanitizeTipo(tipoFinal);
+      console.log(`✅ Tipo sanitizado: ${tipoSanitizado || 'null'}`);
+      
       // Construir columnMapping en el formato esperado
       columnMapping = {
-        tipo: result.tipo || '',
+        tipo: tipoSanitizado || tipoFinal || '',
         modelo: result.modelo || '',
+        marca: result.marca || '', // Agregar marca
         precio: result.precio_ars || '',
         descripcion: result.descripcion || '',
         id_header: idHeader,
         ident_header: result.identificador || idHeader,
         modelo_header: result.modelo || '',
+        marca_header: result.marca || '', // Agregar marca_header
         sku_header: '', // mapColumnsStrict no devuelve SKU específico, se maneja más adelante
         confianza: result.confianza || 0,
+        confidence: result.confidence || {}, // Agregar confidence por campo
         evidencia: result.evidencia || {}
       };
       
@@ -980,8 +1008,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Descripción nunca reemplaza modelo ni ID (no la usamos para inventar)
       const descripcion_val = descCol ? String(producto[descCol] ?? '').trim() : '';
 
-      // Tipo
-      const tipo = columnMapping.tipo ? producto[columnMapping.tipo] : 'BATERIA'
+      // Tipo - NO hardcodear 'BATERIA', usar el tipo detectado o null
+      const tipo = (columnMapping.tipo && producto[columnMapping.tipo]) ? String(producto[columnMapping.tipo]) : (columnMapping.tipo || null)
       
       console.log(`🔍 VALORES EXTRAÍDOS:`)
       console.log(`  - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
