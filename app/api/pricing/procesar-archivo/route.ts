@@ -807,22 +807,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       idHeader = result.identificador || result.modelo || '';
       
       // Fallback: si no hay identificador, usar pickIdColumn
-      if (!idHeader) {
+    if (!idHeader) {
         console.log('⚠️ No se encontró identificador en resultado, usando pickIdColumn como fallback...')
-        idHeader = pickIdColumn(headers, datos);
-        console.log('🧭 pickIdColumn eligió:', idHeader);
-      }
+      idHeader = pickIdColumn(headers, datos);
+      console.log('🧭 pickIdColumn eligió:', idHeader);
+    }
       
       // Validar que tenemos un ID válido
-      if (!idHeader) {
-        return NextResponse.json({
-          success: false,
-          error: 'NO_ID_COLUMN: no se encontró una columna de ID válida (sku/código/referencia/modelo/…)',
-          headers,
+    if (!idHeader) {
+      return NextResponse.json({
+        success: false,
+        error: 'NO_ID_COLUMN: no se encontró una columna de ID válida (sku/código/referencia/modelo/…)',
+        headers,
           muestra: datos.slice(0, 5),
           resultado_ia: result
-        }, { status: 400 });
-      }
+      }, { status: 400 });
+    }
       
       // 🎯 Inferir tipo si la IA no lo detectó
       let tipoFinal = result.tipo;
@@ -836,13 +836,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const tipoSanitizado = sanitizeTipo(tipoFinal);
       console.log(`✅ Tipo sanitizado: ${tipoSanitizado || 'null'}`);
       
+      // 🎯 Extraer descripción de FUNCIÓN/APLICACIÓN si la IA las mapeó
+      let descripcionColumna = result.descripcion || '';
+      // Si la IA no mapeó descripción pero existen columnas FUNCIÓN/APLICACIÓN, usarlas
+      if (!descripcionColumna) {
+        const funcionCol = headers.find(h => h && h.toLowerCase().includes('función'));
+        const aplicacionCol = headers.find(h => h && h.toLowerCase().includes('aplicación'));
+        if (funcionCol || aplicacionCol) {
+          descripcionColumna = funcionCol || aplicacionCol || '';
+          console.log(`🔍 Descripción detectada desde columnas: FUNCIÓN=${funcionCol || 'N/A'}, APLICACIÓN=${aplicacionCol || 'N/A'}`);
+        }
+      }
+      
       // Construir columnMapping en el formato esperado
       columnMapping = {
-        tipo: tipoSanitizado || tipoFinal || '',
+        tipo: tipoSanitizado || tipoFinal || '', // Tipo sanitizado para usar directamente (no es nombre de columna)
+        tipo_columna: result.tipo && !tipoSanitizado ? result.tipo : null, // Si result.tipo era nombre de columna, guardarlo por separado
         modelo: result.modelo || '',
         marca: result.marca || '', // Agregar marca
         precio: result.precio_ars || '',
-        descripcion: result.descripcion || '',
+        descripcion: descripcionColumna, // Columna de descripción (FUNCIÓN/APLICACIÓN) o mapeada por IA
         id_header: idHeader,
         ident_header: result.identificador || idHeader,
         modelo_header: result.modelo || '',
@@ -1005,18 +1018,62 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (!sku_val && idCol === skuCol) sku_val = id_val;
       if (!sku_val && dynamicIdKeys.some(k => /sku/i.test(String(k)))) sku_val = id_val;
 
-      // Descripción nunca reemplaza modelo ni ID (no la usamos para inventar)
-      const descripcion_val = descCol ? String(producto[descCol] ?? '').trim() : '';
+      // Descripción - Extraer de FUNCIÓN, APLICACIÓN, o columna mapeada por IA
+      let descripcion_val = '';
+      if (descCol) {
+        descripcion_val = String(getCellFlexible(producto, descCol) ?? '').trim();
+      }
+      
+      // Si hay columnas FUNCIÓN y APLICACIÓN, concatenarlas
+      const funcionCol = headers.find(h => h && h.toLowerCase().includes('función'));
+      const aplicacionCol = headers.find(h => h && h.toLowerCase().includes('aplicación'));
+      
+      if (funcionCol && aplicacionCol) {
+        const funcion = String(getCellFlexible(producto, funcionCol) ?? '').trim();
+        const aplicacion = String(getCellFlexible(producto, aplicacionCol) ?? '').trim();
+        if (funcion && aplicacion) {
+          descripcion_val = `${funcion} — ${aplicacion}`;
+        } else if (funcion) {
+          descripcion_val = funcion;
+        } else if (aplicacion) {
+          descripcion_val = aplicacion;
+        }
+      } else if (funcionCol && !descripcion_val) {
+        descripcion_val = String(getCellFlexible(producto, funcionCol) ?? '').trim();
+      } else if (aplicacionCol && !descripcion_val) {
+        descripcion_val = String(getCellFlexible(producto, aplicacionCol) ?? '').trim();
+      }
 
-      // Tipo - NO hardcodear 'BATERIA', usar el tipo detectado o null
-      const tipo = (columnMapping.tipo && producto[columnMapping.tipo]) ? String(producto[columnMapping.tipo]) : (columnMapping.tipo || null)
+      // Tipo - Usar el tipo sanitizado detectado por la IA (no buscar en columnas del producto)
+      // Si columnMapping.tipo es un tipo sanitizado (ej: "ADITIVOS_NAFTA"), usarlo directamente
+      // Si es un nombre de columna, extraer del producto; si no, usar el tipo detectado
+      let tipo = null;
+      if (columnMapping.tipo) {
+        // Verificar si es un tipo sanitizado (contiene guión bajo o es un tipo conocido)
+        const tipoStr = String(columnMapping.tipo).toUpperCase();
+        if (tipoStr.includes('ADITIVOS') || tipoStr.includes('HERRAMIENTAS') || tipoStr === 'BATERIA') {
+          tipo = columnMapping.tipo; // Es un tipo sanitizado, usarlo directamente
+        } else {
+          // Es un nombre de columna, extraer del producto
+          tipo = producto[columnMapping.tipo] ? String(producto[columnMapping.tipo]) : columnMapping.tipo;
+        }
+      }
+      
+      // Si aún no hay tipo, intentar inferirlo del contexto
+      if (!tipo) {
+        const hojaActual = (producto as any).__sheet || workbook.SheetNames[0];
+        tipo = inferirTipoPorContexto(headers, file.name, hojaActual);
+      }
+      
+      // Sanitizar el tipo final
+      const tipoFinal = sanitizeTipo(tipo);
       
       console.log(`🔍 VALORES EXTRAÍDOS:`)
-      console.log(`  - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
+      console.log(`  - Tipo: "${tipoFinal}" (original: ${tipo}, sanitizado: ${tipoFinal})`)
       console.log(`  - ID: "${id_val}" (columna: ${idCol})`)
       console.log(`  - SKU: "${sku_val}" (columna: ${skuCol})`)
       console.log(`  - Modelo: "${modelo_val}" (columna: ${modeloCol})`)
-      console.log(`  - Descripción: "${descripcion_val}" (columna: ${descCol})`)
+      console.log(`  - Descripción: "${descripcion_val}" (columna: ${descCol}, FUNCIÓN: ${funcionCol || 'N/A'}, APLICACIÓN: ${aplicacionCol || 'N/A'})`)
       
       // Marca (solo desde columna, jamás del texto si no hay columna). Si viene forzada por form, esa gana.
       let proveedor = proveedorForzado || '';
@@ -1489,11 +1546,11 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
         producto: proveedor || '',
         id: index + 1,                // índice procesado (interno)
         producto_id: id_val,          // <-- ID OBLIGATORIO DEL ARCHIVO
-        tipo: tipo ?? '',
+        tipo: tipoFinal || tipo || null, // Usar tipoFinal sanitizado, nunca hardcodear
         marca: proveedor ?? '',
         sku: sku_val || '',           // puede quedar vacío si no hay
         modelo: modelo_val || '',     // puede quedar vacío si no hay
-        descripcion: descripcion_val || '',
+        descripcion: descripcion_val || '', // Descripción de FUNCIÓN/APLICACIÓN
         proveedor: proveedor,  // ✅ Proveedor detectado por IA
         precio_base_original: precioBase,  // ✅ Precio base original (del archivo)
         original_currency: monedaOriginal,

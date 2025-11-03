@@ -15,6 +15,7 @@ interface Producto {
   producto: string
   tipo: string
   modelo: string
+  descripcion?: string // Descripción del producto (FUNCIÓN/APLICACIÓN)
   proveedor?: string  // ✅ Proveedor detectado por IA
   precio_base_original?: number  // ✅ Precio base original (antes del descuento)
   precio_base_minorista: number  // ✅ Precio base para Minorista (con descuento)
@@ -72,7 +73,8 @@ function getTipoLabel(tipo: string | null | undefined): string {
     'ADITIVOS_DIESEL': 'Aditivos Diesel',
     'HERRAMIENTAS': 'Herramientas'
   };
-  return labels[s] || tipo;
+  // Si es un tipo sanitizado, usar el label; si no, mostrar el tipo tal cual
+  return labels[s] || s.replace(/_/g, ' '); // Reemplazar guiones bajos por espacios si no está en labels
 }
 
 export default function CargaPage() {
@@ -1111,6 +1113,9 @@ export default function CargaPage() {
                               MODELO
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                              DESCRIPCIÓN
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                               PRECIO BASE
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
@@ -1156,6 +1161,11 @@ export default function CargaPage() {
                                       ✅ Varta: {producto.equivalencia_varta.codigo}
                                     </div>
                                   )}
+                                </td>
+                                <td className="px-4 py-3 bg-gray-50">
+                                  <div className="text-sm text-gray-700 max-w-xs">
+                                    {producto.descripcion || '—'}
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                                   <div className="text-sm font-semibold text-gray-900">
@@ -1212,6 +1222,11 @@ export default function CargaPage() {
                                       ✅ Varta: {producto.equivalencia_varta.codigo}
                                     </div>
                                   )}
+                                </td>
+                                <td className="px-4 py-3 bg-gray-50">
+                                  <div className="text-sm text-gray-700 max-w-xs">
+                                    {producto.descripcion || '—'}
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                                   <div className="text-sm font-semibold text-gray-900">

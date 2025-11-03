@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { HistorialPricing } from "@/lib/supabase-historial"
 import * as XLSX from 'xlsx'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     console.log('📊 Exportando centro de alertas a Excel...')
     
     // Obtener parámetros de consulta para limitar datos
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = request.nextUrl
     const limitSesiones = Math.min(parseInt(searchParams.get('limit') || '50'), 50) // Forzar máximo 50
     const soloAltaSeveridad = searchParams.get('solo_alta') === 'true'
     
