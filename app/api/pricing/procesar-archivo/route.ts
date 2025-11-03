@@ -1321,15 +1321,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (!descripcion_val && esLiquiMoly && headers.length >= 2) {
         const segundaColumna = headers[1]; // Segunda columna (índice 1)
         if (segundaColumna) {
-          descripcion_val = String(getCellFlexible(producto, segundaColumna) ?? '').trim();
-          // Validar que no sea un encabezado de categoría (suele ser en mayúsculas o muy corto)
-          if (descripcion_val && descripcion_val.length > 3 && !descripcion_val.toUpperCase() === descripcion_val) {
+          const valorSegundaCol = String(getCellFlexible(producto, segundaColumna) ?? '').trim();
+          // Validar que no sea un encabezado de categoría (ej: "MOTOS", "ACEITES PARA MOTORES")
+          // Aceptar si tiene más de 3 caracteres y no es solo mayúsculas con menos de 20 caracteres (probable categoría)
+          const esProbableCategoria = valorSegundaCol.length < 20 && valorSegundaCol.toUpperCase() === valorSegundaCol && valorSegundaCol.split(' ').length <= 3;
+          
+          if (valorSegundaCol && valorSegundaCol.length > 3 && !esProbableCategoria) {
+            descripcion_val = valorSegundaCol;
             console.log(`  ✅ Descripción desde 2da columna LIQUI MOLY (${segundaColumna}): "${descripcion_val}"`);
-          } else if (descripcion_val && descripcion_val.length > 3) {
-            // Aceptar aunque esté en mayúsculas si tiene buen largo
-            console.log(`  ✅ Descripción desde 2da columna LIQUI MOLY (${segundaColumna}): "${descripcion_val}"`);
-          } else {
-            descripcion_val = ''; // No usar si es muy corta o parece encabezado
+          } else if (valorSegundaCol && valorSegundaCol.length > 20) {
+            // Aceptar textos largos aunque estén en mayúsculas (pueden ser nombres de productos largos)
+            descripcion_val = valorSegundaCol;
+            console.log(`  ✅ Descripción desde 2da columna LIQUI MOLY (${segundaColumna}, texto largo): "${descripcion_val}"`);
           }
         }
       }
