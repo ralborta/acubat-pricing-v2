@@ -1348,79 +1348,115 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       let descripcion_val = '';
       let marcaEncontradaEnDescripcion = ''; // Para guardar marca encontrada en descripción
       
-      // 🎯 PRIORIDAD 0: Si la columna "Modelo" contiene texto descriptivo (más de una palabra o contiene marca),
-      // usarla como descripción. Esto es común cuando "Modelo" tiene "BATERIA YUASA 6N2-2A" por ejemplo.
-      // BUSCAR DIRECTAMENTE EN HEADERS si modeloCol está vacío
-      const columnasParaBuscarModelo = [];
-      if (modeloCol) {
-        columnasParaBuscarModelo.push(modeloCol);
-      } else {
-        // Buscar columna "Modelo" directamente en headers
-        const modeloHeader = headers.find(h => {
-          if (!h) return false;
-          const hNorm = h.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
-          return hNorm === 'modelo' || hNorm.includes('modelo');
-        });
-        if (modeloHeader) {
-          columnasParaBuscarModelo.push(modeloHeader);
-          console.log(`  🔍 Columna Modelo encontrada directamente en headers: "${modeloHeader}"`);
+      console.log(`\n🔍 [PRODUCTO ${index + 1}] BÚSQUEDA DE DESCRIPCIÓN Y MARCA:`);
+      console.log(`  - modeloCol: "${modeloCol || 'NO'}"`);
+      console.log(`  - Headers disponibles: ${headers.slice(0, 5).join(', ')}...`);
+      console.log(`  - Claves del producto: ${Object.keys(producto).slice(0, 5).join(', ')}...`);
+      
+      // 🎯 PRIORIDAD 0: Buscar en TODAS las columnas del producto directamente
+      // Esto evita problemas de normalización de nombres
+      console.log(`  🔍 Búsqueda directa en todas las columnas del producto...`);
+      for (const [key, value] of Object.entries(producto)) {
+        if (!key || !value) continue;
+        const valorStr = String(value).trim();
+        if (!valorStr || valorStr.length < 10) continue;
+        
+        // Verificar si es texto descriptivo con marca (YUASA, MOURA, etc.)
+        const tieneMarcaConocida = /yuasa|moura|varta|liqui|moly|lusqtoff|motul|shell|elf|bosch|bateria/i.test(valorStr);
+        const palabras = valorStr.split(/\s+/).filter(w => w.length > 0);
+        const esDescriptivo = tieneMarcaConocida || (palabras.length >= 3 && valorStr.length > 15);
+        
+        if (esDescriptivo) {
+          descripcion_val = valorStr;
+          console.log(`  ✅ Descripción encontrada en columna "${key}": "${descripcion_val.substring(0, 50)}..."`);
+          
+          // Extraer marca del contenido
+          const marcasEnValor = ['BATERIA YUASA', 'YUASA', 'MOURA', 'VARTA', 'LIQUI MOLY', 'LUSQTOFF', 'MOTUL', 'SHELL', 'ELF', 'BOSCH'];
+          const marcaEncontrada = marcasEnValor.find(m => valorStr.toUpperCase().includes(m));
+          if (marcaEncontrada) {
+            marcaEncontradaEnDescripcion = marcaEncontrada === 'BATERIA YUASA' ? 'YUASA' : marcaEncontrada;
+            console.log(`  🎯 MARCA DETECTADA: "${marcaEncontradaEnDescripcion}" desde columna "${key}"`);
+          }
+          break; // Primera coincidencia descriptiva gana
         }
       }
       
-      // También buscar en otras columnas si parecen descriptivas
-      if (columnasParaBuscarModelo.length === 0 || !descripcion_val) {
-        // Buscar en todas las columnas que puedan contener descripciones
-        for (const header of headers.slice(0, 10)) {
-          if (!header || columnasParaBuscarModelo.includes(header)) continue;
-          const valor = String(getCellFlexible(producto, header) ?? '').trim();
-          if (!valor || valor.length < 10) continue;
+      // Si no se encontró en búsqueda directa, buscar usando getCellFlexible
+      if (!descripcion_val) {
+        console.log(`  🔍 Búsqueda usando getCellFlexible (columnas normalizadas)...`);
+        
+        // Buscar columna "Modelo" directamente en headers
+        const columnasParaBuscarModelo = [];
+        if (modeloCol) {
+          columnasParaBuscarModelo.push(modeloCol);
+          console.log(`  - modeloCol disponible: "${modeloCol}"`);
+        }
+        
+        // Buscar todas las columnas que contengan "modelo" en el nombre
+        for (const header of headers) {
+          if (!header) continue;
+          const hNorm = header.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+          if ((hNorm.includes('modelo') || hNorm === 'modelo') && !columnasParaBuscarModelo.includes(header)) {
+            columnasParaBuscarModelo.push(header);
+            console.log(`  - Columna Modelo encontrada en headers: "${header}"`);
+          }
+        }
+        
+        // Buscar en columnas Modelo
+        for (const colModelo of columnasParaBuscarModelo) {
+          const valorModelo = String(getCellFlexible(producto, colModelo) ?? '').trim();
+          console.log(`  - Valor en "${colModelo}": "${valorModelo.substring(0, 50)}${valorModelo.length > 50 ? '...' : ''}"`);
           
-          // Verificar si es texto descriptivo con marca
-          const tieneMarcaConocida = /yuasa|moura|varta|liqui|moly|lusqtoff|motul|shell|elf|bosch|bateria/i.test(valor);
-          const palabras = valor.split(/\s+/).filter(w => w.length > 0);
-          const esDescriptivo = tieneMarcaConocida || palabras.length >= 3;
+          if (!valorModelo || valorModelo.length < 5) continue;
           
-          if (esDescriptivo && valor.length > 10) {
-            descripcion_val = valor;
-            console.log(`  ✅ Descripción desde columna "${header}" (descriptivo): "${descripcion_val}"`);
+          const palabras = valorModelo.split(/\s+/).filter(w => w.length > 0);
+          const tieneMarcaConocida = /yuasa|moura|varta|liqui|moly|lusqtoff|motul|shell|elf|bosch|bateria/i.test(valorModelo);
+          const esDescriptivo = palabras.length >= 2 || (palabras.length === 1 && valorModelo.length > 10) || tieneMarcaConocida;
+          
+          if (esDescriptivo) {
+            descripcion_val = valorModelo;
+            console.log(`  ✅ Descripción desde columna Modelo (${colModelo}): "${descripcion_val.substring(0, 50)}..."`);
             
             // Extraer marca del contenido
-            const marcasEnValor = ['BATERIA YUASA', 'YUASA', 'MOURA', 'VARTA', 'LIQUI MOLY', 'LUSQTOFF', 'MOTUL', 'SHELL', 'ELF', 'BOSCH'];
-            const marcaEncontrada = marcasEnValor.find(m => valor.toUpperCase().includes(m));
+            const marcasEnModelo = ['BATERIA YUASA', 'YUASA', 'MOURA', 'VARTA', 'LIQUI MOLY', 'LUSQTOFF', 'MOTUL', 'SHELL', 'ELF', 'BOSCH'];
+            const marcaEncontrada = marcasEnModelo.find(m => valorModelo.toUpperCase().includes(m));
             if (marcaEncontrada) {
               marcaEncontradaEnDescripcion = marcaEncontrada === 'BATERIA YUASA' ? 'YUASA' : marcaEncontrada;
-              console.log(`  🔍 Marca detectada en descripción (${header}): "${marcaEncontradaEnDescripcion}"`);
+              console.log(`  🎯 MARCA DETECTADA: "${marcaEncontradaEnDescripcion}" desde Modelo`);
             }
             break;
           }
         }
-      }
-      
-      // Si no se encontró, buscar específicamente en la columna Modelo (si existe)
-      for (const colModelo of columnasParaBuscarModelo) {
-        if (descripcion_val) break;
-        const valorModelo = String(getCellFlexible(producto, colModelo) ?? '').trim();
-        if (!valorModelo || valorModelo.length < 5) continue;
         
-        // Verificar si es texto descriptivo (más de 2 palabras O contiene marca conocida)
-        const palabras = valorModelo.split(/\s+/).filter(w => w.length > 0);
-        const tieneMarcaConocida = /yuasa|moura|varta|liqui|moly|lusqtoff|motul|shell|elf|bosch|bateria/i.test(valorModelo);
-        const esDescriptivo = palabras.length >= 2 || (palabras.length === 1 && valorModelo.length > 10) || tieneMarcaConocida;
-        
-        if (esDescriptivo) {
-          descripcion_val = valorModelo;
-          console.log(`  ✅ Descripción desde columna Modelo (${colModelo}, descriptivo): "${descripcion_val}"`);
-          
-          // Extraer marca del contenido de Modelo
-          const marcasEnModelo = ['BATERIA YUASA', 'YUASA', 'MOURA', 'VARTA', 'LIQUI MOLY', 'LUSQTOFF', 'MOTUL', 'SHELL', 'ELF', 'BOSCH'];
-          const marcaEncontrada = marcasEnModelo.find(m => valorModelo.toUpperCase().includes(m));
-          if (marcaEncontrada) {
-            marcaEncontradaEnDescripcion = marcaEncontrada === 'BATERIA YUASA' ? 'YUASA' : marcaEncontrada;
-            console.log(`  🔍 Marca detectada en Modelo (${colModelo}): "${marcaEncontradaEnDescripcion}"`);
+        // Si aún no se encontró, buscar en todas las columnas restantes
+        if (!descripcion_val) {
+          console.log(`  🔍 Búsqueda en todas las columnas restantes...`);
+          for (const header of headers) {
+            if (!header || columnasParaBuscarModelo.includes(header)) continue;
+            const valor = String(getCellFlexible(producto, header) ?? '').trim();
+            if (!valor || valor.length < 10) continue;
+            
+            const tieneMarcaConocida = /yuasa|moura|varta|liqui|moly|lusqtoff|motul|shell|elf|bosch|bateria/i.test(valor);
+            const palabras = valor.split(/\s+/).filter(w => w.length > 0);
+            const esDescriptivo = tieneMarcaConocida || palabras.length >= 3;
+            
+            if (esDescriptivo && valor.length > 10) {
+              descripcion_val = valor;
+              console.log(`  ✅ Descripción desde columna "${header}": "${descripcion_val.substring(0, 50)}..."`);
+              
+              const marcasEnValor = ['BATERIA YUASA', 'YUASA', 'MOURA', 'VARTA', 'LIQUI MOLY', 'LUSQTOFF', 'MOTUL', 'SHELL', 'ELF', 'BOSCH'];
+              const marcaEncontrada = marcasEnValor.find(m => valor.toUpperCase().includes(m));
+              if (marcaEncontrada) {
+                marcaEncontradaEnDescripcion = marcaEncontrada === 'BATERIA YUASA' ? 'YUASA' : marcaEncontrada;
+                console.log(`  🎯 MARCA DETECTADA: "${marcaEncontradaEnDescripcion}" desde "${header}"`);
+              }
+              break;
+            }
           }
-          break;
         }
       }
+      
+      console.log(`  📊 RESULTADO: descripcion="${descripcion_val || 'VACÍA'}", marca="${marcaEncontradaEnDescripcion || 'NO DETECTADA'}"`);
       
       // 🎯 PRIORIDAD 1: Buscar columnas FUNCIÓN y APLICACIÓN (más importante que columna mapeada por IA)
       const funcionCol = headers.find(h => {
