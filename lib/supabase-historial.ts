@@ -25,6 +25,7 @@ export interface ProductoPricing {
   producto: string
   tipo?: string
   modelo?: string
+  descripcion?: string  // ✅ Agregado: descripción del producto
   proveedor?: string
   precio_base_original?: number
   precio_base_minorista?: number
@@ -43,7 +44,7 @@ export interface ProductoPricing {
   original_currency?: string
   original_price?: number
   applied_fx_rate?: number
-  applied_fx_date?: string
+      applied_fx_date?: string
   equivalencia_varta?: any
   validacion_moneda?: any
 }

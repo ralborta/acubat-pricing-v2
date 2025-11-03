@@ -2146,7 +2146,7 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       console.log(`   - Mayorista Final: ${mayoristaFinal}`)
 
       const resultadoProducto = {
-        producto: proveedor || '',
+        producto: proveedor && proveedor !== 'Sin Marca' ? proveedor : (marcaEncontradaEnDescripcion || proveedor || ''),
         id: index + 1,                // índice procesado (interno)
         producto_id: id_val,          // <-- ID OBLIGATORIO DEL ARCHIVO
         tipo: tipoFinal || tipo || null, // Usar tipoFinal sanitizado, nunca hardcodear
@@ -2241,6 +2241,7 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
         producto: producto.producto,
         tipo: producto.tipo,
         modelo: producto.modelo,
+        descripcion: producto.descripcion || '',  // ✅ Agregado: descripción del producto
         proveedor: producto.proveedor,
         precio_base_original: producto.precio_base_original,
         precio_base_minorista: producto.precio_base_minorista,
