@@ -686,17 +686,70 @@ export async function mapColumnsStrict({
   return { result: out, attempts };
 }
 
-// 🎯 HELPER: Inferir tipo del contexto si la IA no lo detectó
-export function inferirTipoPorContexto(headers: string[], nombreArchivo?: string, nombreHoja?: string): string | null {
-  const blob = `${headers.join(" | ")} ${nombreArchivo || ""} ${nombreHoja || ""}`.toLowerCase();
+// 🎯 HELPER: Inferir tipo del contexto si la IA no lo detectó (MEJORADO)
+export function inferirTipoPorContexto(
+  headers: string[], 
+  nombreArchivo?: string, 
+  nombreHoja?: string,
+  muestra?: any[]
+): string | null {
+  // Crear blob de búsqueda más completo (incluir valores de muestra si existen)
+  const headersStr = headers.join(" | ").toLowerCase();
+  const fileNameStr = (nombreArchivo || "").toLowerCase();
+  const sheetStr = (nombreHoja || "").toLowerCase();
   
-  if (/\baditivos\b/.test(blob)) {
-    if (/nafta/.test(blob)) return "Aditivos Nafta";
-    if (/diesel/.test(blob)) return "Aditivos Diesel";
+  // Si hay muestra, extraer valores de las primeras filas para inferir tipo
+  let muestraStr = "";
+  if (muestra && muestra.length > 0) {
+    const valoresMuestra = muestra.slice(0, 10).flatMap(row => 
+      Object.values(row).map(v => String(v || "").toLowerCase())
+    ).join(" | ");
+    muestraStr = valoresMuestra;
+  }
+  
+  const blob = `${headersStr} ${fileNameStr} ${sheetStr} ${muestraStr}`;
+  
+  // 🎯 DETECCIÓN MEJORADA DE TIPO (más palabras clave y contexto)
+  
+  // Aditivos (prioridad alta - puede estar en nombre de producto)
+  if (/\baditivos?\b/.test(blob) || /\baditivo\b/.test(blob)) {
+    if (/nafta|nafta|gasolina|petrol/i.test(blob)) return "Aditivos Nafta";
+    if (/diesel|diesel|gasoil/i.test(blob)) return "Aditivos Diesel";
+    if (/combustible|combustible/i.test(blob)) {
+      // Si menciona ambos, priorizar nafta (más común)
+      if (/nafta|gasolina/i.test(blob)) return "Aditivos Nafta";
+      return "Aditivos Diesel";
+    }
     return "Aditivos";
   }
-  if (/\bherramienta/.test(blob)) return "Herramientas";
-  if (/\bbateri(a|as|as)\b/.test(blob)) return "Batería";
+  
+  // Aceites y lubricantes
+  if (/\baceite|aceites|lubricante|motor oil|engine oil/i.test(blob)) {
+    if (/nafta|gasolina/i.test(blob)) return "Aditivos Nafta";
+    return "Aditivos"; // Aceites pueden considerarse aditivos
+  }
+  
+  // Herramientas
+  if (/\bherramientas?|tools|kit|equipo/i.test(blob)) {
+    return "Herramientas";
+  }
+  
+  // Baterías (múltiples indicadores)
+  if (/\bbater[ií]as?|battery|bateria|ah\s|cca\s|volt|12v|6v/i.test(blob)) {
+    return "Batería";
+  }
+  
+  // Detección por nombres específicos de productos
+  if (/\binjection|reiniger|flush|cleaner|additive/i.test(blob)) {
+    return "Aditivos";
+  }
+  
+  if (/\bmotorbike|motorcycle|moto\s/i.test(blob)) {
+    // Puede ser aceite para moto (aditivo) o batería de moto
+    if (/\baceite|lubricante/i.test(blob)) return "Aditivos";
+    if (/\bbater|volt/i.test(blob)) return "Batería";
+    return "Aditivos"; // Por defecto si hay "moto" y aceites
+  }
   
   return null;
 }

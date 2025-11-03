@@ -272,46 +272,157 @@ async function callLLM(model: string, contexto: string) {
   return JSON.parse(data.choices[0].message.content);
 }
 
-// 🔎 DETECCIÓN DE MARCA CON IA POR HOJA/ARCHIVO
+// 🔎 DETECCIÓN DE MARCA CON IA POR HOJA/ARCHIVO (MEJORADO)
 async function detectarMarcaConIA(
   nombreArchivo: string,
   nombreHoja: string,
   headers: string[],
   datosMuestra: any[]
 ): Promise<{ marca: string; confianza: number; fuente: string }> {
-  // Heurística rápida por nombre de archivo/hoja
-  const textoRapido = `${nombreArchivo} ${nombreHoja}`.toLowerCase();
+  // 🎯 HEURÍSTICA MEJORADA: Buscar marca en nombre de archivo, hoja, headers Y contenido
+  const textoCompleto = `${nombreArchivo} ${nombreHoja} ${headers.join(' ')}`.toLowerCase();
+  
+  // Extraer valores de muestra para buscar logos/marcas en el contenido
+  const valoresMuestra = datosMuestra.slice(0, 10).flatMap(row => 
+    Object.values(row).map(v => String(v || '').toLowerCase())
+  ).join(' ');
+  
+  const blobCompleto = `${textoCompleto} ${valoresMuestra}`;
+  
+  // Marcas conocidas (expandido y con variaciones)
   const marcasConocidas = [
-    'lusqtoff','lq','liqui moly','liqui','moly','moura','varta','motul','shell','elf','bosch','makita','dewalt','stanley','ngk','pirelli','metzeler','yuasa','agv','protork','riffel'
+    { patterns: ['lusqtoff', 'lq', 'lusq'], nombre: 'LUSQTOFF' },
+    { patterns: ['liqui moly', 'liqui-moly', 'liquimoly', 'liqui', 'moly', 'made in german', 'deutsche autoteile'], nombre: 'LIQUI MOLY' },
+    { patterns: ['moura'], nombre: 'MOURA' },
+    { patterns: ['varta'], nombre: 'VARTA' },
+    { patterns: ['motul'], nombre: 'MOTUL' },
+    { patterns: ['shell'], nombre: 'SHELL' },
+    { patterns: ['elf'], nombre: 'ELF' },
+    { patterns: ['bosch'], nombre: 'BOSCH' },
+    { patterns: ['makita'], nombre: 'MAKITA' },
+    { patterns: ['dewalt'], nombre: 'DEWALT' },
+    { patterns: ['stanley'], nombre: 'STANLEY' },
+    { patterns: ['ngk'], nombre: 'NGK' },
+    { patterns: ['pirelli'], nombre: 'PIRELLI' },
+    { patterns: ['metzeler'], nombre: 'METZELER' },
+    { patterns: ['yuasa'], nombre: 'YUASA' },
+    { patterns: ['agv'], nombre: 'AGV' },
+    { patterns: ['protork'], nombre: 'PROTORK' },
+    { patterns: ['riffel'], nombre: 'RIFFEL' },
+    { patterns: ['daz'], nombre: 'LIQUI MOLY' }, // DAZ es distribuidor de LIQUI MOLY
   ];
-  const matchRapido = marcasConocidas.find(m => textoRapido.includes(m));
-  if (matchRapido) {
-    return { marca: matchRapido, confianza: 75, fuente: 'nombre_archivo_hoja' };
+  
+  // Buscar marca en el texto completo (archivo, hoja, headers, contenido)
+  for (const marca of marcasConocidas) {
+    for (const pattern of marca.patterns) {
+      if (blobCompleto.includes(pattern)) {
+        console.log(`  ✅ Marca detectada por heurística completa: ${marca.nombre} (patrón: ${pattern})`);
+        return { marca: marca.nombre, confianza: 85, fuente: 'heuristic_completo' };
+      }
+    }
+  }
+  
+  // Buscar en nombre de archivo/hoja primero (más confiable)
+  const textoRapido = `${nombreArchivo} ${nombreHoja}`.toLowerCase();
+  for (const marca of marcasConocidas) {
+    for (const pattern of marca.patterns) {
+      if (textoRapido.includes(pattern)) {
+        console.log(`  ✅ Marca detectada por nombre archivo/hoja: ${marca.nombre} (patrón: ${pattern})`);
+        return { marca: marca.nombre, confianza: 90, fuente: 'nombre_archivo_hoja' };
+      }
+    }
   }
 
+  // Si no se encontró por heurística, usar IA
   try {
-    const contexto = `Eres un extractor de marcas. Devuelve SOLO JSON válido.
+    const contexto = `Eres un extractor de marcas comerciales de productos automotrices. Devuelve SOLO JSON válido.
 Campos requeridos:
 { "marca": string, "confianza": number, "fuente": string }
 
 Instrucciones:
-- Analiza headers y primeras filas para inferir la MARCA comercial predominante en esta hoja (si hay muchas marcas, devuelve la más predominante o la que mejor representa la hoja).
-- Puedes usar pistas del nombre del archivo y de la hoja.
+- Analiza headers, nombre de archivo, nombre de hoja y primeras filas para inferir la MARCA comercial predominante.
+- Busca logos, nombres de empresas o distribuidores en el contenido (ej: "Deutsche Autoteile" = LIQUI MOLY).
+- Si el archivo menciona "DAZ" o "Deutsche Autoteile und Zubehör", la marca es LIQUI MOLY.
+- Si encuentras "Made in German" o "MADE IN GERMAN", probablemente es LIQUI MOLY.
+- Si hay múltiples marcas, devuelve la más predominante o la que mejor representa la hoja.
 - Si no encuentras una marca clara, devuelve marca="" y confianza=0.
 
 Archivo: ${nombreArchivo}
 Hoja: ${nombreHoja}
-HEADERS: ${JSON.stringify(headers)}
+HEADERS: ${JSON.stringify(headers.slice(0, 20))}
 MUESTRA(<=10 filas): ${JSON.stringify(datosMuestra.slice(0, 10))}`;
 
     const resp = await callLLM(baseModel, contexto);
-    const marca = String(resp.marca || '').trim();
+    const marca = String(resp.marca || '').trim().toUpperCase();
     const confianza = Number(resp.confianza || 0);
     const fuente = String(resp.fuente || 'ia');
-    return { marca, confianza, fuente };
-  } catch {
+    
+    // Normalizar marca a formato estándar si la IA devolvió algo
+    if (marca) {
+      // Mapear variaciones comunes
+      const marcaNormalizada = marca
+        .replace(/LIQUI[_\s-]?MOLY/gi, 'LIQUI MOLY')
+        .replace(/LUSQTOFF|LQ/gi, 'LUSQTOFF');
+      
+      console.log(`  🧠 Marca detectada por IA: ${marcaNormalizada} (confianza: ${confianza}%, fuente: ${fuente})`);
+      return { marca: marcaNormalizada, confianza, fuente: 'ia' };
+    }
+    
+    return { marca: '', confianza: 0, fuente: 'ia_sin_resultado' };
+  } catch (e: any) {
+    console.warn(`  ⚠️ Error en detección de marca por IA:`, e?.message);
     return { marca: '', confianza: 0, fuente: 'fallback' };
   }
+}
+
+// 🎯 HELPER: Inferir marca del documento (nombre archivo, hoja, headers, contenido)
+function inferirMarcaDelDocumento(
+  nombreArchivo: string,
+  nombreHoja: string,
+  headers: string[],
+  muestra: any[]
+): string | null {
+  const textoCompleto = `${nombreArchivo} ${nombreHoja} ${headers.join(' ')}`.toLowerCase();
+  
+  // Extraer valores de muestra para buscar logos/marcas
+  const valoresMuestra = muestra.slice(0, 10).flatMap(row => 
+    Object.values(row).map(v => String(v || '').toLowerCase())
+  ).join(' ');
+  
+  const blobCompleto = `${textoCompleto} ${valoresMuestra}`;
+  
+  // Marcas conocidas (mismo formato que detectarMarcaConIA)
+  const marcasConocidas = [
+    { patterns: ['lusqtoff', 'lq', 'lusq'], nombre: 'LUSQTOFF' },
+    { patterns: ['liqui moly', 'liqui-moly', 'liquimoly', 'liqui', 'moly', 'made in german', 'deutsche autoteile'], nombre: 'LIQUI MOLY' },
+    { patterns: ['moura'], nombre: 'MOURA' },
+    { patterns: ['varta'], nombre: 'VARTA' },
+    { patterns: ['motul'], nombre: 'MOTUL' },
+    { patterns: ['shell'], nombre: 'SHELL' },
+    { patterns: ['elf'], nombre: 'ELF' },
+    { patterns: ['bosch'], nombre: 'BOSCH' },
+    { patterns: ['makita'], nombre: 'MAKITA' },
+    { patterns: ['dewalt'], nombre: 'DEWALT' },
+    { patterns: ['stanley'], nombre: 'STANLEY' },
+    { patterns: ['ngk'], nombre: 'NGK' },
+    { patterns: ['pirelli'], nombre: 'PIRELLI' },
+    { patterns: ['metzeler'], nombre: 'METZELER' },
+    { patterns: ['yuasa'], nombre: 'YUASA' },
+    { patterns: ['agv'], nombre: 'AGV' },
+    { patterns: ['protork'], nombre: 'PROTORK' },
+    { patterns: ['riffel'], nombre: 'RIFFEL' },
+  ];
+  
+  // Buscar marca en el texto completo
+  for (const marca of marcasConocidas) {
+    for (const pattern of marca.patterns) {
+      if (blobCompleto.includes(pattern)) {
+        return marca.nombre;
+      }
+    }
+  }
+  
+  return null;
 }
 
 // ❌ ELIMINADO: analizarArchivoConIA - Ya no se usa, reemplazado por mapColumnsStrict
@@ -1020,12 +1131,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 400 });
     }
       
-      // 🎯 Inferir tipo si la IA no lo detectó
+      // 🎯 Inferir tipo si la IA no lo detectó (MEJORADO - con muestra de datos)
       let tipoFinal = result.tipo;
       if (!tipoFinal) {
         const hojaActual = workbook.SheetNames.find(s => datos.some((d: any) => d.__sheet === s)) || workbook.SheetNames[0];
-        tipoFinal = inferirTipoPorContexto(headers, file.name, hojaActual);
-        console.log(`🔍 Tipo inferido por contexto: ${tipoFinal || 'null'}`);
+        tipoFinal = inferirTipoPorContexto(headers, fileName, hojaActual, datos.slice(0, 10));
+        console.log(`🔍 Tipo inferido por contexto (con muestra): ${tipoFinal || 'null'}`);
       }
       
       // 🎯 Sanitizar tipo para uso consistente
@@ -1352,10 +1463,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
       
-      // Si aún no hay tipo, intentar inferirlo del contexto
+      // Si aún no hay tipo, intentar inferirlo del contexto (MEJORADO - con muestra)
       if (!tipo) {
         const hojaActual = (producto as any).__sheet || workbook.SheetNames[0];
-        tipo = inferirTipoPorContexto(headers, file.name, hojaActual);
+        // Obtener muestra de productos de la misma hoja
+        const muestraHoja = todosLosProductos.filter((p: any) => p.__sheet === hojaActual).slice(0, 10);
+        tipo = inferirTipoPorContexto(headers, fileName, hojaActual, muestraHoja);
+        console.log(`🔍 Tipo inferido por contexto (producto nivel, con muestra): ${tipo || 'null'}`);
       }
       
       // Sanitizar el tipo final
@@ -1368,16 +1482,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`  - Modelo: "${modelo_val}" (columna: ${modeloCol})`)
       console.log(`  - Descripción: "${descripcion_val}" (columna: ${descCol}, FUNCIÓN: ${funcionCol || 'N/A'}, APLICACIÓN: ${aplicacionCol || 'N/A'})`)
       
-      // Marca (solo desde columna, jamás del texto si no hay columna). Si viene forzada por form, esa gana.
+      // Marca/Proveedor (PRIORIDAD: Forzado > Columna > IA por hoja > Inferencia del documento)
       let proveedor = proveedorForzado || '';
+      
       if (!proveedor) {
+        // PRIORIDAD 1: Columna mapeada por IA
         const marcaHeader = (columnMapping as any).marca || (columnMapping as any).marca_header || (columnMapping as any).proveedor || '';
         proveedor = marcaHeader ? String(getCellFlexible(producto, marcaHeader) ?? '').trim() : '';
+        if (proveedor) {
+          console.log(`  ✅ Proveedor desde columna mapeada (${marcaHeader}): "${proveedor}"`);
+        }
       }
-      // Fallback IA por hoja
+      
+      // PRIORIDAD 2: IA por hoja (ya detectada previamente)
       if (!proveedor && (producto as any).__sheet && marcaPorHoja[(producto as any).__sheet]) {
-        proveedor = marcaPorHoja[(producto as any).__sheet].marca
+        proveedor = marcaPorHoja[(producto as any).__sheet].marca;
+        console.log(`  ✅ Proveedor desde IA por hoja: "${proveedor}"`);
       }
+      
+      // PRIORIDAD 3: Inferencia del documento (nombre archivo, headers, contenido)
+      if (!proveedor || proveedor === 'Sin Marca') {
+        const hojaActual = (producto as any).__sheet || workbook.SheetNames[0];
+        const inferenciaMarca = inferirMarcaDelDocumento(fileName, hojaActual, headers, [producto]);
+        if (inferenciaMarca) {
+          proveedor = inferenciaMarca;
+          console.log(`  ✅ Proveedor inferido del documento: "${proveedor}"`);
+        }
+      }
+      
       if (!proveedor) proveedor = 'Sin Marca'; // etiqueta neutra, pero NO se usa para ID
       
       // 🎯 DATOS ADICIONALES PARA LUSQTOFF: Código y Marca (después de detectar proveedor)
