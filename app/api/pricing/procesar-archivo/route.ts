@@ -2145,15 +2145,24 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       console.log(`   - Mayorista Neto: ${mayoristaNeto}`)
       console.log(`   - Mayorista Final: ${mayoristaFinal}`)
 
+      // 🔍 DEBUG: Verificar valores antes de crear el objeto
+      console.log(`\n🔍 [PRODUCTO ${index + 1}] VALORES FINALES ANTES DE CREAR OBJETO:`);
+      console.log(`   - descripcion_val: "${descripcion_val}" (tipo: ${typeof descripcion_val}, longitud: ${descripcion_val?.length || 0})`);
+      console.log(`   - proveedor: "${proveedor}"`);
+      console.log(`   - marcaEncontradaEnDescripcion: "${marcaEncontradaEnDescripcion}"`);
+      console.log(`   - modelo_val: "${modelo_val}"`);
+      
+      const productoFinal = proveedor && proveedor !== 'Sin Marca' ? proveedor : (marcaEncontradaEnDescripcion || proveedor || '');
+      
       const resultadoProducto = {
-        producto: proveedor && proveedor !== 'Sin Marca' ? proveedor : (marcaEncontradaEnDescripcion || proveedor || ''),
+        producto: productoFinal,
         id: index + 1,                // índice procesado (interno)
         producto_id: id_val,          // <-- ID OBLIGATORIO DEL ARCHIVO
         tipo: tipoFinal || tipo || null, // Usar tipoFinal sanitizado, nunca hardcodear
         marca: proveedor ?? '',
         sku: sku_val || '',           // puede quedar vacío si no hay
         modelo: modelo_val || '',     // puede quedar vacío si no hay
-        descripcion: descripcion_val || '', // Descripción de FUNCIÓN/APLICACIÓN
+        descripcion: descripcion_val || '', // ✅ Descripción de FUNCIÓN/APLICACIÓN o columna mapeada por IA
         proveedor: proveedor,  // ✅ Proveedor detectado por IA
         precio_base_original: precioBase,  // ✅ Precio base original (del archivo)
         original_currency: monedaOriginal,
@@ -2190,7 +2199,10 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       }
       
       console.log(`\n✅ PRODUCTO ${index + 1} PROCESADO EXITOSAMENTE:`)
-      console.log('📋 Resultado:', resultadoProducto)
+      console.log('📋 Resultado completo:', JSON.stringify(resultadoProducto, null, 2))
+      console.log(`   - producto: "${resultadoProducto.producto}"`)
+      console.log(`   - descripcion: "${resultadoProducto.descripcion}"`)
+      console.log(`   - proveedor: "${resultadoProducto.proveedor}"`)
       
       return resultadoProducto
     })));
