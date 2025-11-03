@@ -1,6 +1,7 @@
 // pricing_mapper.ts
 // Requisitos: npm i openai
 import OpenAI from "openai";
+import { withLLM, LLM_MODEL } from "./llm";
 
 // 🎯 CONFIGURACIÓN HÍBRIDA: Supabase + Local + Fallback (CLIENT-SIDE)
 async function obtenerConfiguracion() {
@@ -74,6 +75,19 @@ export interface MapColumnsOutput {
     precio_ars?: number | null;
     descripcion?: number | null;
   };
+  // 🎯 PROOF-OF-LIFE: Diagnóstico de uso de IA
+  __diag?: {
+    request_id?: string;
+    model: string;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    latency_ms?: number;
+    vendorHint?: string;
+    fileName?: string;
+    sheetName?: string;
+  };
+  __source?: "IA" | "HEURISTIC";
+  __forced?: boolean;
   evidencia: {
     precio_ars: {
       columna_elegida: string | null;
@@ -469,6 +483,10 @@ export async function mapColumnsStrict({
   const system = buildSystemPrompt(vendorHint);
   const user = buildUserPayload(columnas, hojas, muestra, nombreArchivo);
 
+  // 🎯 PROOF-OF-LIFE: Hash del prompt para tracking
+  const crypto = require("crypto");
+  const promptHash = crypto.createHash("sha1").update(system + "::" + user).digest("hex");
+
   // 1) Intento con Structured Outputs strict
   const basePayload = {
     model,
@@ -507,16 +525,53 @@ export async function mapColumnsStrict({
   let lastReasons: string[] = [];
   let response: any;
   let out: MapColumnsOutput | null = null;
+  let requestId: string = '';
+  let promptTokens: number = 0;
+  let completionTokens: number = 0;
+  let latencyMs: number = 0;
 
+  // 🎯 PROOF-OF-LIFE: Wrapper con instrumentación
+  const t0 = Date.now();
+  
   // Primer intento: SO strict
   attempts++;
-  response = await client.chat.completions.create(basePayload as any);
+  response = await withLLM(async () => {
+    return await client.chat.completions.create(basePayload as any);
+  }, {
+    step: "mapColumnsStrict",
+    attempt: attempts,
+    model: model || LLM_MODEL,
+    promptHash: promptHash.substring(0, 8),
+    vendorHint: vendorHint || 'none',
+    fileName: nombreArchivo || 'unknown'
+  });
+  
+  latencyMs = Date.now() - t0;
+  requestId = (response as any)?.id || `req_${Date.now()}`;
+  promptTokens = (response as any)?.usage?.input_tokens || 0;
+  completionTokens = (response as any)?.usage?.output_tokens || 0;
+  
   out = extractJson(response);
 
   // Si no hay JSON (host ignora SO), probamos "tool_call obligatorio"
   if (!out) {
     attempts++;
-    response = await client.chat.completions.create(toolsPayload as any);
+    const t1 = Date.now();
+    response = await withLLM(async () => {
+      return await client.chat.completions.create(toolsPayload as any);
+    }, {
+      step: "mapColumnsStrict_retry",
+      attempt: attempts,
+      model: model || LLM_MODEL,
+      promptHash: promptHash.substring(0, 8),
+      vendorHint: vendorHint || 'none'
+    });
+    
+    latencyMs += (Date.now() - t1);
+    requestId = (response as any)?.id || requestId;
+    promptTokens += ((response as any)?.usage?.input_tokens || 0);
+    completionTokens += ((response as any)?.usage?.output_tokens || 0);
+    
     out = extractJson(response);
   }
 
@@ -538,7 +593,24 @@ export async function mapColumnsStrict({
           { role: "user", content: feedback }
         ]
       };
-      const retryResp = await client.chat.completions.create(retryPayload as any);
+      
+      const t2 = Date.now();
+      const retryResp = await withLLM(async () => {
+        return await client.chat.completions.create(retryPayload as any);
+      }, {
+        step: "mapColumnsStrict_retry_with_feedback",
+        attempt: attempts,
+        model: model || LLM_MODEL,
+        promptHash: promptHash.substring(0, 8),
+        vendorHint: vendorHint || 'none',
+        feedback: true
+      });
+      
+      latencyMs += (Date.now() - t2);
+      requestId = (retryResp as any)?.id || requestId;
+      promptTokens += ((retryResp as any)?.usage?.input_tokens || 0);
+      completionTokens += ((retryResp as any)?.usage?.output_tokens || 0);
+      
       const retryOut = extractJson(retryResp);
       if (retryOut) {
         out = retryOut;
@@ -585,6 +657,31 @@ export async function mapColumnsStrict({
       out.notas.push("marca mapeada desde columna 'Producto' por fallback");
     }
   }
+
+  // 🎯 PROOF-OF-LIFE: Agregar diagnóstico a la respuesta
+  if (out) {
+    out.__diag = {
+      request_id: requestId,
+      model: model || LLM_MODEL,
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      latency_ms: latencyMs,
+      vendorHint: vendorHint || undefined,
+      fileName: nombreArchivo || undefined,
+      sheetName: hojas?.[0] || undefined
+    };
+    out.__source = "IA";
+  }
+
+  console.log(`🧠 [${requestId}] IA COMPLETADA:`, {
+    model: model || LLM_MODEL,
+    attempts,
+    tokens: `${promptTokens}/${completionTokens}`,
+    latency_ms: latencyMs,
+    confidence: out?.confianza || 0,
+    tipo: out?.tipo || 'null',
+    precio_col: out?.precio_ars || 'null'
+  });
 
   return { result: out, attempts };
 }

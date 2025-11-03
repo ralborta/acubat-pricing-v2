@@ -811,12 +811,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('📝 Muestra de datos (primeras 3 filas):', datos.slice(0, 3))
 
     // 🎯 DETECCIÓN AVANZADA DE COLUMNAS CON IA (mapColumnsStrict)
-    console.log('🧠 Usando detección avanzada con IA (mapColumnsStrict)...')
+    const FORCE_IA = process.env.PRICING_FORCE_IA === "1";
+    
+    console.log('🧠 ========== USANDO DETECCIÓN AVANZADA CON IA ==========')
+    console.log(`🧠 FORCE_IA: ${FORCE_IA ? '✅ ACTIVADO' : '❌ NO (usando normal)'}`)
+    console.log('🧠 Modelo: gpt-4o-mini')
     console.log('📋 Headers para IA:', headers)
     console.log('📊 Muestra de datos (primeras 10 filas):', datos.slice(0, 10))
     
     let columnMapping: any = {};
     let idHeader = '';
+    const diagnosticoIA: any[] = []; // 🎯 PROOF-OF-LIFE: Array para diagnóstico
     
     // 🎯 Inferir vendor hint del nombre del archivo y hojas
     function inferVendorHint(fileName?: string, sheetNames?: string[]): string {
@@ -844,6 +849,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log('📊 Resultado:', result)
       console.log('🎯 Confianza:', result.confianza)
       console.log('📝 Notas:', result.notas)
+      
+      // 🎯 PROOF-OF-LIFE: Guardar diagnóstico de IA
+      const hojaActual = workbook.SheetNames.find(s => datos.some((d: any) => d.__sheet === s)) || workbook.SheetNames[0];
+      diagnosticoIA.push({
+        file: file.name,
+        sheet: hojaActual,
+        source: result.__source || 'IA',
+        forced: FORCE_IA || false,
+        model: result.__diag?.model || 'gpt-4o-mini',
+        request_id: result.__diag?.request_id || 'unknown',
+        prompt_tokens: result.__diag?.prompt_tokens || 0,
+        completion_tokens: result.__diag?.completion_tokens || 0,
+        latency_ms: result.__diag?.latency_ms || 0,
+        confidence: result.confianza || 0,
+        tipo: result.tipo || null,
+        marca: result.marca || null,
+        modelo: result.modelo || null,
+        precio_col: result.precio_ars || null,
+        identificador: result.identificador || null,
+        descripcion: result.descripcion || null
+      });
+      
+      console.log('🧠 ========== DIAGNÓSTICO IA ==========')
+      console.log('🧠 Source:', result.__source || 'IA')
+      console.log('🧠 Model:', result.__diag?.model || 'gpt-4o-mini')
+      console.log('🧠 Request ID:', result.__diag?.request_id || 'unknown')
+      console.log('🧠 Tokens:', `${result.__diag?.prompt_tokens || 0} input / ${result.__diag?.completion_tokens || 0} output`)
+      console.log('🧠 Latency:', `${result.__diag?.latency_ms || 0}ms`)
+      console.log('🧠 ====================================')
       
       // Adaptar el resultado de mapColumnsStrict al formato esperado
       idHeader = result.identificador || result.modelo || '';
@@ -1720,6 +1754,20 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
         modelo_ia: 'GPT-4o-mini (mapeo avanzado de columnas)',
         timestamp_analisis: new Date().toISOString()
       },
+      // 🎯 PROOF-OF-LIFE: Diagnóstico de IA visible en respuesta
+      diagnosticoIA: diagnosticoIA.length > 0 ? diagnosticoIA : [{
+        file: file.name,
+        sheet: workbook.SheetNames[0] || 'unknown',
+        source: 'FALLBACK',
+        forced: false,
+        model: 'none',
+        request_id: 'none',
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        latency_ms: 0,
+        confidence: 0,
+        error: 'No se usó IA (fallback activado)'
+      }],
       stats: {
         filas_input: datos.length,
         filas_con_id: productosProcesados.length,
