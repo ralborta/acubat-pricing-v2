@@ -727,19 +727,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const FORCE_IA = process.env.PRICING_FORCE_IA === "1" || true; // ✅ TEMPORAL: siempre forzar
     console.log(`🧠 FORCE_IA: ${FORCE_IA ? '✅ ACTIVADO' : '❌ NO'}`)
     
-    // 🎯 PROCESAR TODAS LAS HOJAS CON DATOS (sin "validación agresiva")
+    // 🎯 PROCESAR TODAS LAS HOJAS QUE NO ESTÉN EXPLÍCITAMENTE VACÍAS DESPUÉS DEL ANÁLISIS
+    // (después del análisis detallado, ya actualizamos diag.filas y diag.vacia)
     const hojasConDatos = diagnosticoHojas
-      .filter(h => (h.filas ?? 0) > 0) // ✅ procesamos todas con datos
+      .filter(h => !h.vacia && (h.filas ?? 0) > 0) // ✅ Solo las que NO están marcadas como vacías Y tienen filas
       .map(h => h.nombre);
     
-    console.log(`\n✅ Hojas con datos encontradas: ${hojasConDatos.length} de ${diagnosticoHojas.length}`)
+    console.log(`\n✅ Hojas con datos encontradas después de análisis: ${hojasConDatos.length} de ${diagnosticoHojas.length}`)
+    console.log(`📋 Hojas procesables:`, hojasConDatos)
+    console.log(`📋 Hojas descartadas:`, diagnosticoHojas.filter(h => h.vacia || (h.filas ?? 0) === 0).map(h => `${h.nombre} (${h.filas} filas, ${h.error || 'sin error'})`))
     
     if (hojasConDatos.length === 0) {
+      console.log(`\n❌ NO SE ENCONTRARON HOJAS CON DATOS`)
+      console.log(`📊 Diagnóstico completo:`, diagnosticoHojas.map(h => ({
+        nombre: h.nombre,
+        filas: h.filas,
+        headers: h.headers.slice(0, 3),
+        vacia: h.vacia,
+        error: h.error,
+        ref: h.ref
+      })))
+      
       return NextResponse.json({
         success: false,
         error: "No se encontró una hoja válida con datos de productos",
         diagnosticoHojas,
-        rawPreview: diagnosticoHojas.slice(0, 10) // 🎯 observabilidad inmediata
+        rawPreview: diagnosticoHojas.slice(0, 10), // 🎯 observabilidad inmediata
+        detalle: "Todas las hojas aparecen vacías después de lectura robusta. Verifique que el archivo tenga datos en formato Excel válido."
       }, { status: 400 });
     }
     
