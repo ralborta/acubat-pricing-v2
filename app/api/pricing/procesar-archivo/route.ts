@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-export const maxDuration = 45
+export const maxDuration = 300; // ✅ 5 minutos para procesar archivos grandes con IA
 export const runtime = "nodejs"; // ✅ evita Edge/streams raros
 import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
@@ -501,11 +501,11 @@ function validarMoneda(precio: any): { esPeso: boolean, confianza: number, razon
 export async function POST(request: NextRequest): Promise<NextResponse> {
   console.log('🚀 INICIANDO PROCESAMIENTO DE ARCHIVO...')
   
-  // Timeout de 45 segundos para evitar cuelgues
+  // Timeout de 280 segundos (4:40 min) para evitar cuelgues - dejar margen antes del límite de Vercel (300s)
   const timeoutPromise = new Promise<NextResponse>((resolve) => {
     setTimeout(() => resolve(NextResponse.json({ 
-      error: 'Timeout: Procesamiento excedió 45 segundos' 
-    }, { status: 408 })), 45000)
+      error: 'Timeout: Procesamiento excedió 280 segundos' 
+    }, { status: 408 })), 280000)
   })
   
   try {
