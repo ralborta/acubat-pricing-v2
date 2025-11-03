@@ -12,13 +12,19 @@ const HEADER_CANDIDATES = [
   'precio',
   'precio unitario',
   'precio base',
+  'pvp off line',
+  'contado',
   'codigo baterias',
   'codigo',
+  'código',
+  'descripcion modelo sap', // Para Moura
+  'descripción modelo sap', // Para Moura
   'tipo',
   'modelo',
   'descripcion',
   'marca',
   'familia',
+  'rubro',
   'stock',
   'disponibilidad',
 ];

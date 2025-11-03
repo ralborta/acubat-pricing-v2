@@ -551,6 +551,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         score = Math.max(score, 3) // Mínimo score para hojas con código/modelo y datos
       }
       
+      // 🎯 FLEXIBILIDAD EXTRA: Si tiene cualquier columna de precio y primera columna tiene valores, es válida
+      if (tienePrecio && datosHoja.length >= 2) {
+        // Verificar que la primera columna tenga valores no vacíos
+        const primeraCol = headersHoja[0]
+        const tieneValoresEnPrimera = datosHoja.some((row: any) => {
+          const valor = String(row[primeraCol] || '').trim()
+          return valor && valor.length > 0 && !valor.toLowerCase().includes('total')
+        })
+        if (tieneValoresEnPrimera) {
+          score = Math.max(score, 4) // Score mínimo alto si tiene precio y primera columna con valores
+          console.log(`  ✅ Primera columna "${primeraCol}" tiene valores válidos`)
+        }
+      }
+      
       console.log(`  📊 Score: ${score} (${datosHoja.length} filas)`)
       console.log(`  📋 Headers: ${headersHoja.length}`)
       console.log(`  🎯 Columnas clave encontradas: ${columnasClave}/5`)
@@ -575,6 +589,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // 🎯 LÓGICA FLEXIBLE: No descartar por score; procesar toda hoja no vacía
       let descartada = datosHoja.length < 1
+      
+      // Si tiene precio y datos, NO descartar (incluso si score es bajo)
+      if (tienePrecio && datosHoja.length >= 2) {
+        descartada = false
+        score = Math.max(score, 4) // Asegurar score mínimo
+      }
+      
+      // Si tiene código/modelo identificador y datos, NO descartar
+      if ((codigo || modelo) && datosHoja.length >= 2) {
+        descartada = false
+        score = Math.max(score, 3) // Asegurar score mínimo
+      }
+      
       // Si tiene score > 0 y datos, NO descartar
       if (score > 0 && datosHoja.length > 0) {
         descartada = false
