@@ -1349,39 +1349,62 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       let marcaEncontradaEnDescripcion = ''; // Para guardar marca encontrada en descripción
       
       console.log(`\n🔍 [PRODUCTO ${index + 1}] BÚSQUEDA DE DESCRIPCIÓN Y MARCA:`);
+      console.log(`  - descCol (de IA): "${descCol || 'NO'}"`);
       console.log(`  - modeloCol: "${modeloCol || 'NO'}"`);
       console.log(`  - Headers disponibles: ${headers.slice(0, 5).join(', ')}...`);
       console.log(`  - Claves del producto: ${Object.keys(producto).slice(0, 5).join(', ')}...`);
       
-      // 🎯 PRIORIDAD 0: Buscar en TODAS las columnas del producto directamente
-      // Esto evita problemas de normalización de nombres
-      console.log(`  🔍 Búsqueda directa en todas las columnas del producto...`);
-      for (const [key, value] of Object.entries(producto)) {
-        if (!key || !value) continue;
-        const valorStr = String(value).trim();
-        if (!valorStr || valorStr.length < 10) continue;
+      // 🎯 PRIORIDAD 0 (MÁS ALTA): Usar columna mapeada por IA si existe
+      // La IA ya analizó todo y mapeó correctamente (ej: descripcion="Modelo" cuando Modelo tiene texto descriptivo)
+      if (descCol) {
+        const valorDescCol = String(getCellFlexible(producto, descCol) ?? '').trim();
+        console.log(`  🔍 Valor en columna mapeada por IA (${descCol}): "${valorDescCol.substring(0, 50)}${valorDescCol.length > 50 ? '...' : ''}"`);
         
-        // Verificar si es texto descriptivo con marca (YUASA, MOURA, etc.)
-        const tieneMarcaConocida = /yuasa|moura|varta|liqui|moly|lusqtoff|motul|shell|elf|bosch|bateria/i.test(valorStr);
-        const palabras = valorStr.split(/\s+/).filter(w => w.length > 0);
-        const esDescriptivo = tieneMarcaConocida || (palabras.length >= 3 && valorStr.length > 15);
-        
-        if (esDescriptivo) {
-          descripcion_val = valorStr;
-          console.log(`  ✅ Descripción encontrada en columna "${key}": "${descripcion_val.substring(0, 50)}..."`);
+        if (valorDescCol && valorDescCol.length > 5) {
+          descripcion_val = valorDescCol;
+          console.log(`  ✅ Descripción desde columna mapeada por IA (${descCol}): "${descripcion_val.substring(0, 50)}..."`);
           
-          // Extraer marca del contenido
+          // Extraer marca del contenido si no se detectó antes
           const marcasEnValor = ['BATERIA YUASA', 'YUASA', 'MOURA', 'VARTA', 'LIQUI MOLY', 'LUSQTOFF', 'MOTUL', 'SHELL', 'ELF', 'BOSCH'];
-          const marcaEncontrada = marcasEnValor.find(m => valorStr.toUpperCase().includes(m));
+          const marcaEncontrada = marcasEnValor.find(m => valorDescCol.toUpperCase().includes(m));
           if (marcaEncontrada) {
             marcaEncontradaEnDescripcion = marcaEncontrada === 'BATERIA YUASA' ? 'YUASA' : marcaEncontrada;
-            console.log(`  🎯 MARCA DETECTADA: "${marcaEncontradaEnDescripcion}" desde columna "${key}"`);
+            console.log(`  🎯 MARCA DETECTADA desde descripción IA: "${marcaEncontradaEnDescripcion}"`);
           }
-          break; // Primera coincidencia descriptiva gana
         }
       }
       
-      // Si no se encontró en búsqueda directa, buscar usando getCellFlexible
+      // 🎯 PRIORIDAD 1: Si la IA no mapeó descripción, buscar en TODAS las columnas del producto directamente
+      // Esto evita problemas de normalización de nombres
+      if (!descripcion_val) {
+        console.log(`  🔍 Búsqueda directa en todas las columnas del producto (fallback)...`);
+        for (const [key, value] of Object.entries(producto)) {
+          if (!key || !value) continue;
+          const valorStr = String(value).trim();
+          if (!valorStr || valorStr.length < 10) continue;
+          
+          // Verificar si es texto descriptivo con marca (YUASA, MOURA, etc.)
+          const tieneMarcaConocida = /yuasa|moura|varta|liqui|moly|lusqtoff|motul|shell|elf|bosch|bateria/i.test(valorStr);
+          const palabras = valorStr.split(/\s+/).filter(w => w.length > 0);
+          const esDescriptivo = tieneMarcaConocida || (palabras.length >= 3 && valorStr.length > 15);
+          
+          if (esDescriptivo) {
+            descripcion_val = valorStr;
+            console.log(`  ✅ Descripción encontrada en columna "${key}": "${descripcion_val.substring(0, 50)}..."`);
+            
+            // Extraer marca del contenido
+            const marcasEnValor = ['BATERIA YUASA', 'YUASA', 'MOURA', 'VARTA', 'LIQUI MOLY', 'LUSQTOFF', 'MOTUL', 'SHELL', 'ELF', 'BOSCH'];
+            const marcaEncontrada = marcasEnValor.find(m => valorStr.toUpperCase().includes(m));
+            if (marcaEncontrada) {
+              marcaEncontradaEnDescripcion = marcaEncontrada === 'BATERIA YUASA' ? 'YUASA' : marcaEncontrada;
+              console.log(`  🎯 MARCA DETECTADA: "${marcaEncontradaEnDescripcion}" desde columna "${key}"`);
+            }
+            break; // Primera coincidencia descriptiva gana
+          }
+        }
+      }
+      
+      // Si aún no se encontró, buscar usando getCellFlexible
       if (!descripcion_val) {
         console.log(`  🔍 Búsqueda usando getCellFlexible (columnas normalizadas)...`);
         
@@ -1458,7 +1481,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       console.log(`  📊 RESULTADO: descripcion="${descripcion_val || 'VACÍA'}", marca="${marcaEncontradaEnDescripcion || 'NO DETECTADA'}"`);
       
-      // 🎯 PRIORIDAD 1: Buscar columnas FUNCIÓN y APLICACIÓN (más importante que columna mapeada por IA)
+      // 🎯 PRIORIDAD 2: Buscar columnas FUNCIÓN y APLICACIÓN (si no se usó la columna mapeada por IA)
       const funcionCol = headers.find(h => {
         if (!h) return false;
         const hNorm = h.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
