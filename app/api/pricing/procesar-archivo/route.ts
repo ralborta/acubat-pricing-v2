@@ -1301,7 +1301,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
       
       // 🎯 Último recurso: Para LIQUI MOLY, buscar columna "DENOMINACION COMERCIAL" o similar
-      if (!descripcion_val && fileName.toLowerCase().includes('liqui')) {
+      const esLiquiMoly = fileName.toLowerCase().includes('liqui');
+      if (!descripcion_val && esLiquiMoly) {
         const denominacionCol = headers.find(h => {
           if (!h) return false;
           const hNorm = h.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
@@ -1311,6 +1312,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           descripcion_val = String(getCellFlexible(producto, denominacionCol) ?? '').trim();
           if (descripcion_val) {
             console.log(`  ✅ Descripción desde DENOMINACIÓN COMERCIAL (${denominacionCol}): "${descripcion_val}"`);
+          }
+        }
+      }
+      
+      // 🎯 ESPECIAL LIQUI MOLY: Si aún no hay descripción, usar la segunda columna (Columna B)
+      // En archivos LIQUI MOLY, la segunda columna suele tener los nombres/descripciones de productos
+      if (!descripcion_val && esLiquiMoly && headers.length >= 2) {
+        const segundaColumna = headers[1]; // Segunda columna (índice 1)
+        if (segundaColumna) {
+          descripcion_val = String(getCellFlexible(producto, segundaColumna) ?? '').trim();
+          // Validar que no sea un encabezado de categoría (suele ser en mayúsculas o muy corto)
+          if (descripcion_val && descripcion_val.length > 3 && !descripcion_val.toUpperCase() === descripcion_val) {
+            console.log(`  ✅ Descripción desde 2da columna LIQUI MOLY (${segundaColumna}): "${descripcion_val}"`);
+          } else if (descripcion_val && descripcion_val.length > 3) {
+            // Aceptar aunque esté en mayúsculas si tiene buen largo
+            console.log(`  ✅ Descripción desde 2da columna LIQUI MOLY (${segundaColumna}): "${descripcion_val}"`);
+          } else {
+            descripcion_val = ''; // No usar si es muy corta o parece encabezado
           }
         }
       }
