@@ -216,7 +216,7 @@ ${hintText}
 Usa únicamente las COLUMNAS y la MUESTRA provistas en este turno (ignora conocimiento previo).
 Debes mapear exactamente qué columna corresponde a:
 - "tipo" (familia/categoría del archivo: "Batería", "Aditivos", "Aditivos Nafta", "Herramientas", "Ca Ag Blindada", "J.I.S.", etc. - INFIERELO del contexto del archivo/hoja, NO uses "batería" por defecto)
-- "modelo" (código identificador corto: "UB 550 Ag", "VA40DD/E", números como "2124", "1870", SKU como "7000", etc. - NO uses columnas con texto descriptivo largo como "BATERIA YUASA 6N2-2A")
+- "modelo" (código identificador corto: "UB 550 Ag", "VA40DD/E", números como "2124", "1870", SKU como "7000", etc. - NO uses columnas con texto descriptivo largo como "BATERIA YUASA 6N2-2A". Si la columna "Modelo" contiene texto descriptivo largo, el modelo debe ser el SKU/código de la primera columna)
 - "descripcion" (texto descriptivo completo del producto: "BATERIA YUASA 6N2-2A", "Injection Reiniger", etc. - Si la columna "Modelo" contiene texto descriptivo largo con marca y nombre de producto, mapea esa columna como "descripcion", NO como "modelo")
 - "marca" (nombre del producto/marca: incluso si la columna se llama "Producto", debe mapearse como "marca" cuando contiene nombres de productos/marcas como "Injection Reiniger", "Pro-Line", etc.)
 - "precio_ars" (precio en pesos argentinos)
@@ -234,18 +234,20 @@ REGLAS OBLIGATORIAS
    - Contenido: >=80% de filas con valores numéricos plausibles para Argentina (≈150.000–3.000.000).
    - Si hay duplicados (con/sin IVA), prefiere "precio lista / sugerido proveedor"; si hay dos variantes, elige "sin IVA" y deja nota.
 4) Identificador (PRIORIDAD ESTRICTA para encontrar columna de ID):
-   a) Columnas con nombres que contengan: "codigo", "código", "cod", "sku", "ref", "referencia", "part number", "modelo", "artículo", "item", "ean", "upc", "id", "nro"
+   a) Columnas con nombres que contengan: "codigo", "código", "cod", "sku", "ref", "referencia", "part number", "artículo", "item", "ean", "upc", "id", "nro"
    b) La columna debe tener alta unicidad (muchos valores distintos) y patrón de código (alfanumérico, pocos espacios)
    c) Prioriza columnas que sean claramente identificadores únicos sobre descripciones largas
    d) Si hay múltiples candidatos, elige la que tenga mayor unicidad y mejor patrón de código
-   e) Si no existe, identificador = modelo (indícalo en notas).
+   e) NO uses "modelo" como identificador si contiene texto descriptivo largo (ej: "BATERIA YUASA 6N2-2A")
+   f) Si no existe, identificador = modelo (solo si modelo es un código corto, indícalo en notas).
 5) Marca (REGLA ESPECIAL):
    a) Si hay una columna llamada "Producto" o similar que contiene nombres de productos/marcas (ej: "Injection Reiniger", "Pro-Line", nombres de marcas), MAPÉALA COMO "marca"
    b) La segunda columna (columna sin nombre o con nombre genérico) que contiene nombres de productos debe mapearse como "marca", NO como "modelo" ni "descripcion"
    c) Prioriza columnas con nombres de productos/marcas comerciales sobre códigos
    d) CASO ESPECIAL YUASA/MOURA: Si la columna "Modelo" contiene texto descriptivo largo como "BATERIA YUASA 6N2-2A":
-      * Mapea esa columna como "descripcion" (NO como modelo)
-      * El "modelo" debe ser el SKU/código numérico de la primera columna (ej: "7000", "7002")
+      * DEBES mapear esa columna como "descripcion" (NO como modelo) - ES OBLIGATORIO
+      * El campo "modelo" en el JSON debe contener el nombre de la columna del SKU/código (ej: "sku "), NO "Modelo"
+      * El campo "descripcion" en el JSON debe contener el nombre de la columna descriptiva (ej: "Modelo")
       * La marca "YUASA" o "MOURA" se extraerá automáticamente del contenido por el sistema, pero puedes indicarlo en notas
 6) Tipo/Categoría (DETECCIÓN INTELIGENTE):
    a) NO uses "batería" por defecto - INFIERE el tipo del contexto:
@@ -255,11 +257,19 @@ REGLAS OBLIGATORIAS
       - Analiza los headers del archivo y el contenido de las columnas para inferir el tipo
    b) Busca palabras clave en nombres de columnas y en el contenido: "aditivo", "herramienta", "batería", "nafta", "combustible", etc.
    c) Si no puedes inferir con certeza, usa el tipo más general que encuentres en el contexto, nunca asumas "batería"
-7) Descripción (REGLA ESPECIAL):
+7) Descripción (REGLA ESPECIAL Y OBLIGATORIA):
    a) Busca columnas que describan la FUNCIÓN o APLICACIÓN del producto
-   b) Columnas con nombres como "FUNCIÓN", "APLICACIÓN", "Descripción", "Detalle" que expliquen qué hace el producto
-   c) Si la columna "marca" contiene nombres de productos y hay otra columna con funciones/aplicaciones, usa esa para descripción
-   d) Puede ser una columna entre la 2da y 3ra columna si contiene información descriptiva
+   b) Columnas con nombres como "FUNCIÓN", "APLICACIÓN", "Descripción", "Detalle" que explican qué hace el producto
+   c) CASO CRÍTICO - SI la columna "Modelo" contiene texto descriptivo largo (más de 10 caracteres, múltiples palabras, o incluye marca como "BATERIA YUASA 6N2-2A"):
+      * OBLIGATORIO: Mapea "Modelo" como "descripcion" en el JSON (campo descripcion = "Modelo")
+      * OBLIGATORIO: NO mapees "Modelo" como "modelo" - el modelo debe ser otra columna (ej: "sku ")
+      * Ejemplo: Si tienes "sku" con valores "7000" y "Modelo" con "BATERIA YUASA 6N2-2A":
+        - modelo = "sku " (nombre de columna del SKU)
+        - descripcion = "Modelo" (nombre de columna descriptiva)
+        - identificador = "sku " (nombre de columna del SKU)
+   d) Si la columna "marca" contiene nombres de productos y hay otra columna con funciones/aplicaciones, usa esa para descripción
+   e) Puede ser una columna entre la 2da y 3ra columna si contiene información descriptiva
+   f) El campo "descripcion" en tu respuesta JSON DEBE contener el nombre de la columna elegida (ej: "Modelo"), NO puede ser null si existe una columna descriptiva
 8) Devuelve los NOMBRES DE COLUMNA EXACTOS tal como aparecen (no renombres).
 9) Evidencia: incluye 2–5 muestras por campo y el motivo de la elección.
 10) Si la confianza < 0.6 en cualquier campo, déjalo null y explica en notas.
@@ -352,9 +362,19 @@ const SCHEMA = {
               motivo: { type: "string" }
             },
             required: ["columna_elegida","muestras","motivo"]
+          },
+          descripcion: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              columna_elegida: { type: ["string","null"] },
+              muestras: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 5 },
+              motivo: { type: "string" }
+            },
+            required: ["columna_elegida","muestras","motivo"]
           }
         },
-        required: ["precio_ars","modelo","tipo"]
+        required: ["precio_ars","modelo","tipo","descripcion"]
       },
       clasificacion_columnas: {
         type: "array",
@@ -397,20 +417,44 @@ const USD_MARKERS = /usd|u\$s|us\$|dólar|dolar/i;
 /* -------------------------- RESPONSE EXTRACTION -------------------------- */
 function extractJson(resp: any): MapColumnsOutput | null {
   try {
-    // Camino 1: Structured Outputs (json)
+    // Camino 1: Chat Completions API - response_format con json_schema
+    // La respuesta viene en resp.choices[0].message.content cuando hay response_format
+    if (resp?.choices && resp.choices[0]?.message?.content) {
+      const content = resp.choices[0].message.content;
+      try {
+        return JSON.parse(content) as MapColumnsOutput;
+      } catch {
+        // Si no es JSON válido, intentar extraer del texto
+        const firstBrace = content.indexOf("{");
+        const lastBrace = content.lastIndexOf("}");
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+          const maybe = content.slice(firstBrace, lastBrace + 1);
+          return JSON.parse(maybe) as MapColumnsOutput;
+        }
+      }
+    }
+
+    // Camino 2: Tool call (cuando se usan tools)
+    if (resp?.choices && resp.choices[0]?.message?.tool_calls) {
+      const toolCall = resp.choices[0].message.tool_calls[0];
+      if (toolCall?.function?.arguments) {
+        return JSON.parse(toolCall.function.arguments) as MapColumnsOutput;
+      }
+    }
+
+    // Camino 3: Structured Outputs API (formato antiguo)
     const json = resp?.output?.[0]?.content?.find((c: any) => c.type === "output_json")?.json;
     if (json) return json as MapColumnsOutput;
 
-    // Camino 2: Tool call obligatorio (fallback)
+    // Camino 4: Tool call obligatorio (formato antiguo)
     const tool = resp?.output?.[0]?.content?.find((c: any) => c.type === "tool_call");
     if (tool?.name && tool?.arguments) {
       return JSON.parse(tool.arguments) as MapColumnsOutput;
     }
 
-    // Camino 3: Por si vino como texto (no debería con strict)
+    // Camino 5: Texto directo
     const text = resp?.output_text ?? resp?.output?.[0]?.content?.[0]?.text;
     if (text && typeof text === "string") {
-      // Intento parsear JSON crudo
       const firstBrace = text.indexOf("{");
       const lastBrace = text.lastIndexOf("}");
       if (firstBrace >= 0 && lastBrace > firstBrace) {
@@ -418,8 +462,8 @@ function extractJson(resp: any): MapColumnsOutput | null {
         return JSON.parse(maybe) as MapColumnsOutput;
       }
     }
-  } catch {
-    // ignore
+  } catch (e: any) {
+    console.error("Error en extractJson:", e?.message);
   }
   return null;
 }
@@ -495,19 +539,19 @@ export async function mapColumnsStrict({
   // 1) Intento con Structured Outputs strict
   const basePayload = {
     model,
-    input: [
+    messages: [
       { role: "system", content: system },
       { role: "user", content: user }
-    ],
-    text: {
-      format: {
-        type: "json_schema" as const,
-        schema: SCHEMA.schema,
-        name: "mapeo_columnas_baterias_ars_v2"
+    ] as const,
+    response_format: {
+      type: "json_schema" as const,
+      json_schema: {
+        name: "mapeo_columnas_baterias_ars_v2",
+        schema: SCHEMA.schema
       }
     },
     temperature: 0.1,
-    max_output_tokens: 900
+    max_tokens: 2000
   };
 
   // Fallback: herramienta que obliga tool_call si el host ignora response_format
@@ -592,11 +636,11 @@ export async function mapColumnsStrict({
       attempts++;
       const retryPayload = {
         ...basePayload,
-        input: [
+        messages: [
           { role: "system", content: system },
           { role: "user", content: user },
           { role: "user", content: feedback }
-        ]
+        ] as const
       };
       
       const t2 = Date.now();
