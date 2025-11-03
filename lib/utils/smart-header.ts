@@ -14,14 +14,26 @@ const HEADER_CANDIDATES = [
   'precio base',
   'pvp off line',
   'contado',
+  'cuotas',
   'codigo baterias',
   'codigo',
   'código',
   'descripcion modelo sap', // Para Moura
   'descripción modelo sap', // Para Moura
+  'denominacion comercial', // Para Moura
+  'denominación comercial', // Para Moura
+  'grupo bci', // Para Moura
+  'c20',
+  'c.a.',
+  'c.c.a.',
+  'borne',
+  'largo',
+  'ancho',
+  'alto',
   'tipo',
   'modelo',
   'descripcion',
+  'descripción',
   'marca',
   'familia',
   'rubro',
@@ -91,13 +103,19 @@ export function readWithSmartHeader(ws: XLSX.WorkSheet): any[] {
   if (!hdr) {
     // Fallback mejorado: buscar primera fila con datos no vacíos
     console.warn('⚠️ No se detectó fila de encabezados con candidatos estándar, buscando primera fila con datos...');
+    console.log(`📋 Muestra de primeras 5 filas AOA:`, aoa.slice(0, 5).map((row, idx) => ({
+      fila: idx + 1,
+      columnas: row.slice(0, 5).map(c => String(c || '').substring(0, 30))
+    })));
     
-    // Buscar primera fila que tenga al menos 2 columnas no vacías
+    // Buscar primera fila que tenga al menos 3 columnas no vacías (más estricto para headers)
     let primeraFilaConDatos = -1;
-    for (let i = 0; i < Math.min(10, aoa.length); i++) {
+    for (let i = 0; i < Math.min(20, aoa.length); i++) {
       const row = aoa[i] || [];
       const noVacias = row.filter(c => c != null && String(c).trim() !== '').length;
-      if (noVacias >= 2) {
+      console.log(`  📊 Fila ${i + 1}: ${noVacias} columnas no vacías`, row.slice(0, 3).map(c => String(c || '').substring(0, 20)));
+      
+      if (noVacias >= 3) { // Al menos 3 columnas para ser considerado header
         primeraFilaConDatos = i;
         console.log(`✅ Primera fila con datos encontrada en fila ${i + 1} (${noVacias} columnas no vacías)`);
         break;
@@ -111,25 +129,47 @@ export function readWithSmartHeader(ws: XLSX.WorkSheet): any[] {
         return clean || `col_${idx + 1}`;
       });
       
-      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-      range.s.r = primeraFilaConDatos + 1; // datos empiezan después de headers
-      const ref = XLSX.utils.encode_range(range);
+      console.log(`📋 Headers extraídos (fila ${primeraFilaConDatos + 1}):`, headersFila.slice(0, 10));
       
-      const data = XLSX.utils.sheet_to_json(ws, {
-        header: headersFila,
-        range: ref,
-        defval: ''
-      });
-      
-      console.log(`✅ Datos leídos (fallback): ${data.length} filas desde fila ${primeraFilaConDatos + 2}`);
-      return data;
+      // Intentar leer con range
+      try {
+        const range = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : XLSX.utils.decode_range('A1:Z1000');
+        range.s.r = primeraFilaConDatos + 1; // datos empiezan después de headers
+        const ref = XLSX.utils.encode_range(range);
+        
+        const data = XLSX.utils.sheet_to_json(ws, {
+          header: headersFila,
+          range: ref,
+          defval: ''
+        });
+        
+        console.log(`✅ Datos leídos (fallback con range): ${data.length} filas desde fila ${primeraFilaConDatos + 2}`);
+        return data;
+      } catch (e: any) {
+        console.warn(`⚠️ Error con range, intentando sin range:`, e?.message);
+        // Intentar sin range
+        const data = XLSX.utils.sheet_to_json(ws, {
+          header: headersFila,
+          defval: ''
+        });
+        console.log(`✅ Datos leídos (fallback sin range): ${data.length} filas`);
+        return data;
+      }
     }
     
-    // Último fallback: método estándar
-    console.warn('⚠️ Usando método estándar XLSX (primera fila como headers)');
-    const dataStd = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    console.log(`✅ Datos leídos (método estándar): ${dataStd.length} filas`);
-    return dataStd;
+    // Último fallback: método estándar - usar primera fila como headers SIN importar qué tenga
+    console.warn('⚠️ Usando método estándar XLSX (primera fila como headers) - FALLBACK FINAL');
+    try {
+      const dataStd = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      console.log(`✅ Datos leídos (método estándar): ${dataStd.length} filas`);
+      if (dataStd.length > 0) {
+        console.log(`📋 Headers detectados (método estándar):`, Object.keys(dataStd[0] || {}).slice(0, 10));
+      }
+      return dataStd;
+    } catch (e: any) {
+      console.error(`❌ Error incluso con método estándar:`, e?.message);
+      return [];
+    }
   }
 
   // 2) Re-leer con headers detectados y range desde esa fila
