@@ -538,12 +538,15 @@ export async function mapColumnsStrict({
   const promptHash = crypto.createHash("sha1").update(system + "::" + user).digest("hex");
 
   // 1) Intento con Structured Outputs strict
+  // ✅ Construir messages explícitamente sin 'as const' para evitar problemas de serialización
+  const messagesArray = [
+    { role: "system" as const, content: system },
+    { role: "user" as const, content: user }
+  ];
+  
   const basePayload = {
-    model,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user }
-    ] as const,
+    model: model,
+    messages: messagesArray,
     response_format: {
       type: "json_schema" as const,
       json_schema: {
@@ -661,13 +664,15 @@ export async function mapColumnsStrict({
       )}. Re-mapear evitando cualquier columna cuyo nombre o contenido coincida con el blacklist (dimensiones o USD). Si la confianza es baja, devuelve null y explica en notas.`;
 
       attempts++;
+      const retryMessagesArray = [
+        { role: "system" as const, content: system },
+        { role: "user" as const, content: user },
+        { role: "user" as const, content: feedback }
+      ];
+      
       const retryPayload = {
         ...basePayload,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-          { role: "user", content: feedback }
-        ] as const
+        messages: retryMessagesArray
       };
       
       // 🔍 VALIDACIÓN antes de reintento
