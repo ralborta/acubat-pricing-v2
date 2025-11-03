@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 45
 import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
-import { mapColumnsStrict } from '../../../../lib/pricing_mapper'
+import { mapColumnsStrict } from '../../../lib/pricing_mapper'
 import { HistorialPricing } from "@/lib/supabase-historial"
 import { getBlueRate } from '@/lib/fx'
 import { parseLocaleNumber } from '@/lib/parse-number'
