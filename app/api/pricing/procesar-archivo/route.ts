@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 45
+export const runtime = "nodejs"; // ✅ evita Edge/streams raros
 import * as XLSX from 'xlsx'
 import { buscarEquivalenciaVarta } from '../../../../lib/varta-ai'
 import { mapColumnsStrict, inferirTipoPorContexto, sanitizeTipo } from '../../../lib/pricing_mapper'
@@ -450,10 +451,46 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('   - Factores Varta:', config.factoresVarta)
     console.log('   - Última actualización:', config.ultimaActualizacion)
 
-    // Leer archivo Excel con soporte para múltiples hojas
-    // Preservar formato original de celdas para detectar USD
-    const buffer = await file.arrayBuffer()
-    const workbook = XLSX.read(buffer, { type: 'buffer', cellText: false, cellDates: false })
+    // ⛔️ NO confíes en streams en Edge; usa arrayBuffer
+    const fileName = file.name || "archivo.xlsx";
+    const ab = await file.arrayBuffer();
+    const buffer = Buffer.from(ab);
+    
+    // XLSX.read robusto (xlsx 0.18+)
+    let workbook: XLSX.WorkBook;
+    try {
+      workbook = XLSX.read(buffer, {
+        type: "buffer",
+        raw: false,
+        cellDates: true,
+        cellText: false,
+        WTF: false,         // si querés ver warnings, ponelo true
+        dense: true,        // ✅ mejora lectura de hojas "raras"
+        sheetStubs: true,   // ✅ incluye stubs de celdas/sheets
+      });
+    } catch (e: any) {
+      console.error("❌ XLSX.read failed:", e?.message);
+      return NextResponse.json({
+        success: false,
+        error: "No se pudo leer el Excel",
+        detail: e?.message,
+        diagnosticoHojas: []
+      }, { status: 400 });
+    }
+    
+    console.log("📘 Workbook cargado:", {
+      fileName,
+      sheets: workbook.SheetNames,
+      count: workbook.SheetNames?.length ?? 0
+    });
+    
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: "El archivo no tiene hojas legibles",
+        diagnosticoHojas: []
+      }, { status: 400 });
+    }
     
     console.log('📋 HOJAS DISPONIBLES:', workbook.SheetNames)
     
@@ -480,6 +517,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       let headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
       console.log(`  🧭 Headers detectados:`, headersHoja)
+      console.log(`  📊 Filas reales leídas:`, datosHoja.length)
       
       // Función para normalizar headers (quitar acentos, espacios, etc.)
       const H = (h?: string) => (h || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim()
@@ -609,7 +647,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       console.log(`🔍 Hoja "${sheetName}": ${datosHoja.length} filas, score ${score}, descartada: ${descartada}`)
       
-      diagnosticoHojas.push({ nombre: sheetName, filas: datosHoja.length, headers: headersHoja.slice(0, 20), pvpOffLine, precioLista, precioUnitario, descartada, score })
+      // Actualizar diagnóstico existente
+      diag.score = score;
+      diag.descartada = descartada;
+      diag.pvpOffLine = pvpOffLine;
+      diag.precioLista = precioLista;
+      diag.precioUnitario = precioUnitario;
+      diag.headers = headersHoja.slice(0, 20);
     }
     
     // 🔍 LOG DIAGNÓSTICO: Ver qué se detectó
@@ -621,25 +665,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       tienePrecio: !!h.pvpOffLine || !!h.precioLista || !!h.precioUnitario
     })))
     
-    // 🎯 PROCESAR TODAS LAS HOJAS CON DATOS (relajar validación - dejar que la IA decida)
-    // Solo descartar hojas completamente vacías (< 1 fila después de leer)
-    const hojasValidas = diagnosticoHojas.filter(h => h.filas > 0)
+    // 🎯 FORCE IA (mientras debugueamos)
+    const FORCE_IA = process.env.PRICING_FORCE_IA === "1" || true; // ✅ TEMPORAL: siempre forzar
+    console.log(`🧠 FORCE_IA: ${FORCE_IA ? '✅ ACTIVADO' : '❌ NO'}`)
     
-    console.log(`\n✅ Hojas con datos encontradas:`, hojasValidas.map(h => ({
-      nombre: h.nombre,
-      filas: h.filas,
-      score: h.score,
-      descartada: h.descartada
-    })))
+    // 🎯 PROCESAR TODAS LAS HOJAS CON DATOS (sin "validación agresiva")
+    const hojasConDatos = diagnosticoHojas
+      .filter(h => (h.filas ?? 0) > 0) // ✅ procesamos todas con datos
+      .map(h => h.nombre);
     
-    if (hojasValidas.length === 0) {
-      console.log(`❌ No se encontraron hojas con datos. Diagnóstico completo:`, diagnosticoHojas)
-      return NextResponse.json({ success: false, error: 'No se encontró una hoja válida con datos de productos', diagnosticoHojas }, { status: 400 })
+    console.log(`\n✅ Hojas con datos encontradas: ${hojasConDatos.length} de ${diagnosticoHojas.length}`)
+    
+    if (hojasConDatos.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: "No se encontró una hoja válida con datos de productos",
+        diagnosticoHojas,
+        rawPreview: diagnosticoHojas.slice(0, 10) // 🎯 observabilidad inmediata
+      }, { status: 400 });
     }
     
-    console.log(`\n⚠️ RELAJACIÓN: Procesando ${hojasValidas.length} hojas con datos (dejando que la IA determine si son válidas)`)
+    const hojasValidas = diagnosticoHojas.filter(h => hojasConDatos.includes(h.nombre))
     
-    console.log(`\n✅ HOJAS VÁLIDAS ENCONTRADAS: ${hojasValidas.length}`)
+    console.log(`\n⚠️ RELAJACIÓN: Procesando ${hojasValidas.length} hojas con datos (dejando que la IA determine si son válidas)`)
     console.log(`📊 Procesando hojas:`, hojasValidas.map(h => `${h.nombre}(${h.filas})`))
     console.log(`🔍 DEBUG: hojasValidas =`, hojasValidas.map(h => ({ nombre: h.nombre, filas: h.filas, descartada: h.descartada })))
     
@@ -811,7 +859,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log('📝 Muestra de datos (primeras 3 filas):', datos.slice(0, 3))
 
     // 🎯 DETECCIÓN AVANZADA DE COLUMNAS CON IA (mapColumnsStrict)
-    const FORCE_IA = process.env.PRICING_FORCE_IA === "1";
+    // FORCE_IA ya está definido arriba
     
     console.log('🧠 ========== USANDO DETECCIÓN AVANZADA CON IA ==========')
     console.log(`🧠 FORCE_IA: ${FORCE_IA ? '✅ ACTIVADO' : '❌ NO (usando normal)'}`)
