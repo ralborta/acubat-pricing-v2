@@ -556,7 +556,7 @@ export async function mapColumnsStrict({
   };
 
   // 🔍 VALIDACIÓN: Asegurar que messages existe
-  if (!basePayload.messages || !Array.isArray(basePayload.messages) || basePayload.messages.length === 0) {
+  if (!basePayload.messages || !Array.isArray(basePayload.messages) || (basePayload.messages as any[]).length === 0) {
     console.error('❌ ERROR: basePayload.messages está vacío o no existe:', basePayload);
     throw new Error('Payload inválido: messages requerido');
   }
