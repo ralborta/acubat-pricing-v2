@@ -851,8 +851,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (hojasConDatos.length === 0) {
       console.log(`\n❌ NO SE ENCONTRARON HOJAS CON DATOS`)
       console.log(`📊 Diagnóstico completo:`, diagnosticoHojas.map(h => ({
-        nombre: h.nombre,
-        filas: h.filas,
+      nombre: h.nombre,
+      filas: h.filas,
         headers: h.headers.slice(0, 3),
         vacia: h.vacia,
         error: h.error,
@@ -1347,6 +1347,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Descripción - Extraer de FUNCIÓN, APLICACIÓN, o columna mapeada por IA (PRIORIDAD ALTA)
       let descripcion_val = '';
       
+      // 🎯 PRIORIDAD 0: Si la columna "Modelo" contiene texto descriptivo (más de una palabra o contiene marca),
+      // usarla como descripción. Esto es común cuando "Modelo" tiene "BATERIA YUASA 6N2-2A" por ejemplo.
+      if (!descripcion_val && modeloCol) {
+        const valorModelo = String(getCellFlexible(producto, modeloCol) ?? '').trim();
+        // Verificar si es texto descriptivo (más de 2 palabras O contiene marca conocida)
+        const palabras = valorModelo.split(/\s+/).filter(w => w.length > 0);
+        const tieneMarcaConocida = /yuasa|moura|varta|liqui|moly|lusqtoff|motul|shell|elf|bosch/i.test(valorModelo);
+        const esDescriptivo = palabras.length >= 2 || (palabras.length === 1 && valorModelo.length > 10) || tieneMarcaConocida;
+        
+        if (valorModelo && esDescriptivo && valorModelo.length > 5) {
+          // Es descriptivo, usarlo como descripción
+          descripcion_val = valorModelo;
+          console.log(`  ✅ Descripción desde columna Modelo (descriptivo): "${descripcion_val}"`);
+          
+          // 🎯 BONUS: Extraer marca del contenido de Modelo si no hay marca detectada aún
+          // Esto ayuda con casos como "BATERIA YUASA 6N2-2A" donde la marca está en el modelo
+          const marcasEnModelo = ['YUASA', 'MOURA', 'VARTA', 'LIQUI MOLY', 'LUSQTOFF', 'MOTUL', 'SHELL', 'ELF', 'BOSCH'];
+          const marcaEncontrada = marcasEnModelo.find(m => valorModelo.toUpperCase().includes(m));
+          if (marcaEncontrada && !proveedorForzado) {
+            // Guardar para usar después si no hay proveedor
+            console.log(`  🔍 Marca detectada en Modelo: "${marcaEncontrada}"`);
+          }
+        }
+      }
+      
       // 🎯 PRIORIDAD 1: Buscar columnas FUNCIÓN y APLICACIÓN (más importante que columna mapeada por IA)
       const funcionCol = headers.find(h => {
         if (!h) return false;
@@ -1482,7 +1507,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`  - Modelo: "${modelo_val}" (columna: ${modeloCol})`)
       console.log(`  - Descripción: "${descripcion_val}" (columna: ${descCol}, FUNCIÓN: ${funcionCol || 'N/A'}, APLICACIÓN: ${aplicacionCol || 'N/A'})`)
       
-      // Marca/Proveedor (PRIORIDAD: Forzado > Columna > IA por hoja > Inferencia del documento)
+      // Marca/Proveedor (PRIORIDAD: Forzado > Columna > Extracción de Modelo/Descripción > IA por hoja > Inferencia del documento)
       let proveedor = proveedorForzado || '';
       
       if (!proveedor) {
@@ -1494,13 +1519,47 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
       
-      // PRIORIDAD 2: IA por hoja (ya detectada previamente)
+      // PRIORIDAD 2: Extraer marca del contenido de Modelo o Descripción (MUY IMPORTANTE)
+      // Casos como "BATERIA YUASA 6N2-2A" donde la marca está en el modelo
+      if (!proveedor) {
+        const textoBuscar = [
+          modeloCol ? String(getCellFlexible(producto, modeloCol) ?? '').trim() : '',
+          descripcion_val,
+          // También buscar en todas las columnas por si hay alguna con marca
+          ...headers.slice(0, 10).map(h => String(getCellFlexible(producto, h) ?? '').trim())
+        ].filter(Boolean).join(' ').toUpperCase();
+        
+        const marcasConocidasEnTexto = [
+          { patterns: ['BATERIA YUASA', 'YUASA'], nombre: 'YUASA' },
+          { patterns: ['MOURA'], nombre: 'MOURA' },
+          { patterns: ['VARTA'], nombre: 'VARTA' },
+          { patterns: ['LIQUI MOLY', 'LIQUI-MOLY', 'LIQUIMOLY'], nombre: 'LIQUI MOLY' },
+          { patterns: ['LUSQTOFF', 'LQ'], nombre: 'LUSQTOFF' },
+          { patterns: ['MOTUL'], nombre: 'MOTUL' },
+          { patterns: ['SHELL'], nombre: 'SHELL' },
+          { patterns: ['ELF'], nombre: 'ELF' },
+          { patterns: ['BOSCH'], nombre: 'BOSCH' },
+        ];
+        
+        for (const marca of marcasConocidasEnTexto) {
+          for (const pattern of marca.patterns) {
+            if (textoBuscar.includes(pattern.toUpperCase())) {
+              proveedor = marca.nombre;
+              console.log(`  ✅ Proveedor extraído de Modelo/Descripción (patrón: ${pattern}): "${proveedor}"`);
+              break;
+            }
+          }
+          if (proveedor) break;
+        }
+      }
+      
+      // PRIORIDAD 3: IA por hoja (ya detectada previamente)
       if (!proveedor && (producto as any).__sheet && marcaPorHoja[(producto as any).__sheet]) {
         proveedor = marcaPorHoja[(producto as any).__sheet].marca;
         console.log(`  ✅ Proveedor desde IA por hoja: "${proveedor}"`);
       }
       
-      // PRIORIDAD 3: Inferencia del documento (nombre archivo, headers, contenido)
+      // PRIORIDAD 4: Inferencia del documento (nombre archivo, headers, contenido)
       if (!proveedor || proveedor === 'Sin Marca') {
         const hojaActual = (producto as any).__sheet || workbook.SheetNames[0];
         const inferenciaMarca = inferirMarcaDelDocumento(fileName, hojaActual, headers, [producto]);

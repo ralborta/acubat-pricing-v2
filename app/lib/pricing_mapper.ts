@@ -216,7 +216,8 @@ ${hintText}
 Usa únicamente las COLUMNAS y la MUESTRA provistas en este turno (ignora conocimiento previo).
 Debes mapear exactamente qué columna corresponde a:
 - "tipo" (familia/categoría del archivo: "Batería", "Aditivos", "Aditivos Nafta", "Herramientas", "Ca Ag Blindada", "J.I.S.", etc. - INFIERELO del contexto del archivo/hoja, NO uses "batería" por defecto)
-- "modelo" (código identificador: "UB 550 Ag", "VA40DD/E", números de código como "2124", "1870", etc.)
+- "modelo" (código identificador corto: "UB 550 Ag", "VA40DD/E", números como "2124", "1870", SKU como "7000", etc. - NO uses columnas con texto descriptivo largo como "BATERIA YUASA 6N2-2A")
+- "descripcion" (texto descriptivo completo del producto: "BATERIA YUASA 6N2-2A", "Injection Reiniger", etc. - Si la columna "Modelo" contiene texto descriptivo largo con marca y nombre de producto, mapea esa columna como "descripcion", NO como "modelo")
 - "marca" (nombre del producto/marca: incluso si la columna se llama "Producto", debe mapearse como "marca" cuando contiene nombres de productos/marcas como "Injection Reiniger", "Pro-Line", etc.)
 - "precio_ars" (precio en pesos argentinos)
 - "descripcion" (función/descripción del producto: columnas como "FUNCIÓN", "APLICACIÓN", o cualquier columna que describa qué hace el producto)
@@ -242,6 +243,10 @@ REGLAS OBLIGATORIAS
    a) Si hay una columna llamada "Producto" o similar que contiene nombres de productos/marcas (ej: "Injection Reiniger", "Pro-Line", nombres de marcas), MAPÉALA COMO "marca"
    b) La segunda columna (columna sin nombre o con nombre genérico) que contiene nombres de productos debe mapearse como "marca", NO como "modelo" ni "descripcion"
    c) Prioriza columnas con nombres de productos/marcas comerciales sobre códigos
+   d) CASO ESPECIAL YUASA/MOURA: Si la columna "Modelo" contiene texto descriptivo largo como "BATERIA YUASA 6N2-2A":
+      * Mapea esa columna como "descripcion" (NO como modelo)
+      * El "modelo" debe ser el SKU/código numérico de la primera columna (ej: "7000", "7002")
+      * La marca "YUASA" o "MOURA" se extraerá automáticamente del contenido por el sistema, pero puedes indicarlo en notas
 6) Tipo/Categoría (DETECCIÓN INTELIGENTE):
    a) NO uses "batería" por defecto - INFIERE el tipo del contexto:
       - Si el archivo/hoja menciona "ADITIVOS", "ADITIVOS NAFTA" → tipo = "Aditivos" o "Aditivos Nafta"
