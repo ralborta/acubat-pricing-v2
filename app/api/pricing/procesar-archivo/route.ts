@@ -2326,6 +2326,26 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       productos: productosProcesados
     }
 
+      // 🔍 DEBUG: Verificar qué se está enviando en la respuesta
+      console.log('\n🔍 ========== DEBUG: PRODUCTOS ANTES DE ENVIAR RESPUESTA ==========')
+      console.log(`   - Total productos: ${productosProcesados.length}`)
+      if (productosProcesados.length > 0) {
+        const primerProducto = productosProcesados[0] as any;
+        console.log(`   - Primer producto (índice 0):`)
+        console.log(`     * producto: "${primerProducto.producto}" (tipo: ${typeof primerProducto.producto})`)
+        console.log(`     * descripcion: "${primerProducto.descripcion}" (tipo: ${typeof primerProducto.descripcion}, longitud: ${(primerProducto.descripcion || '').length})`)
+        console.log(`     * proveedor: "${primerProducto.proveedor}" (tipo: ${typeof primerProducto.proveedor})`)
+        console.log(`     * modelo: "${primerProducto.modelo}"`)
+        console.log(`   - Productos con descripcion no vacía: ${productosProcesados.filter((p: any) => p.descripcion && String(p.descripcion).trim().length > 0).length} de ${productosProcesados.length}`)
+        console.log(`   - Productos con producto diferente de "Sin Marca": ${productosProcesados.filter((p: any) => p.producto && p.producto !== 'Sin Marca').length} de ${productosProcesados.length}`)
+        
+        // Verificar los primeros 5 productos
+        productosProcesados.slice(0, 5).forEach((p: any, idx: number) => {
+          console.log(`   - Producto ${idx + 1}: producto="${p.producto}", descripcion="${p.descripcion}", proveedor="${p.proveedor}"`)
+        })
+      }
+      console.log('🔍 ===============================================================\n')
+      
       console.log('✅ SISTEMA LOCAL CONFIABLE COMPLETADO EXITOSAMENTE')
       console.log('🎯 Base de datos Varta local funcionando perfectamente')
       console.log('💾 Datos guardados en historial de Supabase')
