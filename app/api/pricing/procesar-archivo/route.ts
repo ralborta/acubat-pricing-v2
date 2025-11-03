@@ -519,25 +519,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return String(h ?? "").trim() || "";
     }
     
-    // 🔁 Diagnóstico crudo de todas las hojas (sin descartar todavía)
+    // Función robusta para leer hoja (definir ANTES del loop para usarla en diagnóstico)
+    function readSheetSafe(ws: XLSX.WorkSheet) {
+      try {
+        const data = readWithSmartHeader(ws);
+        if (Array.isArray(data) && data.length > 0) return data;
+      } catch (e) {
+        console.warn("⚠️ readWithSmartHeader falló, voy con fallback std:", (e as any)?.message);
+      }
+      // fallback: usa la primera fila como header, sin rebanar
+      return XLSX.utils.sheet_to_json(ws, { defval: "" });
+    }
+    
+    // 🔁 Diagnóstico crudo de todas las hojas USANDO LECTURA ROBUSTA
     for (const sheetName of workbook.SheetNames) {
       try {
         const ws = workbook.Sheets[sheetName];
         const ref = (ws && ws["!ref"]) ? ws["!ref"] : null;
         
-        // AOA para ver si hay algo
-        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
-        const guessHeaders = (aoa?.[0] ?? []).map((x: any) => cleanHeader(String(x)));
-        const rowsCount = Math.max(0, (aoa?.length ?? 0) - 1);
+        // 🎯 USAR readSheetSafe para contar filas REALES (no AOA que puede fallar)
+        const datosReales = readSheetSafe(ws);
+        const filasReales = Array.isArray(datosReales) ? datosReales.length : 0;
+        const headersReales = (datosReales && datosReales.length > 0) 
+          ? Object.keys(datosReales[0] as any).slice(0, 25)
+          : [];
         
         diagnosticoHojas.push({
           nombre: sheetName,
-          filas: rowsCount,
-          headers: guessHeaders.slice(0, 25),
+          filas: filasReales,
+          headers: headersReales,
           ref,
-          vacia: rowsCount <= 0
+          vacia: filasReales <= 0
         });
+        
+        console.log(`  📊 ${sheetName}: ${filasReales} filas leídas, ${headersReales.length} headers`);
       } catch (e: any) {
+        console.error(`  ❌ Error leyendo ${sheetName}:`, e?.message);
         diagnosticoHojas.push({
           nombre: sheetName,
           filas: 0,
@@ -556,31 +573,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 400 });
     }
     
-    console.log(`\n📊 DIAGNÓSTICO CRUDO DE ${diagnosticoHojas.length} HOJAS:`)
+    console.log(`\n📊 DIAGNÓSTICO CRUDO DE ${diagnosticoHojas.length} HOJAS (con lectura robusta):`)
     diagnosticoHojas.forEach(h => {
       console.log(`  - ${h.nombre}: ${h.filas} filas, ${h.headers.length} headers, ${h.vacia ? 'VACÍA' : 'CON DATOS'}`)
+      if (h.error) console.log(`    ⚠️ Error: ${h.error}`)
     })
     
-    // Función robusta para leer hoja
-    function readSheetSafe(ws: XLSX.WorkSheet) {
-      try {
-        const data = readWithSmartHeader(ws);
-        if (Array.isArray(data) && data.length > 0) return data;
-      } catch (e) {
-        console.warn("⚠️ readWithSmartHeader falló, voy con fallback std:", (e as any)?.message);
-      }
-      // fallback: usa la primera fila como header, sin rebanar
-      return XLSX.utils.sheet_to_json(ws, { defval: "" });
-    }
-    
-    // 🎯 Ahora procesar cada hoja con análisis detallado
+    // 🎯 PROCESAR TODAS LAS HOJAS (incluso si el diagnóstico crudo las marcó como vacías - pueden tener headers en filas no-obvias)
+    // Solo descartamos si REALMENTE no podemos leer nada después de intentar readSheetSafe
     for (let i = 0; i < diagnosticoHojas.length; i++) {
       const diag = diagnosticoHojas[i];
       const sheetName = diag.nombre;
       const worksheet = workbook.Sheets[sheetName];
       
-      console.log(`\n🔍 Analizando hoja "${sheetName}":`)
+      console.log(`\n🔍 Analizando hoja "${sheetName}" (diagnóstico: ${diag.filas} filas, ${diag.vacia ? 'VACÍA' : 'CON DATOS'}):`)
       
+      // Re-leer con readSheetSafe para verificar
       const datosHoja = readSheetSafe(worksheet);
       
       // Actualizar diagnóstico con datos reales
@@ -588,10 +596,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         diag.filas = datosHoja.length;
         diag.headers = Object.keys(datosHoja[0] as any).slice(0, 25);
         diag.vacia = false;
+        console.log(`  ✅ HOJA TIENE DATOS: ${datosHoja.length} filas, ${diag.headers.length} headers`)
       } else {
+        // Si realmente no hay datos, actualizar y continuar
         diag.filas = 0;
         diag.vacia = true;
-        console.log(`  ❌ Hoja vacía o sin datos`)
+        console.log(`  ❌ Hoja realmente vacía después de lectura robusta`)
         continue
       }
       
