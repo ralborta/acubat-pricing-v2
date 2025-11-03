@@ -555,6 +555,12 @@ export async function mapColumnsStrict({
     max_tokens: 2000
   };
 
+  // 🔍 VALIDACIÓN: Asegurar que messages existe
+  if (!basePayload.messages || !Array.isArray(basePayload.messages) || basePayload.messages.length === 0) {
+    console.error('❌ ERROR: basePayload.messages está vacío o no existe:', basePayload);
+    throw new Error('Payload inválido: messages requerido');
+  }
+
   // Fallback: herramienta que obliga tool_call si el host ignora response_format
   const toolsPayload = {
     ...basePayload,
@@ -571,6 +577,12 @@ export async function mapColumnsStrict({
     tool_choice: { type: "function" as const, function: { name: "emit_mapeo" } }
   };
 
+  // 🔍 VALIDACIÓN: Asegurar que toolsPayload tiene messages
+  if (!toolsPayload.messages || !Array.isArray(toolsPayload.messages)) {
+    console.error('❌ ERROR: toolsPayload.messages inválido:', toolsPayload);
+    throw new Error('Payload inválido: toolsPayload.messages requerido');
+  }
+
   let attempts = 0;
   let lastReasons: string[] = [];
   let response: any;
@@ -585,8 +597,22 @@ export async function mapColumnsStrict({
   
   // Primer intento: SO strict
   attempts++;
+  
+  // 🔍 VALIDACIÓN FINAL antes de enviar
+  const payloadToSend = { ...basePayload };
+  if (!payloadToSend.messages || !Array.isArray(payloadToSend.messages)) {
+    console.error('❌ ERROR CRÍTICO: payloadToSend.messages inválido:', payloadToSend);
+    throw new Error('Payload inválido antes de enviar a OpenAI: messages requerido');
+  }
+  console.log('🔍 Validación payload:', {
+    hasMessages: !!payloadToSend.messages,
+    messagesLength: payloadToSend.messages?.length || 0,
+    model: payloadToSend.model,
+    hasResponseFormat: !!payloadToSend.response_format
+  });
+  
   response = await withLLM(async () => {
-    return await client.chat.completions.create(basePayload as any);
+    return await client.chat.completions.create(payloadToSend as any);
   }, {
     step: "mapColumnsStrict",
     attempt: attempts,
@@ -643,6 +669,12 @@ export async function mapColumnsStrict({
           { role: "user", content: feedback }
         ] as const
       };
+      
+      // 🔍 VALIDACIÓN antes de reintento
+      if (!retryPayload.messages || !Array.isArray(retryPayload.messages)) {
+        console.error('❌ ERROR CRÍTICO: retryPayload.messages inválido:', retryPayload);
+        throw new Error('Payload inválido en reintento: messages requerido');
+      }
       
       const t2 = Date.now();
       const retryResp = await withLLM(async () => {
