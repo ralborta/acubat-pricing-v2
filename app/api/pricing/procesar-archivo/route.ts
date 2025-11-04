@@ -2146,13 +2146,15 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       console.log(`   - Mayorista Final: ${mayoristaFinal}`)
 
       // 🔍 DEBUG: Verificar valores antes de crear el objeto
-      console.log(`\n🔍 [PRODUCTO ${index + 1}] VALORES FINALES ANTES DE CREAR OBJETO:`);
+      console.log(`\n🔍🔍🔍 [PRODUCTO ${index + 1}] VALORES FINALES ANTES DE CREAR OBJETO 🔍🔍🔍`);
       console.log(`   - descripcion_val: "${descripcion_val}" (tipo: ${typeof descripcion_val}, longitud: ${descripcion_val?.length || 0})`);
       console.log(`   - proveedor: "${proveedor}"`);
       console.log(`   - marcaEncontradaEnDescripcion: "${marcaEncontradaEnDescripcion}"`);
       console.log(`   - modelo_val: "${modelo_val}"`);
+      console.log(`   - id_val: "${id_val}"`);
       
       const productoFinal = proveedor && proveedor !== 'Sin Marca' ? proveedor : (marcaEncontradaEnDescripcion || proveedor || '');
+      console.log(`   - productoFinal calculado: "${productoFinal}"`);
       
       const resultadoProducto = {
         producto: productoFinal,
@@ -2198,11 +2200,16 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
         }
       }
       
-      console.log(`\n✅ PRODUCTO ${index + 1} PROCESADO EXITOSAMENTE:`)
-      console.log('📋 Resultado completo:', JSON.stringify(resultadoProducto, null, 2))
+      console.log(`\n✅✅✅ PRODUCTO ${index + 1} PROCESADO EXITOSAMENTE ✅✅✅`)
       console.log(`   - producto: "${resultadoProducto.producto}"`)
-      console.log(`   - descripcion: "${resultadoProducto.descripcion}"`)
+      console.log(`   - descripcion: "${resultadoProducto.descripcion}" (longitud: ${(resultadoProducto.descripcion || '').length})`)
       console.log(`   - proveedor: "${resultadoProducto.proveedor}"`)
+      console.log(`   - modelo: "${resultadoProducto.modelo}"`)
+      console.log(`   - tipo: "${resultadoProducto.tipo}"`)
+      // Log completo solo para los primeros 3 productos para no saturar
+      if (index < 3) {
+        console.log('📋 Resultado completo (JSON):', JSON.stringify(resultadoProducto, null, 2))
+      }
       
       return resultadoProducto
     })));
