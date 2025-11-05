@@ -2174,7 +2174,35 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       console.log(`   - modelo_val: "${modelo_val}"`);
       console.log(`   - id_val: "${id_val}"`);
       
-      const productoFinal = proveedor && proveedor !== 'Sin Marca' ? proveedor : (marcaEncontradaEnDescripcion || proveedor || '');
+      // ✅ CORRECCIÓN MOURA: Usar vendorHint del archivo si proveedor no está detectado
+      let productoFinal = proveedor && proveedor !== 'Sin Marca' ? proveedor : '';
+      
+      if (!productoFinal) {
+        // Verificar vendorHint del archivo directamente (PRIORIDAD ALTA para Moura)
+        const nombreArchivoLower = (file.name || '').toLowerCase();
+        const hojaActual = (producto as any).__sheet || '';
+        const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
+        
+        if (blobVendor.includes("moura")) {
+          productoFinal = "MOURA";
+          console.log(`  ✅ Detectado MOURA desde nombre de archivo/hoja: "${productoFinal}"`);
+        } else if (blobVendor.includes("liqui moly") || blobVendor.includes("aditivos")) {
+          productoFinal = "LIQUI MOLY";
+          console.log(`  ✅ Detectado LIQUI MOLY desde nombre de archivo/hoja: "${productoFinal}"`);
+        } else if (blobVendor.includes("varta")) {
+          productoFinal = "VARTA";
+          console.log(`  ✅ Detectado VARTA desde nombre de archivo/hoja: "${productoFinal}"`);
+        } else if (blobVendor.includes("yuasa")) {
+          productoFinal = "YUASA";
+          console.log(`  ✅ Detectado YUASA desde nombre de archivo/hoja: "${productoFinal}"`);
+        } else if (marcaEncontradaEnDescripcion) {
+          productoFinal = marcaEncontradaEnDescripcion;
+          console.log(`  ✅ Usando marca encontrada en descripción: "${productoFinal}"`);
+        } else {
+          productoFinal = proveedor || 'Sin Marca';
+        }
+      }
+      
       console.log(`   - productoFinal calculado: "${productoFinal}"`);
       
       const resultadoProducto = {
