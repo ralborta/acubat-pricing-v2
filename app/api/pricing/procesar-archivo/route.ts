@@ -1692,7 +1692,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // 🎯 DATOS ADICIONALES PARA LUSQTOFF: Código y Marca (después de detectar proveedor)
       const codigo = columnMapping.codigo ? producto[columnMapping.codigo] : (columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A')
-      const marca = columnMapping.marca ? producto[columnMapping.marca] : proveedor
+      
+      // ✅ CORRECCIÓN MOURA: Si columnMapping.marca apunta a la descripción, usar proveedor detectado
+      let marca = '';
+      const marcaHeader = (columnMapping as any).marca || (columnMapping as any).marca_header || '';
+      if (marcaHeader) {
+        const valorMarcaColumna = String(getCellFlexible(producto, marcaHeader) ?? '').trim();
+        const descCol = (columnMapping as any).descripcion || '';
+        
+        // Si la columna de marca es la misma que la de descripción, o si contiene texto descriptivo largo, usar proveedor
+        const esMismaColumna = marcaHeader === descCol;
+        const esDescriptivo = valorMarcaColumna.length > 30 || valorMarcaColumna.split(/\s+/).length > 5;
+        
+        if (esMismaColumna || esDescriptivo) {
+          // Usar proveedor detectado en lugar de la columna mapeada (que parece ser descripción)
+          marca = proveedor;
+          console.log(`  ⚠️ Columna "${marcaHeader}" parece ser descripción, usando proveedor detectado: "${marca}"`);
+        } else {
+          marca = valorMarcaColumna || proveedor;
+        }
+      } else {
+        marca = proveedor;
+      }
       
       console.log(`✅ Datos extraídos (SISTEMA SIMPLIFICADO):`)
       console.log(`   - Tipo: "${tipo}" (columna: ${columnMapping.tipo})`)
