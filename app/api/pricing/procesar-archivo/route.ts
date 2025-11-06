@@ -545,11 +545,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     // Si el usuario marcó USD pero no hay TC, ERROR
     if (preciosEnUSD && (!fxInfo || !fxInfo.sell)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Precios en USD marcados pero no se pudo obtener el tipo de cambio. Verificá que FX_URL esté configurada y el microservicio responda.',
-        detalles: { preciosEnUSD, fxInfo }
-      }, { status: 400 })
+        return NextResponse.json({
+          success: false,
+          error: 'Precios en USD marcados pero no se pudo obtener el tipo de cambio. Verificá que FX_URL esté configurada y el microservicio responda.',
+          detalles: { preciosEnUSD, fxInfo }
+        }, { status: 400 })
     }
     
     console.log('✅ CONFIGURACIÓN CARGADA DESDE SUPABASE:')
@@ -644,35 +644,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     // 🔁 Diagnóstico crudo de todas las hojas USANDO LECTURA ROBUSTA
     for (const sheetName of workbook.SheetNames) {
-      try {
-        const ws = workbook.Sheets[sheetName];
-        const ref = (ws && ws["!ref"]) ? ws["!ref"] : null;
-        
+          try {
+            const ws = workbook.Sheets[sheetName];
+            const ref = (ws && ws["!ref"]) ? ws["!ref"] : null;
+            
         // 🎯 USAR readSheetSafe para contar filas REALES (no AOA que puede fallar)
         const datosReales = readSheetSafe(ws);
-        const filasReales = Array.isArray(datosReales) ? datosReales.length : 0;
-        const headersReales = (datosReales && datosReales.length > 0) 
-          ? Object.keys(datosReales[0] as any).slice(0, 25)
-          : [];
-        
+            const filasReales = Array.isArray(datosReales) ? datosReales.length : 0;
+            const headersReales = (datosReales && datosReales.length > 0) 
+              ? Object.keys(datosReales[0] as any).slice(0, 25)
+              : [];
+            
         diagnosticoHojas.push({
-          nombre: sheetName,
-          filas: filasReales,
-          headers: headersReales,
-          ref,
-          vacia: filasReales <= 0
-        });
+              nombre: sheetName,
+              filas: filasReales,
+              headers: headersReales,
+              ref,
+              vacia: filasReales <= 0
+            });
         
         console.log(`  📊 ${sheetName}: ${filasReales} filas leídas, ${headersReales.length} headers`);
-      } catch (e: any) {
-        console.error(`  ❌ Error leyendo ${sheetName}:`, e?.message);
+          } catch (e: any) {
+            console.error(`  ❌ Error leyendo ${sheetName}:`, e?.message);
         diagnosticoHojas.push({
-          nombre: sheetName,
-          filas: 0,
-          headers: [],
-          error: `read_error: ${e?.message}`
-        });
-      }
+              nombre: sheetName,
+              filas: 0,
+              headers: [],
+              error: `read_error: ${e?.message}`
+            });
+          }
     }
     
     if (diagnosticoHojas.length === 0) {
@@ -887,7 +887,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const datosHoja = readWithSmartHeader(worksheet)
       if (!datosHoja || datosHoja.length === 0) {
         console.log(`  ❌ Hoja sin datos`)
-        continue
+            continue
       }
       const headersHoja = Object.keys(datosHoja[0] as Record<string, any>)
       
@@ -1538,7 +1538,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             && !hNorm.includes('modelo sap'); // Excluir "Descripción Modelo SAP" de Moura
         });
         if (descGenCol) {
-          descripcion_val = String(getCellFlexible(producto, descGenCol) ?? '').trim();
+        descripcion_val = String(getCellFlexible(producto, descGenCol) ?? '').trim();
           if (descripcion_val) {
             console.log(`  ✅ Descripción desde columna genérica (${descGenCol}): "${descripcion_val}"`);
           }
@@ -1554,7 +1554,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           return hNorm.includes('denominacion') || hNorm.includes('denominación') || hNorm.includes('comercial');
         });
         if (denominacionCol) {
-          descripcion_val = String(getCellFlexible(producto, denominacionCol) ?? '').trim();
+        descripcion_val = String(getCellFlexible(producto, denominacionCol) ?? '').trim();
           if (descripcion_val) {
             console.log(`  ✅ Descripción desde DENOMINACIÓN COMERCIAL (${denominacionCol}): "${descripcion_val}"`);
           }
@@ -1851,23 +1851,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         console.log(`   - PDV: ${columnMapping.pdv} (valor: ${columnMapping.pdv ? producto[columnMapping.pdv] : 'N/A'})`)
         console.log(`   - PVP: ${columnMapping.pvp} (valor: ${columnMapping.pvp ? producto[columnMapping.pvp] : 'N/A'})`)
         
-              // 🔍 BÚSQUEDA ALTERNATIVA: Solo si NO se encontró precio
+        // 🔍 BÚSQUEDA ALTERNATIVA: Solo si NO se encontró precio
       console.log(`🔍 BÚSQUEDA ALTERNATIVA DE PRECIO...`)
-      for (const [key, rawValue] of Object.entries(producto)) {
-        const value = getCellFlexible(producto, key)
-        if (isCodigoHeaderName(String(key))) continue // evitar columnas de código como precio
-        if (value !== undefined && value !== null && value !== '') {
+        for (const [key, rawValue] of Object.entries(producto)) {
+          const value = getCellFlexible(producto, key)
+          if (isCodigoHeaderName(String(key))) continue // evitar columnas de código como precio
+          if (value !== undefined && value !== null && value !== '') {
           console.log(`🔍 Búsqueda alternativa - Valor original en '${key}': "${value}"`)
           
-          const precio = parseLocaleNumber(value)
-          
-          if (precio != null && precio > 1000 && precio < 1000000) {
-            precioBase = precio
+            const precio = parseLocaleNumber(value)
+            
+            if (precio != null && precio > 1000 && precio < 1000000) {
+              precioBase = precio
             console.log(`✅ Precio encontrado por búsqueda alternativa en '${key}': ${precioBase}`)
-            break
+              break
+            }
           }
         }
-      }
       
       // 🎯 SISTEMA SIMPLIFICADO: Solo buscamos precio, no capacidad ni voltaje
         
@@ -1946,30 +1946,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         seAplicoConversion: false
       }
       
-if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) {
-  const rate = Number(fxInfo.sell)
+      if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) {
+        const rate = Number(fxInfo.sell)
   console.log(`💵 ========== CONVERSIÓN USD → ARS ==========`)
   console.log(`💵 Precio ANTES de conversión: ${precioBase} USD`)
   console.log(`💵 Tipo de cambio (venta): ${rate}`)
   console.log(`💵 Cálculo: ${precioBase} × ${rate}`)
-  
-  precioBase = Number(precioBase) * rate
-  
+        
+        precioBase = Number(precioBase) * rate
+        
   console.log(`💵 Precio DESPUÉS de conversión: ${precioBase} ARS`)
   console.log(`💵 ==========================================`)
-  
-  monedaOriginal = 'USD'
-  appliedFxRate = rate
-  appliedFxDate = fxInfo.date
-  debugFx.precioConvertido = precioBase
-  debugFx.seAplicoConversion = true
+        
+        monedaOriginal = 'USD'
+        appliedFxRate = rate
+        appliedFxDate = fxInfo.date
+        debugFx.precioConvertido = precioBase
+        debugFx.seAplicoConversion = true
 } else {
   if (esUSD) {
     console.log(`⚠️ Checkbox USD marcado pero NO se pudo aplicar conversión (falta tipo de cambio)`)
   } else {
     console.log(`💵 NO se aplicó conversión (checkbox "Precios en USD" NO marcado)`)
   }
-}
+      }
       
       // Descartar filas sin precio (evitar encabezados/títulos parsing)
       if (!precioBase || precioBase <= 0) {
@@ -2013,7 +2013,7 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
           console.log(`   - Modelo Varta: ${equivalenciaVarta.modelo_varta}`)
           console.log(`   - Precio Varta: ${equivalenciaVarta.precio_varta}`)
           console.log(`   - Categoría: ${equivalenciaVarta.categoria}`)
-        } else {
+      } else {
           console.log(`❌ NO SE ENCONTRÓ EQUIVALENCIA VARTA para: ${modelo_val}`)
         }
       } else {
@@ -2174,11 +2174,20 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       console.log(`   - modelo_val: "${modelo_val}"`);
       console.log(`   - id_val: "${id_val}"`);
       
-      // ✅ CORRECCIÓN MOURA: Usar vendorHint del archivo si proveedor no está detectado
-      let productoFinal = proveedor && proveedor !== 'Sin Marca' ? proveedor : '';
+      // ✅ GARANTIZAR QUE TODOS LOS PRODUCTOS TENGAN MARCA EN EL CAMPO "producto"
+      // PRIORIDAD: proveedor detectado > vendorHint archivo > marcaPorHoja > marcaEncontradaEnDescripcion > "Sin Marca"
+      // NUNCA usar descripción en el campo "producto"
       
+      let productoFinal = '';
+      
+      // PRIORIDAD 1: Proveedor detectado (si no es "Sin Marca")
+      if (proveedor && proveedor !== 'Sin Marca') {
+        productoFinal = proveedor;
+        console.log(`  ✅ Usando proveedor detectado: "${productoFinal}"`);
+      }
+      
+      // PRIORIDAD 2: VendorHint del archivo/hoja (muy confiable)
       if (!productoFinal) {
-        // Verificar vendorHint del archivo directamente (PRIORIDAD ALTA para Moura)
         const nombreArchivoLower = (file.name || '').toLowerCase();
         const hojaActual = (producto as any).__sheet || '';
         const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
@@ -2195,15 +2204,31 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
         } else if (blobVendor.includes("yuasa")) {
           productoFinal = "YUASA";
           console.log(`  ✅ Detectado YUASA desde nombre de archivo/hoja: "${productoFinal}"`);
-        } else if (marcaEncontradaEnDescripcion) {
-          productoFinal = marcaEncontradaEnDescripcion;
-          console.log(`  ✅ Usando marca encontrada en descripción: "${productoFinal}"`);
-        } else {
-          productoFinal = proveedor || 'Sin Marca';
+        } else if (blobVendor.includes("lusqtoff") || blobVendor.includes("lq")) {
+          productoFinal = "LUSQTOFF";
+          console.log(`  ✅ Detectado LUSQTOFF desde nombre de archivo/hoja: "${productoFinal}"`);
         }
       }
       
-      console.log(`   - productoFinal calculado: "${productoFinal}"`);
+      // PRIORIDAD 3: Marca detectada por IA por hoja
+      if (!productoFinal && (producto as any).__sheet && marcaPorHoja[(producto as any).__sheet]) {
+        productoFinal = marcaPorHoja[(producto as any).__sheet].marca;
+        console.log(`  ✅ Usando marca detectada por IA por hoja: "${productoFinal}"`);
+      }
+      
+      // PRIORIDAD 4: Marca encontrada en descripción (solo si no hay otra opción)
+      if (!productoFinal && marcaEncontradaEnDescripcion) {
+        productoFinal = marcaEncontradaEnDescripcion;
+        console.log(`  ✅ Usando marca encontrada en descripción: "${productoFinal}"`);
+      }
+      
+      // ÚLTIMO RECURSO: "Sin Marca" (nunca usar descripción)
+      if (!productoFinal) {
+        productoFinal = 'Sin Marca';
+        console.log(`  ⚠️ No se detectó marca, usando "Sin Marca"`);
+      }
+      
+      console.log(`   - productoFinal calculado: "${productoFinal}" (NUNCA descripción)`);
       
       const resultadoProducto = {
         producto: productoFinal,
@@ -2288,21 +2313,21 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
     console.log('💾 GUARDANDO DATOS EN SUPABASE...')
     let sesionGuardada = null
     
-    try {
-      // Preparar datos para guardar
-      const sesionData = {
-        nombre_sesion: `Pricing_${file.name}_${new Date().toISOString().split('T')[0]}`,
-        archivo_original: file.name,
+      try {
+        // Preparar datos para guardar
+        const sesionData = {
+          nombre_sesion: `Pricing_${file.name}_${new Date().toISOString().split('T')[0]}`,
+          archivo_original: file.name,
         usuario_id: 'sistema', // TODO: Obtener del contexto de autenticación
-        configuracion_usada: config,
-        estadisticas: {
-          total_productos: totalProductos,
-          productos_rentables: productosRentables,
-          con_equivalencia_varta: conEquivalenciaVarta,
-          margen_promedio: '54.3%'
-        },
-        estado: 'completado'
-      }
+          configuracion_usada: config,
+          estadisticas: {
+            total_productos: totalProductos,
+            productos_rentables: productosRentables,
+            con_equivalencia_varta: conEquivalenciaVarta,
+            margen_promedio: '54.3%'
+          },
+          estado: 'completado'
+        }
 
       // Preparar productos para guardar
       // 🔍 DEBUG: Verificar qué se va a guardar
@@ -2322,29 +2347,29 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       }
       console.log('🔍 ===============================================================\n');
       
-      const productosData = productosProcesados.map(producto => ({
-        producto: producto.producto,
-        tipo: producto.tipo,
-        modelo: producto.modelo,
+        const productosData = productosProcesados.map(producto => ({
+          producto: producto.producto,
+          tipo: producto.tipo,
+          modelo: producto.modelo,
         descripcion: producto.descripcion || '',  // ✅ Agregado: descripción del producto
-        proveedor: producto.proveedor,
-        precio_base_original: producto.precio_base_original,
-        precio_base_minorista: producto.precio_base_minorista,
-        precio_base_mayorista: producto.precio_base_mayorista,
-        descuento_proveedor: producto.descuento_proveedor,
-        costo_estimado_minorista: producto.costo_estimado_minorista,
-        costo_estimado_mayorista: producto.costo_estimado_mayorista,
-        minorista_precio_neto: producto.minorista.precio_neto,
-        minorista_precio_final: producto.minorista.precio_final,
+          proveedor: producto.proveedor,
+          precio_base_original: producto.precio_base_original,
+          precio_base_minorista: producto.precio_base_minorista,
+          precio_base_mayorista: producto.precio_base_mayorista,
+          descuento_proveedor: producto.descuento_proveedor,
+          costo_estimado_minorista: producto.costo_estimado_minorista,
+          costo_estimado_mayorista: producto.costo_estimado_mayorista,
+          minorista_precio_neto: producto.minorista.precio_neto,
+          minorista_precio_final: producto.minorista.precio_final,
         minorista_rentabilidad: parseFloat(producto.minorista.rentabilidad),
         minorista_markup_aplicado: parseFloat(producto.minorista.markup_aplicado),
-        mayorista_precio_neto: producto.mayorista.precio_neto,
-        mayorista_precio_final: producto.mayorista.precio_final,
+          mayorista_precio_neto: producto.mayorista.precio_neto,
+          mayorista_precio_final: producto.mayorista.precio_final,
         mayorista_rentabilidad: parseFloat(producto.mayorista.rentabilidad),
         mayorista_markup_aplicado: parseFloat(producto.mayorista.markup_aplicado),
-        equivalencia_varta: producto.equivalencia_varta,
-        validacion_moneda: producto.validacion_moneda
-      }))
+          equivalencia_varta: producto.equivalencia_varta,
+          validacion_moneda: producto.validacion_moneda
+        }))
 
       // Guardar en Supabase
       sesionGuardada = await HistorialPricing.guardarSesionCompleta(sesionData, productosData)
@@ -2352,7 +2377,7 @@ if (esUSD && fxInfo && Number.isFinite(Number(fxInfo.sell)) && fxInfo.sell > 0) 
       console.log(`   - Sesión ID: ${sesionGuardada.sesion_id}`)
       console.log(`   - Productos guardados: ${sesionGuardada.productos_guardados}`)
 
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Error guardando en Supabase:', error)
       console.log('⚠️ Continuando sin guardar en historial...')
     }
