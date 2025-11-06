@@ -1780,25 +1780,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const valorPVP = getCellFlexible(producto, columnaPVPOffLine)
           console.log(`🔍 Columna "PVP Off Line" encontrada: "${columnaPVPOffLine}" con valor: ${valorPVP}`)
           
-          // Validar que NO sea un código (3000, 3001, etc. sin "$")
           if (valorPVP !== undefined && valorPVP !== null && valorPVP !== '') {
             const valorStr = String(valorPVP).trim()
+            console.log(`🔍 Valor original (string): "${valorStr}"`)
             
-            // ✅ Si tiene "$", es un precio (aceptarlo)
-            const tieneDolar = valorStr.includes('$') || valorStr.startsWith('$')
+            // 🎯 REQUISITO ESTRICTO LUSQTOFF: DEBE tener formato "$ " (dólar con espacio)
+            // Formato esperado: "$ 23.580" o "$ 3.000" o "$ 4.500"
+            const tieneDolarConEspacio = valorStr.includes('$ ') || valorStr.startsWith('$ ')
             
-            // ❌ Rechazar si es solo numérico sin "$" y parece código (3000, 3001, etc. - 1-4 dígitos sin punto)
-            const esCodigoNumerico = !tieneDolar && /^\d{1,4}$/.test(valorStr) && !valorStr.includes('.')
-            
-            if (esCodigoNumerico) {
-              console.log(`❌ IGNORANDO "${valorPVP}" en "PVP Off Line" porque parece ser un código numérico (sin "$" y 1-4 dígitos)`)
+            if (!tieneDolarConEspacio) {
+              console.log(`❌ LUSQTOFF: IGNORANDO "${valorPVP}" porque NO tiene formato "$ " (dólar con espacio)`)
+              console.log(`   - Formato requerido: "$ 23.580" (con espacio después del $)`)
+              console.log(`   - Valor recibido: "${valorStr}"`)
             } else {
-              // Intentar parsear como precio
+              // ✅ Tiene formato "$ ", intentar parsear como precio
+              console.log(`✅ Formato "$ " detectado, parseando precio...`)
               const precioPVP = parseLocaleNumber(valorPVP)
               
               if (precioPVP != null && precioPVP > 0 && precioPVP >= 1000) {
                 precioBase = precioPVP
                 console.log(`✅ PRECIO ENCONTRADO en "PVP Off Line" (${columnaPVPOffLine}): ${precioBase}`)
+                console.log(`   - Valor original: "${valorStr}"`)
+                console.log(`   - Valor parseado: ${precioBase}`)
               } else {
                 console.log(`❌ Valor en "PVP Off Line" no es un precio válido: ${valorPVP} → parseado: ${precioPVP}`)
               }
@@ -1806,6 +1809,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           }
         } else {
           console.log(`⚠️ No se encontró columna "PVP Off Line" en el producto`)
+          console.log(`   - Claves disponibles:`, Object.keys(producto).slice(0, 10))
         }
       }
       
@@ -1891,19 +1895,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (valor !== undefined && valor !== null && valor !== '') {
           console.log(`🔍 Valor original en '${columna.key}': "${valor}"`)
           
-          // 🚨 VALIDACIÓN ESPECÍFICA PARA LUSQTOFF: Rechazar códigos más estrictamente
+          // 🚨 VALIDACIÓN ESPECÍFICA PARA LUSQTOFF: Requerir formato "$ " en "PVP Off Line"
           if (proveedor && proveedor.toUpperCase().includes('LUSQTOFF')) {
             const valorStr = String(valor).trim()
             
-            // ✅ Si tiene "$", es un precio (aceptarlo)
-            const tieneDolar = valorStr.includes('$') || valorStr.startsWith('$')
+            // Verificar si esta columna es "PVP Off Line" (por nombre de columna o mapeo)
+            const nombreColumna = columna.value || ''
+            const esColumnaPVPOffLine = nombreColumna.toLowerCase().includes('pvp') && 
+                                       (nombreColumna.toLowerCase().includes('off') || nombreColumna.toLowerCase().includes('offline'))
             
-            // ❌ Rechazar si es solo numérico sin "$" y parece código (3000, 3001, etc. - 1-4 dígitos sin punto)
-            const esCodigoNumerico = !tieneDolar && /^\d{1,4}$/.test(valorStr) && !valorStr.includes('.')
-            
-            if (esCodigoNumerico) {
-              console.log(`❌ LUSQTOFF: IGNORANDO "${valor}" porque parece ser un código numérico (sin "$" y 1-4 dígitos sin punto)`)
-              continue
+            if (esColumnaPVPOffLine) {
+              // 🎯 REQUISITO ESTRICTO: "PVP Off Line" DEBE tener formato "$ " (dólar con espacio)
+              const tieneDolarConEspacio = valorStr.includes('$ ') || valorStr.startsWith('$ ')
+              
+              if (!tieneDolarConEspacio) {
+                console.log(`❌ LUSQTOFF: IGNORANDO "${valor}" en columna "${nombreColumna}" porque NO tiene formato "$ " (dólar con espacio)`)
+                console.log(`   - Formato requerido: "$ 23.580" (con espacio después del $)`)
+                continue
+              }
+            } else {
+              // Para otras columnas, validación más flexible: rechazar códigos numéricos
+              const tieneDolar = valorStr.includes('$') || valorStr.startsWith('$')
+              const esCodigoNumerico = !tieneDolar && /^\d{1,4}$/.test(valorStr) && !valorStr.includes('.')
+              
+              if (esCodigoNumerico) {
+                console.log(`❌ LUSQTOFF: IGNORANDO "${valor}" porque parece ser un código numérico (sin "$" y 1-4 dígitos sin punto)`)
+                continue
+              }
             }
           }
           
