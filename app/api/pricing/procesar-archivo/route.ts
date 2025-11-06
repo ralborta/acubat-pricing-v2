@@ -1765,6 +1765,47 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`🔍 Mapeo de columnas disponible:`, columnMapping)
       let precioBase = 0
       
+      // 🎯 PRIORIDAD 0: BÚSQUEDA DIRECTA DE "PVP Off Line" PARA LUSQTOFF (ANTES DE TODO)
+      if (proveedor && proveedor.toUpperCase().includes('LUSQTOFF')) {
+        console.log(`🎯 PRIORIDAD 0: Búsqueda directa de "PVP Off Line" para LUSQTOFF`)
+        
+        // Buscar columna "PVP Off Line" directamente en las claves del producto
+        const keysProducto = Object.keys(producto)
+        const columnaPVPOffLine = keysProducto.find(key => {
+          const keyLower = String(key).toLowerCase()
+          return keyLower.includes('pvp') && (keyLower.includes('off') || keyLower.includes('offline'))
+        })
+        
+        if (columnaPVPOffLine) {
+          const valorPVP = getCellFlexible(producto, columnaPVPOffLine)
+          console.log(`🔍 Columna "PVP Off Line" encontrada: "${columnaPVPOffLine}" con valor: ${valorPVP}`)
+          
+          // Validar que NO sea un código (L3000, L3001, etc.)
+          if (valorPVP !== undefined && valorPVP !== null && valorPVP !== '') {
+            const valorStr = String(valorPVP).trim()
+            
+            // ❌ Rechazar si parece código (L3000, L3001, etc.)
+            const esCodigo = /^[A-Z]\d+$/.test(valorStr) || /^\d{1,4}$/.test(valorStr)
+            
+            if (esCodigo) {
+              console.log(`❌ IGNORANDO "${valorPVP}" en "PVP Off Line" porque parece ser un código (L3000, L3001, etc.)`)
+            } else {
+              // Intentar parsear como precio
+              const precioPVP = parseLocaleNumber(valorPVP)
+              
+              if (precioPVP != null && precioPVP > 0 && precioPVP >= 1000) {
+                precioBase = precioPVP
+                console.log(`✅ PRECIO ENCONTRADO en "PVP Off Line" (${columnaPVPOffLine}): ${precioBase}`)
+              } else {
+                console.log(`❌ Valor en "PVP Off Line" no es un precio válido: ${valorPVP} → parseado: ${precioPVP}`)
+              }
+            }
+          }
+        } else {
+          console.log(`⚠️ No se encontró columna "PVP Off Line" en el producto`)
+        }
+      }
+      
       // 🎯 LÓGICA ESPECÍFICA PARA LUSQTOFF: Priorizar "PVP Off Line" sobre "Precio de Lista"
       let columnasPrecio = []
       
@@ -1799,12 +1840,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`🔍 Columnas de precio a buscar:`, columnasPrecio)
       console.log(`🔍 Mapeo completo de columnas:`, columnMapping)
       
-      // 🎯 INTENTO 1: Usar getPrecioSeguro (resolver robusto de columnas)
-      console.log(`\n🎯 INTENTO 1: Usando getPrecioSeguro (resolver robusto)`)
-      const precioRobusto = getPrecioSeguro(producto, proveedor)
-      if (precioRobusto != null) {
-        precioBase = precioRobusto
-        console.log(`✅ Precio encontrado por resolver robusto: ${precioBase}`)
+      // 🎯 INTENTO 1: Usar getPrecioSeguro (resolver robusto de columnas) - SOLO SI NO SE ENCONTRÓ PRECIO
+      if (precioBase === 0) {
+        console.log(`\n🎯 INTENTO 1: Usando getPrecioSeguro (resolver robusto)`)
+        const precioRobusto = getPrecioSeguro(producto, proveedor)
+        if (precioRobusto != null) {
+          precioBase = precioRobusto
+          console.log(`✅ Precio encontrado por resolver robusto: ${precioBase}`)
+        }
       }
       
       // 🎯 INTENTO 2: Fallback a búsqueda por columnMapping si no se encontró
@@ -1845,15 +1888,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (valor !== undefined && valor !== null && valor !== '') {
           console.log(`🔍 Valor original en '${columna.key}': "${valor}"`)
           
+          // 🚨 VALIDACIÓN ESPECÍFICA PARA LUSQTOFF: Rechazar códigos más estrictamente
+          if (proveedor && proveedor.toUpperCase().includes('LUSQTOFF')) {
+            const valorStr = String(valor).trim()
+            // Rechazar códigos L3000, L3001, etc. (letra + 4 dígitos)
+            if (/^[A-Z]\d{4}$/.test(valorStr)) {
+              console.log(`❌ LUSQTOFF: IGNORANDO "${valor}" porque es un código (formato L####)`)
+              continue
+            }
+            // Rechazar números de 1-4 dígitos sin punto (probablemente código)
+            if (/^\d{1,4}$/.test(valorStr)) {
+              console.log(`❌ LUSQTOFF: IGNORANDO "${valor}" porque parece ser un código numérico (1-4 dígitos)`)
+              continue
+            }
+          }
+          
           // 🎯 PARSEO ROBUSTO CON parseLocaleNumber
           const precio = parseLocaleNumber(valor)
           
-          if (precio != null && precio > 0) {
+          // 🚨 VALIDACIÓN DE PRECIO MÍNIMO PARA LUSQTOFF (debe ser >= 1000 para evitar códigos)
+          const precioMinimo = (proveedor && proveedor.toUpperCase().includes('LUSQTOFF')) ? 1000 : 0
+          
+          if (precio != null && precio > precioMinimo) {
             precioBase = precio
             console.log(`✅ Precio encontrado en '${columna.key}' (${columna.value}): ${precioBase}`)
             break
           } else {
-            console.log(`❌ Valor parseado inválido: ${precio}`)
+            if (precio != null && precio <= precioMinimo && proveedor && proveedor.toUpperCase().includes('LUSQTOFF')) {
+              console.log(`❌ LUSQTOFF: Precio "${precio}" rechazado porque es menor al mínimo (${precioMinimo}) - probablemente código`)
+            } else {
+              console.log(`❌ Valor parseado inválido: ${precio}`)
+            }
           }
         }
       }
