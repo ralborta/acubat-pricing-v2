@@ -208,7 +208,7 @@ export async function aplicarConfiguracionPricing(precioBase: number, canal: 'ma
 
 /* ----------------------------- SYSTEM PROMPT ----------------------------- */
 function buildSystemPrompt(vendorHint?: string): string {
-  const hintText = vendorHint ? `\n\nHINT DE PROVEEDOR: ${vendorHint}\n- Si es MOURA: identificador := columna "CÓDIGO/CODIGO"; modelo := "DENOMINACIÓN COMERCIAL/APLICACIONES" si existe.\n- Si es ADITIVOS o LIQUI MOLY: primera columna numérica = identificador, segunda columna "Producto" = marca, descripcion := FUNCIÓN + " — " + APLICACIÓN.\n- Si es VARTA: sigue las reglas normales de baterías.\n- Si es LUSQTOFF: precio_ars := columna "PVP Off Line" (SIEMPRE, es OBLIGATORIO). Códigos numéricos (3000, 3001, etc.) son identificadores, NO precios. Los precios tienen formato "$ 23.580" (dólar con espacio).\n` : '';
+  const hintText = vendorHint ? `\n\nHINT DE PROVEEDOR: ${vendorHint}\n- Si es MOURA: identificador := columna "CÓDIGO/CODIGO"; modelo := "DENOMINACIÓN COMERCIAL/APLICACIONES" si existe.\n- Si es ADITIVOS o LIQUI MOLY: primera columna numérica = identificador, segunda columna "Producto" = marca, descripcion := FUNCIÓN + " — " + APLICACIÓN.\n- Si es VARTA: sigue las reglas normales de baterías.\n- Si es LUSQTOFF: precio_ars := columna "PVP Off Line" (SIEMPRE, es OBLIGATORIO). Los códigos (ej: 3000, L3000, 3001) son identificadores, NO precios. Los precios tienen formato "$ 23.580" (dólar con espacio).\n` : '';
   
   return `
 Eres especialista senior en pricing de productos automotrices en Argentina (baterías, aditivos, herramientas, etc.).
@@ -233,7 +233,7 @@ REGLAS OBLIGATORIAS
    e) Cualquier otra columna con encabezado "precio|pvp|lista|sugerido proveedor|AR$|ARS|$" PERO SIN palabras USD/dólar
    - Contenido: >=80% de filas con valores numéricos plausibles para Argentina (≈150.000–3.000.000).
    - Si hay duplicados (con/sin IVA), prefiere "precio lista / sugerido proveedor"; si hay dos variantes, elige "sin IVA" y deja nota.
-   - ⚠️ CRÍTICO (Regla General): NUNCA mapees columnas que contengan mayormente códigos numéricos puros y cortos (ej: 3000, 3001, 101) como precio_ars. Estos son casi siempre identificadores, NO precios. Los precios válidos suelen tener formato (ej: "$ 23.580") o ser números grandes en columnas con nombres de precio claros.
+   - ⚠️ CRÍTICO (Regla General): NUNCA mapees columnas que contengan mayormente códigos (ej: 3000, L3000, 101) como precio_ars. Estos son casi siempre identificadores, NO precios. Los precios válidos suelen tener formato (ej: "$ 23.580") o ser números grandes en columnas con nombres de precio claros.
 4) Identificador (PRIORIDAD ESTRICTA para encontrar columna de ID):
    a) Columnas con nombres que contengan: "codigo", "código", "cod", "sku", "ref", "referencia", "part number", "artículo", "item", "ean", "upc", "id", "nro"
    b) La columna debe tener alta unicidad (muchos valores distintos) y patrón de código (alfanumérico, pocos espacios)

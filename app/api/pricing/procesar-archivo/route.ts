@@ -1783,13 +1783,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           if (valorPVP !== undefined && valorPVP !== null && valorPVP !== '') {
             const valorStr = String(valorPVP).trim()
             
-            // ❌ Solo rechazar códigos numéricos puros sin "$" (3000, 3001, etc.)
+            // ❌ Rechazar códigos numéricos (3000, 3001) y alfanuméricos (L3000, A123) sin "$"
             // ✅ Si tiene "$" (con o sin espacio) o parsea como precio válido, aceptarlo
             const tieneDolar = valorStr.includes('$')
             const esCodigoNumerico = !tieneDolar && /^\d{1,4}$/.test(valorStr) && !valorStr.includes('.')
+            const esCodigoAlfanumerico = !tieneDolar && /^[A-Z]\d{1,4}$/.test(valorStr) // L3000, A123, etc.
             
-            if (esCodigoNumerico) {
-              console.log(`❌ IGNORANDO "${valorPVP}" en "PVP Off Line" porque parece ser un código numérico (sin "$" y 1-4 dígitos)`)
+            if (esCodigoNumerico || esCodigoAlfanumerico) {
+              console.log(`❌ IGNORANDO "${valorPVP}" en "PVP Off Line" porque parece ser un código ${esCodigoAlfanumerico ? 'alfanumérico' : 'numérico'} (sin "$")`)
             } else {
               // Intentar parsear como precio (parseLocaleNumber maneja "$ " y "$" correctamente)
               const precioPVP = parseLocaleNumber(valorPVP)
@@ -1891,17 +1892,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (valor !== undefined && valor !== null && valor !== '') {
           console.log(`🔍 Valor original en '${columna.key}': "${valor}"`)
           
-          // 🚨 VALIDACIÓN ESPECÍFICA PARA LUSQTOFF: Rechazar códigos numéricos
+          // 🚨 VALIDACIÓN ESPECÍFICA PARA LUSQTOFF: Rechazar códigos numéricos y alfanuméricos
           if (proveedor && proveedor.toUpperCase().includes('LUSQTOFF')) {
             const valorStr = String(valor).trim()
             
-            // ❌ Solo rechazar códigos numéricos puros sin "$" (3000, 3001, etc.)
+            // ❌ Rechazar códigos numéricos (3000, 3001) y alfanuméricos (L3000, A123) sin "$"
             // ✅ Si tiene "$" (con o sin espacio) o parsea como precio válido, aceptarlo
             const tieneDolar = valorStr.includes('$')
             const esCodigoNumerico = !tieneDolar && /^\d{1,4}$/.test(valorStr) && !valorStr.includes('.')
+            const esCodigoAlfanumerico = !tieneDolar && /^[A-Z]\d{1,4}$/.test(valorStr) // L3000, A123, etc.
             
-            if (esCodigoNumerico) {
-              console.log(`❌ LUSQTOFF: IGNORANDO "${valor}" porque parece ser un código numérico (sin "$" y 1-4 dígitos sin punto)`)
+            if (esCodigoNumerico || esCodigoAlfanumerico) {
+              console.log(`❌ LUSQTOFF: IGNORANDO "${valor}" porque parece ser un código ${esCodigoAlfanumerico ? 'alfanumérico' : 'numérico'} (sin "$")`)
               continue
             }
           }
