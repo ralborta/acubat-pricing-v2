@@ -1963,6 +1963,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           if (value !== undefined && value !== null && value !== '') {
           console.log(`🔍 Búsqueda alternativa - Valor original en '${key}': "${value}"`)
           
+            // 🚨 VALIDACIÓN ESPECÍFICA PARA LUSQTOFF: Rechazar códigos ANTES de parsear
+            if (proveedor && proveedor.toUpperCase().includes('LUSQTOFF')) {
+              const valorStr = String(value).trim()
+              const tieneDolar = valorStr.includes('$')
+              const esCodigoNumerico = !tieneDolar && /^\d{1,4}$/.test(valorStr) && !valorStr.includes('.')
+              const esCodigoAlfanumerico = !tieneDolar && /^[A-Z]\d{1,4}$/.test(valorStr) // L3000, A123, etc.
+              
+              if (esCodigoNumerico || esCodigoAlfanumerico) {
+                console.log(`❌ LUSQTOFF: IGNORANDO código ${esCodigoAlfanumerico ? 'alfanumérico' : 'numérico'} "${value}" en búsqueda alternativa`)
+                continue
+              }
+            }
+          
             const precio = parseLocaleNumber(value)
             
             if (precio != null && precio > 1000 && precio < 1000000) {
@@ -2001,6 +2014,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             const value = getCellFlexible(producto, key)
             if (isCodigoHeaderName(String(key))) continue
             if (value !== undefined && value !== null && value !== '') {
+              // 🚨 VALIDACIÓN ESPECÍFICA PARA LUSQTOFF: Rechazar códigos ANTES de parsear
+              if (proveedor && proveedor.toUpperCase().includes('LUSQTOFF')) {
+                const valorStr = String(value).trim()
+                const tieneDolar = valorStr.includes('$')
+                const esCodigoNumerico = !tieneDolar && /^\d{1,4}$/.test(valorStr) && !valorStr.includes('.')
+                const esCodigoAlfanumerico = !tieneDolar && /^[A-Z]\d{1,4}$/.test(valorStr) // L3000, A123, etc.
+                
+                if (esCodigoNumerico || esCodigoAlfanumerico) {
+                  console.log(`❌ LUSQTOFF: IGNORANDO código ${esCodigoAlfanumerico ? 'alfanumérico' : 'numérico'} "${value}" en búsqueda por contenido`)
+                  continue
+                }
+              }
+              
               const valor = parseLocaleNumber(value)
               if (valor != null && valor > 1000 && valor < 1000000) {
                 precioBase = valor
