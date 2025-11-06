@@ -1616,15 +1616,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`  - Modelo: "${modelo_val}" (columna: ${modeloCol})`)
       console.log(`  - Descripción: "${descripcion_val}" (columna: ${descCol}, FUNCIÓN: ${funcionCol || 'N/A'}, APLICACIÓN: ${aplicacionCol || 'N/A'})`)
       
-      // Marca/Proveedor (PRIORIDAD: Forzado > Columna > Extracción de Modelo/Descripción > IA por hoja > Inferencia del documento)
+      // Marca/Proveedor (PRIORIDAD: Forzado > VendorHint archivo > Columna > Extracción > IA por hoja > Inferencia)
       let proveedor = proveedorForzado || '';
+      
+      // ✅ PRIORIDAD 0 (MÁS ALTA): VendorHint del archivo (muy confiable)
+      // Si el archivo se llama "Lista Moura", ES MOURA, sin importar qué mapee la IA
+      if (!proveedor) {
+        const nombreArchivoLower = (file.name || '').toLowerCase();
+        const hojaActual = (producto as any).__sheet || '';
+        const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
+        
+        if (blobVendor.includes("moura")) {
+          proveedor = "MOURA";
+          console.log(`  ✅ Proveedor desde vendorHint del archivo (PRIORIDAD 0): "${proveedor}"`);
+        } else if (blobVendor.includes("liqui moly") || blobVendor.includes("aditivos")) {
+          proveedor = "LIQUI MOLY";
+          console.log(`  ✅ Proveedor desde vendorHint del archivo (PRIORIDAD 0): "${proveedor}"`);
+        } else if (blobVendor.includes("varta")) {
+          proveedor = "VARTA";
+          console.log(`  ✅ Proveedor desde vendorHint del archivo (PRIORIDAD 0): "${proveedor}"`);
+        } else if (blobVendor.includes("yuasa")) {
+          proveedor = "YUASA";
+          console.log(`  ✅ Proveedor desde vendorHint del archivo (PRIORIDAD 0): "${proveedor}"`);
+        } else if (blobVendor.includes("lusqtoff") || blobVendor.includes("lq")) {
+          proveedor = "LUSQTOFF";
+          console.log(`  ✅ Proveedor desde vendorHint del archivo (PRIORIDAD 0): "${proveedor}"`);
+        }
+      }
       
       if (!proveedor) {
         // PRIORIDAD 1: Columna mapeada por IA
         const marcaHeader = (columnMapping as any).marca || (columnMapping as any).marca_header || (columnMapping as any).proveedor || '';
-        proveedor = marcaHeader ? String(getCellFlexible(producto, marcaHeader) ?? '').trim() : '';
-        if (proveedor) {
+        const valorMarcaColumna = marcaHeader ? String(getCellFlexible(producto, marcaHeader) ?? '').trim() : '';
+        const descCol = (columnMapping as any).descripcion || '';
+        
+        // ✅ CORRECCIÓN: Si la columna de marca es la misma que la de descripción, o es descriptiva, NO usarla
+        const esMismaColumna = marcaHeader === descCol;
+        const esDescriptivo = valorMarcaColumna.length > 30 || valorMarcaColumna.split(/\s+/).length > 5;
+        
+        if (valorMarcaColumna && !esMismaColumna && !esDescriptivo) {
+          proveedor = valorMarcaColumna;
           console.log(`  ✅ Proveedor desde columna mapeada (${marcaHeader}): "${proveedor}"`);
+        } else if (marcaHeader && (esMismaColumna || esDescriptivo)) {
+          console.log(`  ⚠️ Columna "${marcaHeader}" parece ser descripción, ignorando para proveedor`);
         }
       }
       
