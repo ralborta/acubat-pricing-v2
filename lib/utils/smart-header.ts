@@ -84,8 +84,39 @@ function findHeaderRow(aoa: any[][]): { rowIdx: number; headers: string[] } | nu
 }
 
 /**
+ * Combina múltiples filas de encabezado en una sola
+ * Útil para archivos con encabezados multi-fila (ej: LUSQTOFF)
+ * Estrategia: Las filas posteriores completan/sobrescriben celdas vacías de las anteriores
+ */
+function combineMultiRowHeaders(aoa: any[][], startRow: number, maxRows: number = 3): string[] {
+  const maxCols = Math.max(...aoa.slice(startRow, startRow + maxRows).map(row => row?.length || 0), 0);
+  const combined: string[] = new Array(maxCols).fill('');
+  
+  // Combinar filas: Las filas posteriores completan/sobrescriben celdas vacías de las anteriores
+  // Estrategia del ejemplo: Si una celda tiene valor, la usa (sobrescribe si la anterior estaba vacía)
+  for (let rowOffset = 0; rowOffset < maxRows && startRow + rowOffset < aoa.length; rowOffset++) {
+    const row = aoa[startRow + rowOffset] || [];
+    
+    for (let col = 0; col < maxCols; col++) {
+      const cell = String(row[col] || '').trim();
+      if (cell) {
+        // Si la celda combinada está vacía, usar el valor de esta fila
+        // Si ya tiene valor, la fila posterior sobrescribe (como en el ejemplo del usuario)
+        // Esto funciona para LUSQTOFF donde fila 2 tiene "LINK, MARCA, CODIGO..." 
+        // y fila 3 tiene "(unid), Vol. B (Unid), PVP Off Line..." en diferentes columnas
+        combined[col] = cell;
+      }
+    }
+  }
+  
+  // Limpiar: reemplazar strings vacíos con nombres de columna genéricos
+  return combined.map((h, idx) => h || `col_${idx + 1}`);
+}
+
+/**
  * Lee una hoja de Excel con detección inteligente de encabezados
  * Resuelve el problema de __EMPTY_* en archivos XLS viejos
+ * Soporta encabezados multi-fila (ej: LUSQTOFF)
  */
 export function readWithSmartHeader(ws: XLSX.WorkSheet): any[] {
   // 1) Leer en modo matriz para detectar encabezados
@@ -97,6 +128,48 @@ export function readWithSmartHeader(ws: XLSX.WorkSheet): any[] {
   }
   
   console.log(`🔍 Buscando headers en hoja (${aoa.length} filas AOA)...`);
+  
+  // 🎯 NUEVO: Intentar detectar encabezados multi-fila (filas consecutivas con headers)
+  let multiRowHeaderStart = -1;
+  let multiRowHeaderCount = 0;
+  
+  for (let i = 0; i < Math.min(10, aoa.length); i++) {
+    const row = (aoa[i] || []).map(v => (v == null ? '' : String(v)));
+    if (isHeaderRow(row)) {
+      if (multiRowHeaderStart < 0) {
+        multiRowHeaderStart = i;
+        multiRowHeaderCount = 1;
+      } else if (i === multiRowHeaderStart + multiRowHeaderCount) {
+        // Fila consecutiva con headers
+        multiRowHeaderCount++;
+      }
+    }
+  }
+  
+  // Si encontramos 2+ filas consecutivas con headers, usar combinación multi-fila
+  if (multiRowHeaderCount >= 2 && multiRowHeaderStart >= 0) {
+    console.log(`✅ Detectado encabezado multi-fila (${multiRowHeaderCount} filas) desde fila ${multiRowHeaderStart + 1}`);
+    const combinedHeaders = combineMultiRowHeaders(aoa, multiRowHeaderStart, multiRowHeaderCount);
+    console.log(`📋 Headers combinados:`, combinedHeaders.slice(0, 15));
+    
+    // Leer datos desde después de las filas de header
+    const range = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : XLSX.utils.decode_range('A1:Z1000');
+    range.s.r = multiRowHeaderStart + multiRowHeaderCount; // datos empiezan después de headers
+    const ref = XLSX.utils.encode_range(range);
+    
+    try {
+      const data = XLSX.utils.sheet_to_json(ws, {
+        header: combinedHeaders,
+        range: ref,
+        defval: ''
+      });
+      
+      console.log(`✅ Datos leídos (multi-fila): ${data.length} filas desde fila ${multiRowHeaderStart + multiRowHeaderCount + 1}`);
+      return data;
+    } catch (e: any) {
+      console.warn(`⚠️ Error con multi-fila, intentando método estándar:`, e?.message);
+    }
+  }
   
   const hdr = findHeaderRow(aoa);
 
