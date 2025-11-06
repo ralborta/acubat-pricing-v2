@@ -233,8 +233,7 @@ REGLAS OBLIGATORIAS
    e) Cualquier otra columna con encabezado "precio|pvp|lista|sugerido proveedor|AR$|ARS|$" PERO SIN palabras USD/dólar
    - Contenido: >=80% de filas con valores numéricos plausibles para Argentina (≈150.000–3.000.000).
    - Si hay duplicados (con/sin IVA), prefiere "precio lista / sugerido proveedor"; si hay dos variantes, elige "sin IVA" y deja nota.
-   - ⚠️ CRÍTICO: NUNCA mapees códigos numéricos pequeños (3000, 3001, 3002, etc.) como precio_ars. Estos son identificadores/códigos, NO precios. Los precios válidos tienen formato "$ 23.580", "$ 3.000", "$ 4.500" (dólar con espacio seguido de número grande).
-   - CASO ESPECIAL LUSQTOFF: Si el archivo es de LUSQTOFF, precio_ars DEBE ser "PVP Off Line" (OBLIGATORIO). Rechaza cualquier columna que contenga solo códigos numéricos (3000, 3001, etc.) sin símbolo "$".
+   - ⚠️ CRÍTICO (Regla General): NUNCA mapees columnas que contengan mayormente códigos numéricos puros y cortos (ej: 3000, 3001, 101) como precio_ars. Estos son casi siempre identificadores, NO precios. Los precios válidos suelen tener formato (ej: "$ 23.580") o ser números grandes en columnas con nombres de precio claros.
 4) Identificador (PRIORIDAD ESTRICTA para encontrar columna de ID):
    a) Columnas con nombres que contengan: "codigo", "código", "cod", "sku", "ref", "referencia", "part number", "artículo", "item", "ean", "upc", "id", "nro"
    b) La columna debe tener alta unicidad (muchos valores distintos) y patrón de código (alfanumérico, pocos espacios)
@@ -252,11 +251,6 @@ REGLAS OBLIGATORIAS
       * El campo "descripcion" en el JSON debe contener el nombre de la columna descriptiva (ej: "Modelo")
       * El campo "marca" puede ser "Modelo" si esa columna contiene la marca, o null si no hay columna específica de marca
       * IMPORTANTE: Todos los campos (marca, modelo, descripcion, etc.) deben ser NOMBRES DE COLUMNAS, NO valores extraídos
-   e) CASO ESPECIAL LUSQTOFF: Si el archivo es de LUSQTOFF:
-      * precio_ars := "PVP Off Line" (OBLIGATORIO si existe esta columna)
-      * identificador/modelo := columna "CODIGO" o "CÓDIGO" que contiene códigos numéricos (3000, 3001, etc.)
-      * NUNCA mapees códigos numéricos (3000, 3001) como precio_ars - estos son identificadores
-      * Los precios válidos tienen formato "$ 23.580" (dólar con espacio seguido de número >= 1000)
 6) Tipo/Categoría (DETECCIÓN INTELIGENTE):
    a) NO uses "batería" por defecto - INFIERE el tipo del contexto:
       - Si el archivo/hoja menciona "ADITIVOS", "ADITIVOS NAFTA" → tipo = "Aditivos" o "Aditivos Nafta"
