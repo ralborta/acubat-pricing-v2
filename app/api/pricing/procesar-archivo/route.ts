@@ -1728,25 +1728,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const codigo = columnMapping.codigo ? producto[columnMapping.codigo] : (columnMapping.modelo ? producto[columnMapping.modelo] : 'N/A')
       
       // ✅ CORRECCIÓN MOURA: Si columnMapping.marca apunta a la descripción, usar proveedor detectado
+      // 🎯 FORZAR MOURA: Si el archivo/hoja indica MOURA, SIEMPRE usar "MOURA" como marca
       let marca = '';
-      const marcaHeader = (columnMapping as any).marca || (columnMapping as any).marca_header || '';
-      if (marcaHeader) {
-        const valorMarcaColumna = String(getCellFlexible(producto, marcaHeader) ?? '').trim();
-        const descCol = (columnMapping as any).descripcion || '';
-        
-        // Si la columna de marca es la misma que la de descripción, o si contiene texto descriptivo largo, usar proveedor
-        const esMismaColumna = marcaHeader === descCol;
-        const esDescriptivo = valorMarcaColumna.length > 30 || valorMarcaColumna.split(/\s+/).length > 5;
-        
-        if (esMismaColumna || esDescriptivo) {
-          // Usar proveedor detectado en lugar de la columna mapeada (que parece ser descripción)
-          marca = proveedor;
-          console.log(`  ⚠️ Columna "${marcaHeader}" parece ser descripción, usando proveedor detectado: "${marca}"`);
-        } else {
-          marca = valorMarcaColumna || proveedor;
-        }
+      const nombreArchivoLower = (file.name || '').toLowerCase();
+      const hojaActual = (producto as any).__sheet || '';
+      const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
+      const esMoura = blobVendor.includes("moura");
+      
+      if (esMoura) {
+        // 🚨 FORZAR MOURA: Si el archivo/hoja contiene "moura", SIEMPRE usar "MOURA"
+        marca = "MOURA";
+        proveedor = "MOURA"; // También forzar proveedor para consistencia
+        console.log(`  ✅ MOURA FORZADO: Archivo/hoja contiene "moura", usando "MOURA" como marca y proveedor`);
       } else {
-        marca = proveedor;
+        const marcaHeader = (columnMapping as any).marca || (columnMapping as any).marca_header || '';
+        if (marcaHeader) {
+          const valorMarcaColumna = String(getCellFlexible(producto, marcaHeader) ?? '').trim();
+          const descCol = (columnMapping as any).descripcion || '';
+          
+          // Si la columna de marca es la misma que la de descripción, o si contiene texto descriptivo largo, usar proveedor
+          const esMismaColumna = marcaHeader === descCol;
+          const esDescriptivo = valorMarcaColumna.length > 30 || valorMarcaColumna.split(/\s+/).length > 5;
+          
+          if (esMismaColumna || esDescriptivo) {
+            // Usar proveedor detectado en lugar de la columna mapeada (que parece ser descripción)
+            marca = proveedor;
+            console.log(`  ⚠️ Columna "${marcaHeader}" parece ser descripción, usando proveedor detectado: "${marca}"`);
+          } else {
+            marca = valorMarcaColumna || proveedor;
+          }
+        } else {
+          marca = proveedor;
+        }
       }
       
       console.log(`✅ Datos extraídos (SISTEMA SIMPLIFICADO):`)
@@ -1847,9 +1860,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // 🎯 INTENTO 1: Usar getPrecioSeguro (resolver robusto de columnas) - SOLO SI NO SE ENCONTRÓ PRECIO
       if (precioBase === 0) {
         console.log(`\n🎯 INTENTO 1: Usando getPrecioSeguro (resolver robusto)`)
-        const precioRobusto = getPrecioSeguro(producto, proveedor)
-        if (precioRobusto != null) {
-          precioBase = precioRobusto
+      const precioRobusto = getPrecioSeguro(producto, proveedor)
+      if (precioRobusto != null) {
+        precioBase = precioRobusto
           console.log(`✅ Precio encontrado por resolver robusto: ${precioBase}`)
         }
       }
@@ -2305,39 +2318,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`   - id_val: "${id_val}"`);
       
       // ✅ GARANTIZAR QUE TODOS LOS PRODUCTOS TENGAN MARCA EN EL CAMPO "producto"
-      // PRIORIDAD: proveedor detectado > vendorHint archivo > marcaPorHoja > marcaEncontradaEnDescripcion > "Sin Marca"
+      // PRIORIDAD: vendorHint archivo (MÁS ALTA) > proveedor detectado > marcaPorHoja > marcaEncontradaEnDescripcion > "Sin Marca"
       // NUNCA usar descripción en el campo "producto"
       
       let productoFinal = '';
       
-      // PRIORIDAD 1: Proveedor detectado (si no es "Sin Marca")
-      if (proveedor && proveedor !== 'Sin Marca') {
-        productoFinal = proveedor;
-        console.log(`  ✅ Usando proveedor detectado: "${productoFinal}"`);
+      // 🚨 PRIORIDAD 0 (MÁS ALTA): VendorHint del archivo/hoja (muy confiable, especialmente para MOURA)
+      // Si el archivo se llama "Lista Moura", ES MOURA, sin importar qué detecte la IA
+      const nombreArchivoLower = (file.name || '').toLowerCase();
+      const hojaActual = (producto as any).__sheet || '';
+      const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
+      
+      if (blobVendor.includes("moura")) {
+        productoFinal = "MOURA";
+        console.log(`  ✅ MOURA FORZADO desde nombre de archivo/hoja (PRIORIDAD 0): "${productoFinal}"`);
+      } else if (blobVendor.includes("liqui moly") || blobVendor.includes("aditivos")) {
+        productoFinal = "LIQUI MOLY";
+        console.log(`  ✅ LIQUI MOLY FORZADO desde nombre de archivo/hoja (PRIORIDAD 0): "${productoFinal}"`);
+      } else if (blobVendor.includes("varta")) {
+        productoFinal = "VARTA";
+        console.log(`  ✅ VARTA FORZADO desde nombre de archivo/hoja (PRIORIDAD 0): "${productoFinal}"`);
+      } else if (blobVendor.includes("yuasa")) {
+        productoFinal = "YUASA";
+        console.log(`  ✅ YUASA FORZADO desde nombre de archivo/hoja (PRIORIDAD 0): "${productoFinal}"`);
+      } else if (blobVendor.includes("lusqtoff") || blobVendor.includes("lq")) {
+        productoFinal = "LUSQTOFF";
+        console.log(`  ✅ LUSQTOFF FORZADO desde nombre de archivo/hoja (PRIORIDAD 0): "${productoFinal}"`);
       }
       
-      // PRIORIDAD 2: VendorHint del archivo/hoja (muy confiable)
-      if (!productoFinal) {
-        const nombreArchivoLower = (file.name || '').toLowerCase();
-        const hojaActual = (producto as any).__sheet || '';
-        const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
-        
-        if (blobVendor.includes("moura")) {
-          productoFinal = "MOURA";
-          console.log(`  ✅ Detectado MOURA desde nombre de archivo/hoja: "${productoFinal}"`);
-        } else if (blobVendor.includes("liqui moly") || blobVendor.includes("aditivos")) {
-          productoFinal = "LIQUI MOLY";
-          console.log(`  ✅ Detectado LIQUI MOLY desde nombre de archivo/hoja: "${productoFinal}"`);
-        } else if (blobVendor.includes("varta")) {
-          productoFinal = "VARTA";
-          console.log(`  ✅ Detectado VARTA desde nombre de archivo/hoja: "${productoFinal}"`);
-        } else if (blobVendor.includes("yuasa")) {
-          productoFinal = "YUASA";
-          console.log(`  ✅ Detectado YUASA desde nombre de archivo/hoja: "${productoFinal}"`);
-        } else if (blobVendor.includes("lusqtoff") || blobVendor.includes("lq")) {
-          productoFinal = "LUSQTOFF";
-          console.log(`  ✅ Detectado LUSQTOFF desde nombre de archivo/hoja: "${productoFinal}"`);
-        }
+      // PRIORIDAD 1: Proveedor detectado (si no es "Sin Marca" y no se forzó desde vendorHint)
+      if (!productoFinal && proveedor && proveedor !== 'Sin Marca') {
+        productoFinal = proveedor;
+        console.log(`  ✅ Usando proveedor detectado: "${productoFinal}"`);
       }
       
       // PRIORIDAD 3: Marca detectada por IA por hoja
