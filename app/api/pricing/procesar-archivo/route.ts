@@ -1347,6 +1347,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // 🎯 Priorizar códigos alfanuméricos (M40FD, M24KD) sobre números puros (18, 45)
           const esAlfanumerico = /^[A-Za-z][A-Za-z0-9\-._/]{0,29}$/.test(cand); // Empieza con letra
           const esNumeroPuro = /^\d{1,4}$/.test(cand); // Solo números, 1-4 dígitos
+          const esPrecio = /^\d{5,}$/.test(cand) || (parseLocaleNumber(cand) != null && parseLocaleNumber(cand)! > 10000); // Números grandes = precio
+          
+          // 🚨 MOURA: Rechazar precios (números grandes) como códigos
+          if (esMoura && esPrecio) {
+            console.log(`  ⚠️ MOURA: Ignorando "${cand}" de "${key}" porque parece ser un precio (número grande)`);
+            continue; // Saltar precios para Moura
+          }
           
           // Aceptar patrones de código típicos: alfanumérico, pocos espacios
           if (/^[A-Za-z0-9][A-Za-z0-9\-._/]{1,30}$/.test(cand)) {
@@ -1365,12 +1372,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
       if (!id_val) {
-        // última oportunidad: primer string corto sin espacios múltiples (pero NO números puros para Moura)
+        // última oportunidad: primer string corto sin espacios múltiples (pero NO números puros ni precios para Moura)
         const anyKey = Object.keys(producto).find(k => {
           const v = String(getCellFlexible(producto, k) ?? '').trim()
           if (!v || v.length > 30 || /\s{2,}/.test(v)) return false;
-          // Para Moura, rechazar números puros (1-4 dígitos)
-          if (esMoura && /^\d{1,4}$/.test(v)) return false;
+          // Para Moura, rechazar números puros (1-4 dígitos) y precios (5+ dígitos)
+          if (esMoura) {
+            if (/^\d{1,4}$/.test(v)) return false; // Números pequeños
+            if (/^\d{5,}$/.test(v)) return false; // Números grandes (precios)
+            if (parseLocaleNumber(v) != null && parseLocaleNumber(v)! > 10000) return false; // Precios parseados
+          }
           return true;
         })
         if (anyKey) id_val = String(getCellFlexible(producto, anyKey)).trim()
