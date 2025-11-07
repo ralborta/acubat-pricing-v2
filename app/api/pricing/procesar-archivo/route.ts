@@ -1382,8 +1382,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       // Modelo preferente: si hay columna 'modelo', úsala; si no, si el ID proviene de 'modelo', podés setear modelo = id
       let modelo_val = modeloCol ? String(getCellFlexible(producto, modeloCol) ?? '').trim() : '';
-      if (!modelo_val && idCol === modeloCol) modelo_val = id_val;
-      if (!modelo_val && dynamicIdKeys.some(k => /modelo/i.test(String(k)))) modelo_val = id_val;
+      
+      // 🚨 MOURA: Validar que modelo_val no sea un precio (números grandes sin letras)
+      if (modelo_val && esMoura) {
+        const esPrecio = /^\d{5,}$/.test(modelo_val) || (parseLocaleNumber(modelo_val) != null && parseLocaleNumber(modelo_val)! > 10000);
+        if (esPrecio) {
+          console.log(`  ⚠️ MOURA: Rechazando "${modelo_val}" como modelo porque parece ser un precio`);
+          modelo_val = ''; // Limpiar modelo si es precio
+        }
+      }
+      
+      // 🎯 MOURA: Si encontramos CODIGO BATERIAS, usarlo como modelo (prioridad máxima)
+      if (esMoura && codigoBateriasKey) {
+        const codigoBateria = String(getCellFlexible(producto, codigoBateriasKey) ?? '').trim();
+        if (codigoBateria && /^[A-Za-z0-9][A-Za-z0-9\-._/]{1,30}$/.test(codigoBateria)) {
+          modelo_val = codigoBateria;
+          console.log(`  ✅ MOURA: Usando código de batería "${modelo_val}" como modelo desde "${codigoBateriasKey}"`);
+        }
+      }
+      
+      // Si no hay modelo y el ID es válido, usar ID como modelo (pero validar que no sea precio)
+      if (!modelo_val && idCol === modeloCol) {
+        if (!esMoura || !/^\d{5,}$/.test(id_val)) {
+          modelo_val = id_val;
+        }
+      }
+      if (!modelo_val && dynamicIdKeys.some(k => /modelo/i.test(String(k)))) {
+        const valorModelo = String(getCellFlexible(producto, dynamicIdKeys.find(k => /modelo/i.test(String(k))) || '') ?? '').trim();
+        // Para Moura, rechazar si parece precio
+        if (!esMoura || !/^\d{5,}$/.test(valorModelo)) {
+          modelo_val = id_val;
+        }
+      }
+      
+      // 🎯 MOURA: Si aún no hay modelo, usar el código de batería (id_val) como modelo
+      if (!modelo_val && esMoura && id_val && /^[A-Za-z][A-Za-z0-9\-._/]{0,29}$/.test(id_val)) {
+        modelo_val = id_val;
+        console.log(`  ✅ MOURA: Usando código de batería "${modelo_val}" como modelo (fallback)`);
+      }
 
       // SKU preferente
       let sku_val = skuCol ? String(getCellFlexible(producto, skuCol) ?? '').trim() : '';
