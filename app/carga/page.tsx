@@ -117,9 +117,9 @@ export default function CargaPage() {
     // Preparar datos para Excel
     const productosExcel = resultado.productos.map((producto, index) => ({
       id: index + 1,
-      producto: producto.producto,
+      producto: (producto as any).producto_id || producto.modelo || producto.producto,
       tipo: producto.tipo,
-      modelo: producto.modelo || producto.producto,
+      modelo: producto.modelo || (producto as any).producto_id || producto.producto,
       proveedor: producto.proveedor || proveedorSeleccionado || 'Sin Marca',
       precio_base_minorista: producto.precio_base_minorista || 0,
       precio_base_mayorista: producto.precio_base_mayorista || 0,
@@ -152,7 +152,7 @@ export default function CargaPage() {
     const costosBase = resultado.productos.map((producto, index) => {
       return {
         'ID': index + 1,
-        'Producto': producto.producto,
+        'Producto': (producto as any).producto_id || producto.modelo || producto.producto,
         'Tipo': producto.tipo,
         'Modelo': producto.modelo,
         'Proveedor': producto.proveedor || proveedorSeleccionado || 'Sin Marca',  // ✅ PROVEEDOR DETECTADO O FORZADO
@@ -1122,9 +1122,9 @@ export default function CargaPage() {
                       <table className="min-w-full bg-white border border-gray-200 rounded-md overflow-hidden">
                         <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
                           <tr>
-                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
-                              PRODUCTO
-                            </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                      CODIGO
+                    </th>
                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                               TIPO
                             </th>
@@ -1166,7 +1166,7 @@ export default function CargaPage() {
                               {/* Fila Minorista */}
                               <tr key={`${producto.id}-minorista`} className="hover:bg-blue-50 transition-colors">
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
-                                  <div className="text-sm font-semibold text-gray-900">{producto.producto}</div>
+                                  <div className="text-sm font-semibold text-gray-900">{(producto as any).producto_id || producto.modelo || producto.producto || '—'}</div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -1227,7 +1227,7 @@ export default function CargaPage() {
                               {/* Fila Mayorista */}
                               <tr key={`${producto.id}-mayorista`} className="hover:bg-green-50 transition-colors">
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
-                                  <div className="text-sm font-semibold text-gray-900">{producto.producto}</div>
+                                  <div className="text-sm font-semibold text-gray-900">{(producto as any).producto_id || producto.modelo || producto.producto || '—'}</div>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap bg-gray-50">
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
