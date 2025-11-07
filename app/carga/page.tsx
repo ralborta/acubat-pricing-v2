@@ -486,7 +486,7 @@ export default function CargaPage() {
     resultado.productos.forEach(producto => {
       // Fila Minorista
       csvRows.push([
-        producto.producto || 'N/A',
+        ((producto as any).producto_id || producto.modelo || producto.producto) || 'N/A',
         getTipoLabel(producto.tipo),
         producto.modelo || 'N/A',
         producto.precio_base_minorista || 0,
