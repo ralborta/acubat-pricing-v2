@@ -1287,6 +1287,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`\n🔍 EXTRACCIÓN DE DATOS DEL PRODUCTO ${index + 1}:`)
       console.log('📋 Mapeo de columnas:', columnMapping)
       
+      // --- VARIABLES COMPARTIDAS (definidas una vez) --- //
+      const nombreArchivoLower = (file.name || '').toLowerCase();
+      const hojaActual = (producto as any).__sheet || '';
+      const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
+      const esMoura = blobVendor.includes("moura");
+      
       // --- EXTRACCIÓN ESTRICTA --- //
       const idCol = (columnMapping as any).id_header;
       const modeloCol = (columnMapping as any).modelo || (columnMapping as any).modelo_header || '';
@@ -1622,10 +1628,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // ✅ PRIORIDAD 0 (MÁS ALTA): VendorHint del archivo (muy confiable)
       // Si el archivo se llama "Lista Moura", ES MOURA, sin importar qué mapee la IA
       if (!proveedor) {
-        const nombreArchivoLower = (file.name || '').toLowerCase();
-        const hojaActual = (producto as any).__sheet || '';
-        const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
-        
         if (blobVendor.includes("moura")) {
           proveedor = "MOURA";
           console.log(`  ✅ Proveedor desde vendorHint del archivo (PRIORIDAD 0): "${proveedor}"`);
@@ -1730,10 +1732,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // ✅ CORRECCIÓN MOURA: Si columnMapping.marca apunta a la descripción, usar proveedor detectado
       // 🎯 FORZAR MOURA: Si el archivo/hoja indica MOURA, SIEMPRE usar "MOURA" como marca
       let marca = '';
-      const nombreArchivoLower = (file.name || '').toLowerCase();
-      const hojaActual = (producto as any).__sheet || '';
-      const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
-      const esMoura = blobVendor.includes("moura");
       
       if (esMoura) {
         // 🚨 FORZAR MOURA: Si el archivo/hoja contiene "moura", SIEMPRE usar "MOURA"
@@ -2325,10 +2323,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       // 🚨 PRIORIDAD 0 (MÁS ALTA): VendorHint del archivo/hoja (muy confiable, especialmente para MOURA)
       // Si el archivo se llama "Lista Moura", ES MOURA, sin importar qué detecte la IA
-      const nombreArchivoLower = (file.name || '').toLowerCase();
-      const hojaActual = (producto as any).__sheet || '';
-      const blobVendor = `${nombreArchivoLower} ${hojaActual.toLowerCase()}`;
-      
       if (blobVendor.includes("moura")) {
         productoFinal = "MOURA";
         console.log(`  ✅ MOURA FORZADO desde nombre de archivo/hoja (PRIORIDAD 0): "${productoFinal}"`);
