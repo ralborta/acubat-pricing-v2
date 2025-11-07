@@ -1309,29 +1309,69 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         (columnMapping as any).sku_header
       ].filter(Boolean) as string[]
 
+      // 🎯 MOURA: Priorizar "CODIGO BATERIAS" específicamente
+      let codigoBateriasKey: string | null = null;
+      if (esMoura) {
+        codigoBateriasKey = Object.keys(producto).find(k => {
+          const kLower = k.toLowerCase();
+          return (kLower.includes('codigo') && kLower.includes('baterias')) || 
+                 (kLower.includes('código') && kLower.includes('baterias'));
+        }) || null;
+        if (codigoBateriasKey) {
+          console.log(`  🎯 MOURA: Encontrada columna "CODIGO BATERIAS": "${codigoBateriasKey}"`);
+        }
+      }
+
       const dynamicIdKeys = Array.from(new Set([
+        ...(codigoBateriasKey ? [codigoBateriasKey] : []), // Prioridad máxima para Moura
         ...preferIdKeys,
         ...Object.keys(producto).filter(k => /cod(igo)?|sku|ref|referencia|modelo|art(í|i)culo|item|ean|upc|nro|id/i.test(k))
       ]))
 
       let id_val = idCol ? String(getCellFlexible(producto, idCol) ?? '').trim() : '';
+      
+      // 🎯 MOURA: Si no hay idCol pero encontramos CODIGO BATERIAS, usarlo directamente
+      if (!id_val && codigoBateriasKey) {
+        const valorCodigo = String(getCellFlexible(producto, codigoBateriasKey) ?? '').trim();
+        if (valorCodigo && /^[A-Za-z0-9][A-Za-z0-9\-._/]{1,30}$/.test(valorCodigo)) {
+          id_val = valorCodigo;
+          console.log(`  ✅ MOURA: Usando código de batería "${id_val}" de columna "${codigoBateriasKey}"`);
+        }
+      }
+      
       if (!id_val) {
         for (const key of dynamicIdKeys) {
           const raw = producto[key]
           if (raw === undefined || raw === null || raw === '') continue
           const cand = String(raw).trim()
+          // 🎯 Priorizar códigos alfanuméricos (M40FD, M24KD) sobre números puros (18, 45)
+          const esAlfanumerico = /^[A-Za-z][A-Za-z0-9\-._/]{0,29}$/.test(cand); // Empieza con letra
+          const esNumeroPuro = /^\d{1,4}$/.test(cand); // Solo números, 1-4 dígitos
+          
           // Aceptar patrones de código típicos: alfanumérico, pocos espacios
           if (/^[A-Za-z0-9][A-Za-z0-9\-._/]{1,30}$/.test(cand)) {
+            // Si es Moura, priorizar códigos alfanuméricos sobre números puros
+            if (esMoura && esNumeroPuro) {
+              console.log(`  ⚠️ MOURA: Ignorando valor numérico "${cand}" de "${key}", buscando código alfanumérico...`);
+              continue; // Saltar números puros para Moura, buscar códigos alfanuméricos
+            }
             id_val = cand
-            break
+            if (esAlfanumerico) {
+              console.log(`  ✅ Código alfanumérico encontrado: "${id_val}" de "${key}"`);
+              break; // Priorizar códigos alfanuméricos, parar aquí
+            }
+            // Si no es alfanumérico pero es válido, continuar buscando uno mejor
           }
         }
       }
       if (!id_val) {
-        // última oportunidad: primer string corto sin espacios múltiples
+        // última oportunidad: primer string corto sin espacios múltiples (pero NO números puros para Moura)
         const anyKey = Object.keys(producto).find(k => {
           const v = String(getCellFlexible(producto, k) ?? '').trim()
-          return v && v.length <= 30 && !/\s{2,}/.test(v)
+          if (!v || v.length > 30 || /\s{2,}/.test(v)) return false;
+          // Para Moura, rechazar números puros (1-4 dígitos)
+          if (esMoura && /^\d{1,4}$/.test(v)) return false;
+          return true;
         })
         if (anyKey) id_val = String(getCellFlexible(producto, anyKey)).trim()
       }

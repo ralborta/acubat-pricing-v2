@@ -208,7 +208,7 @@ export async function aplicarConfiguracionPricing(precioBase: number, canal: 'ma
 
 /* ----------------------------- SYSTEM PROMPT ----------------------------- */
 function buildSystemPrompt(vendorHint?: string): string {
-  const hintText = vendorHint ? `\n\nHINT DE PROVEEDOR: ${vendorHint}\n- Si es MOURA: identificador := columna "CÓDIGO/CODIGO"; modelo := "DENOMINACIÓN COMERCIAL/APLICACIONES" si existe.\n- Si es ADITIVOS o LIQUI MOLY: primera columna numérica = identificador, segunda columna "Producto" = marca, descripcion := FUNCIÓN + " — " + APLICACIÓN.\n- Si es VARTA: sigue las reglas normales de baterías.\n- Si es LUSQTOFF: precio_ars := columna "PVP Off Line" (SIEMPRE, es OBLIGATORIO). Los códigos (ej: 3000, L3000, 3001) son identificadores, NO precios. Los precios tienen formato "$ 23.580" (dólar con espacio).\n` : '';
+  const hintText = vendorHint ? `\n\nHINT DE PROVEEDOR: ${vendorHint}\n- Si es MOURA: identificador := columna "CODIGO BATERIAS" o "CÓDIGO BATERIAS" (SIEMPRE buscar esta columna primero, contiene códigos alfanuméricos como M40FD, M24KD, M28KI). NO uses números como "18" que están en otras columnas. Modelo := "DENOMINACIÓN COMERCIAL/APLICACIONES" si existe.\n- Si es ADITIVOS o LIQUI MOLY: primera columna numérica = identificador, segunda columna "Producto" = marca, descripcion := FUNCIÓN + " — " + APLICACIÓN.\n- Si es VARTA: sigue las reglas normales de baterías.\n- Si es LUSQTOFF: precio_ars := columna "PVP Off Line" (SIEMPRE, es OBLIGATORIO). Los códigos (ej: 3000, L3000, 3001) son identificadores, NO precios. Los precios tienen formato "$ 23.580" (dólar con espacio).\n` : '';
   
   return `
 Eres especialista senior en pricing de productos automotrices en Argentina (baterías, aditivos, herramientas, etc.).
