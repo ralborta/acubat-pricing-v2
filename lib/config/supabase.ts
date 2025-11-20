@@ -27,7 +27,23 @@ export const supabaseConfig = {
   async save(config: ConfiguracionSistema): Promise<ConfiguracionSistema> {
     if (!supabase) return DEFAULT_CONFIG
     const toSave = { ...config, ultimaActualizacion: new Date().toISOString() }
-    // Upsert por id fijo 1 si existe, si no inserta
+    
+    // 🗂️ PRIMERO: Guardar en historial antes de actualizar
+    try {
+      await supabase
+        .from('config_historial')
+        .insert({
+          config_data: toSave,
+          version: new Date().toISOString(),
+          descripcion: 'Guardado automático',
+          created_at: new Date().toISOString()
+        })
+    } catch (histError) {
+      // Si la tabla de historial no existe, continuar sin error
+      console.warn('⚠️ No se pudo guardar en historial (tabla puede no existir):', histError)
+    }
+    
+    // 🔄 SEGUNDO: Upsert por id fijo 1 si existe, si no inserta
     const { data: existing } = await supabase
       .from('config')
       .select('id')

@@ -62,6 +62,8 @@ function ensureType(config: any): ConfiguracionSistema {
     },
     descuentoProveedor: Number(config?.descuentoProveedor ?? 0),
     proveedores: config?.proveedores ?? {},
+    // ✅ Preservar configuración del agente si existe
+    agente: config?.agente || undefined,
     ultimaActualizacion: config?.ultimaActualizacion ?? new Date().toISOString()
   }
 }

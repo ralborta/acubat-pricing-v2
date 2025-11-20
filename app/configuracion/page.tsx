@@ -85,7 +85,11 @@ export default function ConfiguracionPage() {
   // Estado para el calendario
   const [mesActual, setMesActual] = useState(new Date())
 
-  const [opcionSeleccionada, setOpcionSeleccionada] = useState<'variables' | 'rentabilidad' | 'agente' | null>(null)
+  const [opcionSeleccionada, setOpcionSeleccionada] = useState<'variables' | 'rentabilidad' | 'agente' | 'historial' | null>(null)
+  
+  // Estado para historial de configuraciones
+  const [historial, setHistorial] = useState<any[]>([])
+  const [cargandoHistorial, setCargandoHistorial] = useState(false)
 
   // Estado local para crear proveedor
   const [nuevoProveedor, setNuevoProveedor] = useState('')
@@ -336,6 +340,53 @@ export default function ConfiguracionPage() {
       alert('✅ Configuración del agente guardada exitosamente en la base de datos')
     } else {
       alert(`❌ Error al guardar configuración del agente: ${result.error}`)
+    }
+  }
+
+  // Función para cargar historial de configuraciones
+  const cargarHistorial = async () => {
+    setCargandoHistorial(true)
+    try {
+      const response = await fetch('/api/config/historial?limit=50')
+      const result = await response.json()
+      if (result.success) {
+        setHistorial(result.data || [])
+      } else {
+        alert(`❌ Error al cargar historial: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('❌ Error cargando historial:', error)
+      alert('❌ Error al cargar el historial de configuraciones')
+    } finally {
+      setCargandoHistorial(false)
+    }
+  }
+
+  // Función para restaurar una configuración del historial
+  const restaurarConfiguracion = async (historialId: number) => {
+    if (!confirm('¿Estás seguro de que quieres restaurar esta configuración? Esto reemplazará la configuración actual.')) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/config/historial', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ historialId })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        alert('✅ Configuración restaurada exitosamente. La página se recargará.')
+        window.location.reload()
+      } else {
+        alert(`❌ Error al restaurar configuración: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('❌ Error restaurando configuración:', error)
+      alert('❌ Error al restaurar la configuración')
     }
   }
 
@@ -1706,6 +1757,89 @@ export default function ConfiguracionPage() {
                     Probar Agente de Pricing
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Opción 4: Historial de Configuraciones */}
+          {opcionSeleccionada === 'historial' && (
+            <div className="max-w-6xl mx-auto">
+              <div className="mb-6">
+                <button
+                  onClick={() => setOpcionSeleccionada(null)}
+                  className="inline-flex items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-md transition-colors duration-200"
+                >
+                  ← Volver a Opciones
+                </button>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Historial de Configuraciones
+                  </h3>
+                  <button
+                    onClick={cargarHistorial}
+                    disabled={cargandoHistorial}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {cargandoHistorial ? 'Cargando...' : '🔄 Actualizar'}
+                  </button>
+                </div>
+
+                {cargandoHistorial ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-500">Cargando historial...</p>
+                  </div>
+                ) : historial.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No hay configuraciones guardadas en el historial</p>
+                    <p className="text-sm text-gray-400 mt-2">Las configuraciones se guardan automáticamente al hacer cambios</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {historial.map((item) => (
+                      <div
+                        key={item.id}
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                Versión #{item.id}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(item.created_at).toLocaleString('es-ES', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            {item.descripcion && (
+                              <p className="text-sm text-gray-600 mb-2">{item.descripcion}</p>
+                            )}
+                            <div className="text-xs text-gray-500">
+                              <span className="font-medium">IVA:</span> {item.config_data?.iva || 'N/A'}% | 
+                              <span className="font-medium"> Mayorista:</span> +{item.config_data?.markups?.mayorista || 'N/A'}% | 
+                              <span className="font-medium"> Directa:</span> +{item.config_data?.markups?.directa || 'N/A'}%
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => restaurarConfiguracion(item.id)}
+                            className="ml-4 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
+                          >
+                            Restaurar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
