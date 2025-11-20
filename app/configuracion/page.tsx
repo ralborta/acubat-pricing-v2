@@ -1846,13 +1846,33 @@ export default function ConfiguracionPage() {
                   <h3 className="text-lg font-medium text-gray-900">
                     Historial de Configuraciones
                   </h3>
-                  <button
-                    onClick={cargarHistorial}
-                    disabled={cargandoHistorial}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
-                  >
-                    {cargandoHistorial ? 'Cargando...' : '🔄 Actualizar'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={cargarHistorial}
+                      disabled={cargandoHistorial}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                    >
+                      {cargandoHistorial ? 'Cargando...' : '🔄 Actualizar'}
+                    </button>
+                    {historial.length === 0 && configuracion && (
+                      <button
+                        onClick={async () => {
+                          if (confirm('¿Guardar la configuración actual en el historial?')) {
+                            const result = await guardarConfiguracion(configuracion)
+                            if (result.success) {
+                              alert('✅ Configuración guardada. Recargando historial...')
+                              await cargarHistorial()
+                            } else {
+                              alert(`❌ Error: ${result.error}`)
+                            }
+                          }
+                        }}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        💾 Guardar Actual
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {cargandoHistorial ? (
