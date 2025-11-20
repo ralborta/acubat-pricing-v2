@@ -26,6 +26,8 @@ const ensureConfigType = (config: any): ConfiguracionSistema => {
     },
     descuentoProveedor: config.descuentoProveedor || 0, // ✅ Nuevo: % Descuento de proveedor (default: 0)
     proveedores: config.proveedores || {},
+    // ✅ Preservar configuración del agente si existe
+    agente: config.agente || undefined,
     ultimaActualizacion: config.ultimaActualizacion || new Date().toISOString()
   };
 };

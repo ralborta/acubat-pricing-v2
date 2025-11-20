@@ -324,6 +324,11 @@ export default function ConfiguracionPage() {
     // Guardar usando el hook (que guarda en DB y localStorage)
     const result = await guardarConfiguracion(newConfig)
     if (result.success) {
+      // Actualizar el estado local con los valores guardados
+      // El hook ya actualizó configuracion, pero asegurémonos de que configuracionAgente esté sincronizado
+      if (result.data?.agente) {
+        setConfiguracionAgente(result.data.agente)
+      }
       setAgenteCargadoDesdeDB(true)
       alert('✅ Configuración del agente guardada exitosamente en la base de datos')
     } else {
