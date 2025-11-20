@@ -388,7 +388,15 @@ export default function ConfiguracionPage() {
       if (result.success) {
         setHistorial(result.data || [])
       } else {
-        alert(`❌ Error al cargar historial: ${result.error}\n\nSi la tabla no existe, ejecuta el script SQL en Supabase.`)
+        let mensajeError = `❌ Error al cargar historial: ${result.error}`
+        if (result.error?.includes('could not find') || result.error?.includes('does not exist')) {
+          mensajeError += `\n\n📋 INSTRUCCIONES:\n` +
+            `1. Ve a tu proyecto en Supabase Dashboard\n` +
+            `2. Abre el SQL Editor\n` +
+            `3. Ejecuta el script del archivo: supabase-config-historial.sql\n` +
+            `4. O copia el script que aparece en la consola (F12)`
+        }
+        alert(mensajeError)
       }
     } catch (error) {
       console.error('❌ Error cargando historial:', error)
