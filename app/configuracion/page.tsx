@@ -60,6 +60,13 @@ export default function ConfiguracionPage() {
     fechasSeleccionadas: []
   })
 
+  // Cargar configuración del agente desde la DB cuando se carga la configuración
+  useEffect(() => {
+    if (configuracion?.agente) {
+      setConfiguracionAgente(configuracion.agente)
+    }
+  }, [configuracion?.agente])
+
   // Estado para el calendario
   const [mesActual, setMesActual] = useState(new Date())
 
@@ -289,6 +296,25 @@ export default function ConfiguracionPage() {
       alert('✅ Configuración guardada exitosamente')
     } else {
       alert(`❌ Error al guardar: ${result.error}`)
+    }
+  }
+
+  // Función para guardar configuración del agente
+  const handleGuardarConfiguracionAgente = async () => {
+    if (!configuracion) return
+    
+    // Crear nueva configuración con la configuración del agente
+    const newConfig = {
+      ...configuracion,
+      agente: configuracionAgente
+    }
+    
+    // Guardar usando el hook (que guarda en DB y localStorage)
+    const result = await guardarConfiguracion(newConfig)
+    if (result.success) {
+      alert('✅ Configuración del agente guardada exitosamente en la base de datos')
+    } else {
+      alert(`❌ Error al guardar configuración del agente: ${result.error}`)
     }
   }
 
@@ -1637,7 +1663,10 @@ export default function ConfiguracionPage() {
 
                 {/* Botones de Acción */}
                 <div className="flex justify-between">
-                  <button className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-md transition-colors duration-200">
+                  <button 
+                    onClick={handleGuardarConfiguracionAgente}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-md transition-colors duration-200"
+                  >
                     Guardar Configuración del Agente
                   </button>
                   <button className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md transition-colors duration-200">

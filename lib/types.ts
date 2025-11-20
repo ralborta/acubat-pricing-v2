@@ -22,6 +22,8 @@ export interface ConfiguracionSistema {
   descuentoProveedor: number; // ✅ Nuevo: % Descuento de proveedor (default: 0)
   // ✅ Overrides por proveedor (ej. { "Varta": { descuentoProveedor: 5 } })
   proveedores: Record<string, ProveedorOverrides>;
+  // ✅ Configuración del agente (opcional)
+  agente?: ConfiguracionAgente;
   ultimaActualizacion: string;
 }
 
