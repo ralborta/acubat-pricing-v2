@@ -84,8 +84,43 @@ export default function ConfiguracionPage() {
     }
   }, [proveedorActual, configuracion])
 
+  // Estado local para valores en edición (evita guardar en cada tecla)
+  const [valoresLocales, setValoresLocales] = useState<Record<string, any>>({})
+
+  // Sincronizar valores locales solo cuando se carga la configuración inicialmente
+  const [configuracionCargada, setConfiguracionCargada] = useState(false)
+  
+  useEffect(() => {
+    if (configuracion && !configuracionCargada) {
+      setValoresLocales({
+        iva: configuracion.iva,
+        'markups.mayorista': configuracion.markups.mayorista,
+        'markups.directa': configuracion.markups.directa,
+        'markups.distribucion': configuracion.markups.distribucion,
+        'factoresVarta.factorBase': configuracion.factoresVarta.factorBase,
+        'factoresVarta.capacidad80Ah': configuracion.factoresVarta.capacidad80Ah,
+        'comisiones.mayorista': configuracion.comisiones.mayorista,
+        'comisiones.directa': configuracion.comisiones.directa,
+        'comisiones.distribucion': configuracion.comisiones.distribucion,
+        descuentoProveedor: configuracion.descuentoProveedor || 0
+      })
+      setConfiguracionCargada(true)
+    }
+  }, [configuracion, configuracionCargada])
+
   const handleConfigChange = async (path: string, value: any) => {
     if (!configuracion) return
+    
+    // Actualizar valor local inmediatamente (sin guardar)
+    setValoresLocales(prev => ({ ...prev, [path]: value }))
+  }
+
+  // Guardar cambio cuando el usuario sale del campo
+  const handleConfigBlur = async (path: string) => {
+    if (!configuracion) return
+    
+    const value = valoresLocales[path]
+    if (value === undefined) return
     
     const newConfig = { ...configuracion }
     const keys = path.split('.')
@@ -97,7 +132,7 @@ export default function ConfiguracionPage() {
     
     current[keys[keys.length - 1]] = value
     
-    // Guardar usando el hook
+    // Guardar usando el hook (solo cuando sale del campo)
     await guardarConfiguracion(newConfig)
   }
 
@@ -175,12 +210,13 @@ export default function ConfiguracionPage() {
   // Función helper para verificar si la configuración está cargada
   const isConfigLoaded = () => configuracion !== null
 
-  // Calcular automáticamente cuando cambie la configuración
-  useEffect(() => {
-    if (configuracion) {
-      calcularPreciosEnTiempoReal()
-    }
-  }, [configuracion])
+  // ❌ REMOVIDO: useEffect que causaba ciclo infinito
+  // El cálculo ahora es manual cuando el usuario lo solicita
+  // useEffect(() => {
+  //   if (configuracion) {
+  //     calcularPreciosEnTiempoReal()
+  //   }
+  // }, [configuracion])
 
   // Función auxiliar para cálculos básicos (fallback)
   const calcularPreciosBasicos = () => {
@@ -562,8 +598,9 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.iva}
-                          onChange={(e) => handleConfigChange('iva', parseFloat(e.target.value))}
+                          value={valoresLocales.iva ?? configuracion.iva}
+                          onChange={(e) => handleConfigChange('iva', parseFloat(e.target.value) || 0)}
+                          onBlur={() => handleConfigBlur('iva')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="100"
@@ -627,11 +664,12 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.descuentoProveedor || 0}
+                          value={valoresLocales.descuentoProveedor ?? (configuracion.descuentoProveedor || 0)}
                           onChange={(e) => {
                             const value = e.target.value;
                             handleConfigChange('descuentoProveedor', value ? parseFloat(value) : 0);
                           }}
+                          onBlur={() => handleConfigBlur('descuentoProveedor')}
                           className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${proveedorActual ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                           disabled={!!proveedorActual}
                           min="0"
@@ -676,13 +714,14 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.markups.mayorista}
+                          value={valoresLocales['markups.mayorista'] ?? configuracion.markups.mayorista}
                           onChange={(e) => {
                             const value = e.target.value;
                             if (value === '' || !isNaN(Number(value))) {
                               handleConfigChange('markups.mayorista', value === '' ? 0 : Number(value));
                             }
                           }}
+                          onBlur={() => handleConfigBlur('markups.mayorista')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -700,13 +739,14 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.markups.directa}
+                          value={valoresLocales['markups.directa'] ?? configuracion.markups.directa}
                           onChange={(e) => {
                             const value = e.target.value;
                             if (value === '' || !isNaN(Number(value))) {
                               handleConfigChange('markups.directa', value === '' ? 0 : Number(value));
                             }
                           }}
+                          onBlur={() => handleConfigBlur('markups.directa')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -724,13 +764,14 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.markups.distribucion}
+                          value={valoresLocales['markups.distribucion'] ?? configuracion.markups.distribucion}
                           onChange={(e) => {
                             const value = e.target.value;
                             if (value === '' || !isNaN(Number(value))) {
                               handleConfigChange('markups.distribucion', value === '' ? 0 : Number(value));
                             }
                           }}
+                          onBlur={() => handleConfigBlur('markups.distribucion')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -755,8 +796,9 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.factoresVarta.factorBase}
-                          onChange={(e) => handleConfigChange('factoresVarta.factorBase', parseFloat(e.target.value))}
+                          value={valoresLocales['factoresVarta.factorBase'] ?? configuracion.factoresVarta.factorBase}
+                          onChange={(e) => handleConfigChange('factoresVarta.factorBase', parseFloat(e.target.value) || 0)}
+                          onBlur={() => handleConfigBlur('factoresVarta.factorBase')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -774,8 +816,9 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.factoresVarta.capacidad80Ah}
-                          onChange={(e) => handleConfigChange('factoresVarta.capacidad80Ah', parseFloat(e.target.value))}
+                          value={valoresLocales['factoresVarta.capacidad80Ah'] ?? configuracion.factoresVarta.capacidad80Ah}
+                          onChange={(e) => handleConfigChange('factoresVarta.capacidad80Ah', parseFloat(e.target.value) || 0)}
+                          onBlur={() => handleConfigBlur('factoresVarta.capacidad80Ah')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -859,8 +902,9 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.comisiones.mayorista}
-                          onChange={(e) => handleConfigChange('comisiones.mayorista', parseFloat(e.target.value))}
+                          value={valoresLocales['comisiones.mayorista'] ?? configuracion.comisiones.mayorista}
+                          onChange={(e) => handleConfigChange('comisiones.mayorista', parseFloat(e.target.value) || 0)}
+                          onBlur={() => handleConfigBlur('comisiones.mayorista')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="50"
@@ -878,8 +922,9 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.comisiones.directa}
-                          onChange={(e) => handleConfigChange('comisiones.directa', parseFloat(e.target.value))}
+                          value={valoresLocales['comisiones.directa'] ?? configuracion.comisiones.directa}
+                          onChange={(e) => handleConfigChange('comisiones.directa', parseFloat(e.target.value) || 0)}
+                          onBlur={() => handleConfigBlur('comisiones.directa')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="50"
@@ -897,8 +942,9 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={configuracion.comisiones.distribucion}
-                          onChange={(e) => handleConfigChange('comisiones.distribucion', parseFloat(e.target.value))}
+                          value={valoresLocales['comisiones.distribucion'] ?? configuracion.comisiones.distribucion}
+                          onChange={(e) => handleConfigChange('comisiones.distribucion', parseFloat(e.target.value) || 0)}
+                          onBlur={() => handleConfigBlur('comisiones.distribucion')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="50"
