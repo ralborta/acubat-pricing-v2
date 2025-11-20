@@ -1144,6 +1144,18 @@ export default function ConfiguracionPage() {
                 </button>
               </div>
 
+              {/* Indicador de carga desde DB */}
+              {agenteCargadoDesdeDB && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm text-green-800 font-medium">
+                    ✅ Configuración del agente cargada desde la base de datos
+                  </span>
+                </div>
+              )}
+
               <div className="space-y-6">
                 {/* Horario, Días y Calendario */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
