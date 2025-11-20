@@ -116,10 +116,8 @@ export default function ConfiguracionPage() {
     setValoresLocales(prev => ({ ...prev, [path]: value === '' ? '' : value }))
   }
 
-  // Guardar cambio cuando el usuario sale del campo
-  const handleConfigBlur = async (path: string) => {
-    if (!configuracion) return
-    
+  // Función helper para convertir valor local a número
+  const convertirValorLocal = (path: string): number => {
     let value = valoresLocales[path]
     
     // Si el valor está vacío o es undefined, usar el valor actual de la configuración
@@ -130,28 +128,12 @@ export default function ConfiguracionPage() {
       for (let i = 0; i < keys.length; i++) {
         current = current?.[keys[i]]
       }
-      value = current ?? 0
+      return current ?? 0
     } else {
       // Convertir a número si es string
       const numValue = typeof value === 'string' ? parseFloat(value) : value
-      value = isNaN(numValue) ? 0 : numValue
+      return isNaN(numValue) ? 0 : numValue
     }
-    
-    const newConfig = { ...configuracion }
-    const keys = path.split('.')
-    let current: any = newConfig
-    
-    for (let i = 0; i < keys.length - 1; i++) {
-      current = current[keys[i]]
-    }
-    
-    current[keys[keys.length - 1]] = value
-    
-    // Actualizar valor local con el valor numérico guardado
-    setValoresLocales(prev => ({ ...prev, [path]: value }))
-    
-    // Guardar usando el hook (solo cuando sale del campo)
-    await guardarConfiguracion(newConfig)
   }
 
   // 🚀 FUNCIÓN DE CÁLCULO EN TIEMPO REAL CON API REAL
@@ -282,11 +264,31 @@ export default function ConfiguracionPage() {
   const handleGuardarConfiguracion = async () => {
     if (!configuracion) return
     
-    const result = await guardarConfiguracion(configuracion)
+    // Aplicar todos los valores locales acumulados a la configuración
+    const newConfig = { ...configuracion }
+    
+    // Aplicar cada valor local que haya sido modificado
+    Object.keys(valoresLocales).forEach(path => {
+      const keys = path.split('.')
+      let current: any = newConfig
+      
+      for (let i = 0; i < keys.length - 1; i++) {
+        current = current[keys[i]]
+      }
+      
+      // Convertir valor local a número
+      const valorNumerico = convertirValorLocal(path)
+      current[keys[keys.length - 1]] = valorNumerico
+    })
+    
+    // Guardar la configuración completa
+    const result = await guardarConfiguracion(newConfig)
     if (result.success) {
-      alert('Configuración guardada exitosamente')
+      // Limpiar valores locales después de guardar exitosamente
+      setValoresLocales({})
+      alert('✅ Configuración guardada exitosamente')
     } else {
-      alert(`Error al guardar: ${result.error}`)
+      alert(`❌ Error al guardar: ${result.error}`)
     }
   }
 
@@ -618,7 +620,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales.iva !== undefined ? valoresLocales.iva : configuracion.iva}
                           onChange={(e) => handleConfigChange('iva', e.target.value)}
-                          onBlur={() => handleConfigBlur('iva')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="100"
@@ -684,7 +685,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales.descuentoProveedor !== undefined ? valoresLocales.descuentoProveedor : (configuracion.descuentoProveedor || 0)}
                           onChange={(e) => handleConfigChange('descuentoProveedor', e.target.value)}
-                          onBlur={() => handleConfigBlur('descuentoProveedor')}
                           className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${proveedorActual ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                           disabled={!!proveedorActual}
                           min="0"
@@ -731,7 +731,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales['markups.mayorista'] !== undefined ? valoresLocales['markups.mayorista'] : configuracion.markups.mayorista}
                           onChange={(e) => handleConfigChange('markups.mayorista', e.target.value)}
-                          onBlur={() => handleConfigBlur('markups.mayorista')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -751,7 +750,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales['markups.directa'] !== undefined ? valoresLocales['markups.directa'] : configuracion.markups.directa}
                           onChange={(e) => handleConfigChange('markups.directa', e.target.value)}
-                          onBlur={() => handleConfigBlur('markups.directa')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -771,7 +769,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales['markups.distribucion'] !== undefined ? valoresLocales['markups.distribucion'] : configuracion.markups.distribucion}
                           onChange={(e) => handleConfigChange('markups.distribucion', e.target.value)}
-                          onBlur={() => handleConfigBlur('markups.distribucion')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -798,7 +795,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales['factoresVarta.factorBase'] !== undefined ? valoresLocales['factoresVarta.factorBase'] : configuracion.factoresVarta.factorBase}
                           onChange={(e) => handleConfigChange('factoresVarta.factorBase', e.target.value)}
-                          onBlur={() => handleConfigBlur('factoresVarta.factorBase')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -818,7 +814,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales['factoresVarta.capacidad80Ah'] !== undefined ? valoresLocales['factoresVarta.capacidad80Ah'] : configuracion.factoresVarta.capacidad80Ah}
                           onChange={(e) => handleConfigChange('factoresVarta.capacidad80Ah', e.target.value)}
-                          onBlur={() => handleConfigBlur('factoresVarta.capacidad80Ah')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="200"
@@ -904,7 +899,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales['comisiones.mayorista'] !== undefined ? valoresLocales['comisiones.mayorista'] : configuracion.comisiones.mayorista}
                           onChange={(e) => handleConfigChange('comisiones.mayorista', e.target.value)}
-                          onBlur={() => handleConfigBlur('comisiones.mayorista')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="50"
@@ -924,7 +918,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales['comisiones.directa'] !== undefined ? valoresLocales['comisiones.directa'] : configuracion.comisiones.directa}
                           onChange={(e) => handleConfigChange('comisiones.directa', e.target.value)}
-                          onBlur={() => handleConfigBlur('comisiones.directa')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="50"
@@ -944,7 +937,6 @@ export default function ConfiguracionPage() {
                           type="number"
                           value={valoresLocales['comisiones.distribucion'] !== undefined ? valoresLocales['comisiones.distribucion'] : configuracion.comisiones.distribucion}
                           onChange={(e) => handleConfigChange('comisiones.distribucion', e.target.value)}
-                          onBlur={() => handleConfigBlur('comisiones.distribucion')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
                           max="50"
