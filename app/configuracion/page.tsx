@@ -560,7 +560,7 @@ export default function ConfiguracionPage() {
           {/* Selección de Opciones */}
           {!opcionSeleccionada && (
             <div className="max-w-6xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Opción 1: Variables del Sistema */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center hover:shadow-md transition-shadow cursor-pointer" onClick={() => setOpcionSeleccionada('variables')}>
                   <div className="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
@@ -606,6 +606,25 @@ export default function ConfiguracionPage() {
                   </p>
                   <div className="text-sm text-purple-600 font-medium">
                     Configurar Agente IA
+                  </div>
+                </div>
+
+                {/* Opción 4: Historial de Configuraciones */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
+                  setOpcionSeleccionada('historial')
+                  cargarHistorial()
+                }}>
+                  <div className="mx-auto w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                    <ExclamationTriangleIcon className="w-10 h-10 text-yellow-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-3">
+                    Historial
+                  </h2>
+                  <p className="text-gray-600 mb-4">
+                    Ver y restaurar versiones anteriores de la configuración
+                  </p>
+                  <div className="text-sm text-yellow-600 font-medium">
+                    Ver Historial
                   </div>
                 </div>
               </div>
