@@ -68,16 +68,19 @@ export default function ConfiguracionPage() {
     if (configuracion) {
       if (configuracion.agente) {
         // Si hay configuración guardada en la DB, cargarla
+        console.log('🔄 Cargando configuración del agente desde configuracion:', configuracion.agente)
         setConfiguracionAgente(configuracion.agente)
         setAgenteCargadoDesdeDB(true)
         console.log('✅ Configuración del agente cargada desde la DB:', configuracion.agente)
       } else {
-        // Si no hay configuración guardada, usar valores por defecto
-        setAgenteCargadoDesdeDB(false)
-        console.log('ℹ️ No hay configuración del agente guardada, usando valores por defecto')
+        // Si no hay configuración guardada, mantener valores actuales (no resetear a valores por defecto)
+        // Solo actualizar el indicador
+        if (!agenteCargadoDesdeDB) {
+          console.log('ℹ️ No hay configuración del agente guardada en la DB')
+        }
       }
     }
-  }, [configuracion])
+  }, [configuracion, configuracion?.agente])
 
   // Estado para el calendario
   const [mesActual, setMesActual] = useState(new Date())
