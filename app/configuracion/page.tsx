@@ -60,12 +60,24 @@ export default function ConfiguracionPage() {
     fechasSeleccionadas: []
   })
 
+  // Estado para indicar si la configuración del agente fue cargada desde la DB
+  const [agenteCargadoDesdeDB, setAgenteCargadoDesdeDB] = useState(false)
+
   // Cargar configuración del agente desde la DB cuando se carga la configuración
   useEffect(() => {
-    if (configuracion?.agente) {
-      setConfiguracionAgente(configuracion.agente)
+    if (configuracion) {
+      if (configuracion.agente) {
+        // Si hay configuración guardada en la DB, cargarla
+        setConfiguracionAgente(configuracion.agente)
+        setAgenteCargadoDesdeDB(true)
+        console.log('✅ Configuración del agente cargada desde la DB:', configuracion.agente)
+      } else {
+        // Si no hay configuración guardada, usar valores por defecto
+        setAgenteCargadoDesdeDB(false)
+        console.log('ℹ️ No hay configuración del agente guardada, usando valores por defecto')
+      }
     }
-  }, [configuracion?.agente])
+  }, [configuracion])
 
   // Estado para el calendario
   const [mesActual, setMesActual] = useState(new Date())
@@ -312,6 +324,7 @@ export default function ConfiguracionPage() {
     // Guardar usando el hook (que guarda en DB y localStorage)
     const result = await guardarConfiguracion(newConfig)
     if (result.success) {
+      setAgenteCargadoDesdeDB(true)
       alert('✅ Configuración del agente guardada exitosamente en la base de datos')
     } else {
       alert(`❌ Error al guardar configuración del agente: ${result.error}`)
