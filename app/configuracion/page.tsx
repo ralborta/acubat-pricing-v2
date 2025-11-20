@@ -108,19 +108,34 @@ export default function ConfiguracionPage() {
     }
   }, [configuracion, configuracionCargada])
 
-  const handleConfigChange = async (path: string, value: any) => {
+  const handleConfigChange = (path: string, value: string) => {
     if (!configuracion) return
     
-    // Actualizar valor local inmediatamente (sin guardar)
-    setValoresLocales(prev => ({ ...prev, [path]: value }))
+    // Permitir valores vacíos (cadena) para que el usuario pueda borrar completamente
+    // Guardamos el valor como string para permitir campos vacíos
+    setValoresLocales(prev => ({ ...prev, [path]: value === '' ? '' : value }))
   }
 
   // Guardar cambio cuando el usuario sale del campo
   const handleConfigBlur = async (path: string) => {
     if (!configuracion) return
     
-    const value = valoresLocales[path]
-    if (value === undefined) return
+    let value = valoresLocales[path]
+    
+    // Si el valor está vacío o es undefined, usar el valor actual de la configuración
+    if (value === '' || value === undefined || value === null) {
+      // Obtener valor actual de la configuración
+      const keys = path.split('.')
+      let current: any = configuracion
+      for (let i = 0; i < keys.length; i++) {
+        current = current?.[keys[i]]
+      }
+      value = current ?? 0
+    } else {
+      // Convertir a número si es string
+      const numValue = typeof value === 'string' ? parseFloat(value) : value
+      value = isNaN(numValue) ? 0 : numValue
+    }
     
     const newConfig = { ...configuracion }
     const keys = path.split('.')
@@ -131,6 +146,9 @@ export default function ConfiguracionPage() {
     }
     
     current[keys[keys.length - 1]] = value
+    
+    // Actualizar valor local con el valor numérico guardado
+    setValoresLocales(prev => ({ ...prev, [path]: value }))
     
     // Guardar usando el hook (solo cuando sale del campo)
     await guardarConfiguracion(newConfig)
@@ -598,8 +616,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales.iva ?? configuracion.iva}
-                          onChange={(e) => handleConfigChange('iva', parseFloat(e.target.value) || 0)}
+                          value={valoresLocales.iva !== undefined ? valoresLocales.iva : configuracion.iva}
+                          onChange={(e) => handleConfigChange('iva', e.target.value)}
                           onBlur={() => handleConfigBlur('iva')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
@@ -664,11 +682,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales.descuentoProveedor ?? (configuracion.descuentoProveedor || 0)}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            handleConfigChange('descuentoProveedor', value ? parseFloat(value) : 0);
-                          }}
+                          value={valoresLocales.descuentoProveedor !== undefined ? valoresLocales.descuentoProveedor : (configuracion.descuentoProveedor || 0)}
+                          onChange={(e) => handleConfigChange('descuentoProveedor', e.target.value)}
                           onBlur={() => handleConfigBlur('descuentoProveedor')}
                           className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${proveedorActual ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                           disabled={!!proveedorActual}
@@ -714,13 +729,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales['markups.mayorista'] ?? configuracion.markups.mayorista}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || !isNaN(Number(value))) {
-                              handleConfigChange('markups.mayorista', value === '' ? 0 : Number(value));
-                            }
-                          }}
+                          value={valoresLocales['markups.mayorista'] !== undefined ? valoresLocales['markups.mayorista'] : configuracion.markups.mayorista}
+                          onChange={(e) => handleConfigChange('markups.mayorista', e.target.value)}
                           onBlur={() => handleConfigBlur('markups.mayorista')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
@@ -739,13 +749,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales['markups.directa'] ?? configuracion.markups.directa}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || !isNaN(Number(value))) {
-                              handleConfigChange('markups.directa', value === '' ? 0 : Number(value));
-                            }
-                          }}
+                          value={valoresLocales['markups.directa'] !== undefined ? valoresLocales['markups.directa'] : configuracion.markups.directa}
+                          onChange={(e) => handleConfigChange('markups.directa', e.target.value)}
                           onBlur={() => handleConfigBlur('markups.directa')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
@@ -764,13 +769,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales['markups.distribucion'] ?? configuracion.markups.distribucion}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || !isNaN(Number(value))) {
-                              handleConfigChange('markups.distribucion', value === '' ? 0 : Number(value));
-                            }
-                          }}
+                          value={valoresLocales['markups.distribucion'] !== undefined ? valoresLocales['markups.distribucion'] : configuracion.markups.distribucion}
+                          onChange={(e) => handleConfigChange('markups.distribucion', e.target.value)}
                           onBlur={() => handleConfigBlur('markups.distribucion')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
@@ -796,8 +796,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales['factoresVarta.factorBase'] ?? configuracion.factoresVarta.factorBase}
-                          onChange={(e) => handleConfigChange('factoresVarta.factorBase', parseFloat(e.target.value) || 0)}
+                          value={valoresLocales['factoresVarta.factorBase'] !== undefined ? valoresLocales['factoresVarta.factorBase'] : configuracion.factoresVarta.factorBase}
+                          onChange={(e) => handleConfigChange('factoresVarta.factorBase', e.target.value)}
                           onBlur={() => handleConfigBlur('factoresVarta.factorBase')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
@@ -816,8 +816,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales['factoresVarta.capacidad80Ah'] ?? configuracion.factoresVarta.capacidad80Ah}
-                          onChange={(e) => handleConfigChange('factoresVarta.capacidad80Ah', parseFloat(e.target.value) || 0)}
+                          value={valoresLocales['factoresVarta.capacidad80Ah'] !== undefined ? valoresLocales['factoresVarta.capacidad80Ah'] : configuracion.factoresVarta.capacidad80Ah}
+                          onChange={(e) => handleConfigChange('factoresVarta.capacidad80Ah', e.target.value)}
                           onBlur={() => handleConfigBlur('factoresVarta.capacidad80Ah')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
@@ -902,8 +902,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales['comisiones.mayorista'] ?? configuracion.comisiones.mayorista}
-                          onChange={(e) => handleConfigChange('comisiones.mayorista', parseFloat(e.target.value) || 0)}
+                          value={valoresLocales['comisiones.mayorista'] !== undefined ? valoresLocales['comisiones.mayorista'] : configuracion.comisiones.mayorista}
+                          onChange={(e) => handleConfigChange('comisiones.mayorista', e.target.value)}
                           onBlur={() => handleConfigBlur('comisiones.mayorista')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
@@ -922,8 +922,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales['comisiones.directa'] ?? configuracion.comisiones.directa}
-                          onChange={(e) => handleConfigChange('comisiones.directa', parseFloat(e.target.value) || 0)}
+                          value={valoresLocales['comisiones.directa'] !== undefined ? valoresLocales['comisiones.directa'] : configuracion.comisiones.directa}
+                          onChange={(e) => handleConfigChange('comisiones.directa', e.target.value)}
                           onBlur={() => handleConfigBlur('comisiones.directa')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
@@ -942,8 +942,8 @@ export default function ConfiguracionPage() {
                       <div className="relative">
                         <input
                           type="number"
-                          value={valoresLocales['comisiones.distribucion'] ?? configuracion.comisiones.distribucion}
-                          onChange={(e) => handleConfigChange('comisiones.distribucion', parseFloat(e.target.value) || 0)}
+                          value={valoresLocales['comisiones.distribucion'] !== undefined ? valoresLocales['comisiones.distribucion'] : configuracion.comisiones.distribucion}
+                          onChange={(e) => handleConfigChange('comisiones.distribucion', e.target.value)}
                           onBlur={() => handleConfigBlur('comisiones.distribucion')}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                           min="0"
