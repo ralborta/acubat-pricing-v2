@@ -347,28 +347,31 @@ export default function ConfiguracionPage() {
   const verificarTablaHistorial = async () => {
     try {
       const response = await fetch('/api/config/setup-historial')
-      const result = await response.json()
-      if (!result.exists && result.sqlScript) {
-        // Mostrar instrucciones al usuario
-        const confirmar = confirm(
-          `La tabla de historial no existe en la base de datos.\n\n` +
-          `Por favor, ejecuta el siguiente script SQL en Supabase SQL Editor:\n\n` +
-          `1. Ve a tu proyecto en Supabase\n` +
-          `2. Abre el SQL Editor\n` +
-          `3. Copia y pega el script que se mostrará en la consola\n\n` +
-          `¿Quieres ver el script ahora?`
-        )
-        if (confirmar) {
-          console.log('📋 Script SQL para crear tabla config_historial:')
-          console.log(result.sqlScript)
-          alert('El script SQL se ha copiado a la consola del navegador. Presiona F12 para verlo.')
-        }
-        return false
+      
+      if (!response.ok) {
+        // Si hay error 500, asumir que la tabla puede no existir pero continuar
+        console.warn('⚠️ Error verificando tabla, continuando de todas formas:', response.status)
+        return true // Continuar para intentar cargar el historial
       }
-      return result.exists
+      
+      const result = await response.json()
+      
+      // Si result.success es false, puede ser un error pero no crítico
+      if (result.success === false && !result.exists) {
+        if (result.sqlScript) {
+          // Mostrar instrucciones al usuario solo si realmente no existe
+          console.warn('⚠️ La tabla puede no existir. Script disponible en la consola.')
+          console.log('📋 Script SQL:', result.sqlScript)
+        }
+        // Continuar de todas formas para intentar cargar
+        return true
+      }
+      
+      return result.exists !== false // Si existe o no está definido, continuar
     } catch (error) {
       console.error('❌ Error verificando tabla:', error)
-      return false
+      // En caso de error, continuar de todas formas
+      return true
     }
   }
 

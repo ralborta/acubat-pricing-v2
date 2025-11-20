@@ -90,6 +90,7 @@ export async function GET() {
     if (!supabase) {
       return NextResponse.json({ 
         success: false, 
+        exists: false,
         error: 'Supabase no configurado' 
       }, { status: 500 })
     }
@@ -101,14 +102,42 @@ export async function GET() {
       .limit(1)
 
     if (error) {
-      if (error.message.includes('could not find') || error.message.includes('does not exist')) {
+      // Si el error es que la tabla no existe, retornar éxito con exists: false
+      if (error.message.includes('could not find') || 
+          error.message.includes('does not exist') ||
+          error.code === 'PGRST116' ||
+          error.code === '42P01') {
         return NextResponse.json({ 
-          success: false, 
+          success: true, 
           exists: false,
           error: 'La tabla config_historial no existe',
-          message: 'Por favor, ejecuta el script SQL en Supabase SQL Editor'
+          message: 'Por favor, ejecuta el script SQL en Supabase SQL Editor',
+          sqlScript: `
+-- Ejecuta este script en Supabase SQL Editor:
+
+CREATE TABLE IF NOT EXISTS config_historial (
+  id SERIAL PRIMARY KEY,
+  config_data JSONB NOT NULL,
+  version VARCHAR(255) NOT NULL,
+  descripcion TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_config_historial_created_at ON config_historial(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_config_historial_version ON config_historial(version);
+
+ALTER TABLE config_historial ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Permitir lectura de historial" ON config_historial
+  FOR SELECT USING (true);
+
+CREATE POLICY "Permitir inserción de historial" ON config_historial
+  FOR INSERT WITH CHECK (true);
+          `
         })
       }
+      // Para otros errores, lanzar excepción
+      console.error('❌ Error verificando tabla:', error)
       throw error
     }
 
@@ -119,11 +148,13 @@ export async function GET() {
     })
   } catch (error) {
     console.error('❌ Error verificando tabla:', error)
+    // Retornar éxito pero indicar que no existe para evitar errores 500
     return NextResponse.json({ 
-      success: false, 
+      success: true, 
       exists: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }, { status: 500 })
+      error: error instanceof Error ? error.message : 'Error desconocido',
+      message: 'No se pudo verificar la tabla. Por favor, verifica manualmente en Supabase.'
+    })
   }
 }
 
