@@ -30,7 +30,7 @@ export const supabaseConfig = {
     
     // 🗂️ PRIMERO: Guardar en historial antes de actualizar
     try {
-      await supabase
+      const { data: historialData, error: histError } = await supabase
         .from('config_historial')
         .insert({
           config_data: toSave,
@@ -38,6 +38,17 @@ export const supabaseConfig = {
           descripcion: 'Guardado automático',
           created_at: new Date().toISOString()
         })
+        .select()
+      
+      if (histError) {
+        console.error('❌ Error guardando en historial:', histError)
+        // Si la tabla de historial no existe, continuar sin error
+        if (!histError.message.includes('could not find') && !histError.message.includes('does not exist')) {
+          console.warn('⚠️ No se pudo guardar en historial:', histError.message)
+        }
+      } else {
+        console.log('✅ Configuración guardada en historial:', historialData?.[0]?.id)
+      }
     } catch (histError) {
       // Si la tabla de historial no existe, continuar sin error
       console.warn('⚠️ No se pudo guardar en historial (tabla puede no existir):', histError)
