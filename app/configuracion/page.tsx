@@ -343,20 +343,61 @@ export default function ConfiguracionPage() {
     }
   }
 
+  // Función para verificar y crear tabla de historial si es necesario
+  const verificarTablaHistorial = async () => {
+    try {
+      const response = await fetch('/api/config/setup-historial')
+      const result = await response.json()
+      if (!result.exists && result.sqlScript) {
+        // Mostrar instrucciones al usuario
+        const confirmar = confirm(
+          `La tabla de historial no existe en la base de datos.\n\n` +
+          `Por favor, ejecuta el siguiente script SQL en Supabase SQL Editor:\n\n` +
+          `1. Ve a tu proyecto en Supabase\n` +
+          `2. Abre el SQL Editor\n` +
+          `3. Copia y pega el script que se mostrará en la consola\n\n` +
+          `¿Quieres ver el script ahora?`
+        )
+        if (confirmar) {
+          console.log('📋 Script SQL para crear tabla config_historial:')
+          console.log(result.sqlScript)
+          alert('El script SQL se ha copiado a la consola del navegador. Presiona F12 para verlo.')
+        }
+        return false
+      }
+      return result.exists
+    } catch (error) {
+      console.error('❌ Error verificando tabla:', error)
+      return false
+    }
+  }
+
   // Función para cargar historial de configuraciones
   const cargarHistorial = async () => {
     setCargandoHistorial(true)
     try {
+      // Primero verificar si la tabla existe
+      const tablaExiste = await verificarTablaHistorial()
+      if (!tablaExiste) {
+        setCargandoHistorial(false)
+        return
+      }
+
       const response = await fetch('/api/config/historial?limit=50')
       const result = await response.json()
       if (result.success) {
         setHistorial(result.data || [])
       } else {
-        alert(`❌ Error al cargar historial: ${result.error}`)
+        alert(`❌ Error al cargar historial: ${result.error}\n\nSi la tabla no existe, ejecuta el script SQL en Supabase.`)
       }
     } catch (error) {
       console.error('❌ Error cargando historial:', error)
-      alert('❌ Error al cargar el historial de configuraciones')
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+      if (errorMsg.includes('could not find') || errorMsg.includes('does not exist')) {
+        alert('❌ La tabla config_historial no existe.\n\nPor favor, ejecuta el script SQL en Supabase SQL Editor.\nEl archivo está en: supabase-config-historial.sql')
+      } else {
+        alert(`❌ Error al cargar el historial de configuraciones: ${errorMsg}`)
+      }
     } finally {
       setCargandoHistorial(false)
     }
